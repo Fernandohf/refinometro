@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-fundo: oklch(0.17 0.02 265);
+  --color-painel: oklch(0.22 0.025 265);
+  --color-borda: oklch(0.32 0.03 265);
+  --color-texto: oklch(0.93 0.01 265);
+  --color-suave: oklch(0.72 0.02 265);
+  --color-realce: oklch(0.78 0.16 85);
+  --color-perigo: oklch(0.68 0.19 25);
+  --color-atencao: oklch(0.8 0.15 70);
+  --color-ok: oklch(0.75 0.15 155);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Rede de segurança: um token longo (um comando, um nome de item) nunca deve
+     alargar a página e criar rolagem horizontal numa tela estreita. */
+  overflow-wrap: break-word;
+}
+
+/* Tira os esporões dos campos numéricos: aqui todo número é digitado. */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}

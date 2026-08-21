@@ -1,0 +1,122 @@
+import type { ReactNode } from 'react';
+
+export function Painel({ titulo, aside, children }: { titulo?: string; aside?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="rounded-xl border border-borda bg-painel/60 p-4 sm:p-5">
+      {titulo && (
+        <header className="mb-4 flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-semibold tracking-wide text-suave uppercase">{titulo}</h2>
+          {aside}
+        </header>
+      )}
+      {children}
+    </section>
+  );
+}
+
+export function Campo({
+  label,
+  dica,
+  children,
+}: {
+  label: string;
+  dica?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium text-texto">{label}</span>
+      {children}
+      {dica && <span className="mt-1 block text-xs leading-snug text-suave">{dica}</span>}
+    </label>
+  );
+}
+
+const campoBase =
+  'w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-texto outline-none ' +
+  'focus:border-realce focus:ring-1 focus:ring-realce disabled:opacity-40';
+
+export function Select({
+  value,
+  onChange,
+  children,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  children: ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <select
+      className={campoBase}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {children}
+    </select>
+  );
+}
+
+/**
+ * Campo de zeny. Guarda o texto que a pessoa digitou enquanto ela digita, e só
+ * formata com separador de milhar quando o campo perde o foco — formatar a cada
+ * tecla faz o cursor pular.
+ */
+export function NumeroZeny({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        inputMode="numeric"
+        className={campoBase + ' pr-7 text-right tabular-nums'}
+        value={value === 0 ? '' : value.toLocaleString('pt-BR')}
+        placeholder={placeholder ?? '0'}
+        disabled={disabled}
+        onChange={(e) => {
+          const digitos = e.target.value.replace(/\D/g, '');
+          onChange(digitos === '' ? 0 : Number(digitos));
+        }}
+      />
+      <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-suave">z</span>
+    </div>
+  );
+}
+
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  dica,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  dica?: string;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-borda bg-fundo/50 p-3 transition-colors hover:border-realce/50">
+      <input
+        type="checkbox"
+        className="mt-0.5 size-4 shrink-0 accent-realce"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>
+        <span className="block text-sm font-medium">{label}</span>
+        {dica && <span className="mt-0.5 block text-xs leading-snug text-suave">{dica}</span>}
+      </span>
+    </label>
+  );
+}

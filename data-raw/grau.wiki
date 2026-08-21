@@ -1,0 +1,495 @@
+[[Arquivo:GradeSystem.png|link=|thumb|Um item com Grau]]
+Grau é um sistema de aprimoramento que concede bônus especiais e altera a estética dos [[equipamentos]] em [[Ragnarök Online]].
+
+Apenas Armaduras nível 2 e Armas de nível 5 são afetadas pelo sistema.
+
+Cada Grau adiciona um bônus percentual a cada [[refino]] de uma Arma nível 2:
+
+{| class="wikitable" style="text-align:center"
+|-
+! Arma !! [[ATQ]] & [[ATQM]]<br>por refino !! Bônus
+|-
+! Sem Grau 
+|| <center>+8,00</center> || 0% de aumento
+|-
+! Grau D 
+|| <center>+8,80</center> || 10% de aumento
+|-
+! Grau C 
+|| <center>+10,4</center> || 30% de aumento 
+|-
+! Grau B 
+|| <center>+12,0</center> || 50% de aumento 
+|-
+! Grau A 
+|| <center>+16,0</center> || 100% de aumento
+|}
+
+Quando um [[item]] possui Grau, sua aparência muda de acordo com o nível.
+
+A letra do Grau é exibida na frente do nome do item: <code>[B] Adaga</code>
+
+{| class="wikitable" style="text-align:center"
+|-
+! Grau !! Prefixo !! Ícone !! Janela
+|-
+! Grau D 
+|| [D] || [[Arquivo:itemgrade_D.png|link=]] || [[Arquivo:wndgrade_D.png|link=|200px]]
+|-
+! Grau C 
+|| [C] || [[Arquivo:itemgrade_C.png|link=]] || [[Arquivo:wndgrade_C.png|link=|200px]]
+|-
+! Grau B 
+|| [B] || [[Arquivo:itemgrade_B.png|link=]] || [[Arquivo:wndgrade_B.png|link=|200px]]
+|-
+! Grau A 
+|| [A] || [[Arquivo:itemgrade_A.png|link=]] || [[Arquivo:wndgrade_A.png|link=|200px]]
+|}
+
+== Como funciona ==
+# Vá para uma refinaria e fale com o [[NPC]] com indicação [[Arquivo:gradingNPC.png|link=]]
+# A interface de Grau será aberta, basta arrastar o item até a janela e selecionar os materiais.
+#:[[Arquivo:gradingUI.png|link=]]
+
+Preste atenção!
+* Para um item ser apto à subir de grau, ele precisa de um [[refino]] mínimo.
+* Quando conseguir subir o Grau, <span style="color:#FF0000">'''o refino é resetado para +0'''</span>.
+* '''Processos:'''
+** Em caso de sucesso, os [[encantamentos]], [[cartas]] e [[bônus aleatórios]] são preservados.
+** Em caso de falha em um processo seguro, os [[encantamentos]], [[cartas]] e [[bônus aleatórios]] são preservados.
+** Em caso de falha fora do processo seguro, o [[equipamento]] será perdido.
+* '''Materiais:'''
+** Para um processo seguro, utilize 5 minérios ao invés de 1.
+** O processo seguro garante que o item não seja perdido em caso de falha.
+* '''Sobre a Bênção de Éter:'''
+** Colocar a Bênção é opcional.
+** Cada adição de bênção no processo aumenta as chances de sucesso.
+** A chance só pode ser aumentada até 10%.
+** O número de Bênçãos necessárias para subir 1% de chance varia com o grau.
+
+=== Informações ===
+
+<big>Atualmente, para subir um grau, seus itens devem estar no '''+11''', no mínimo.</big>
+
+{| class="wikitable" style="text-align: center;"
+! Grau !! [[Refino]]<br>mínimo !! Materiais !! Zeny !! Penalidade da falha !! Chance de<br>Sucesso !! {{Item List|id=1000337 |item=Bênção de Éter |simple=y}}
+|-
+! rowspan="2" | Sem Grau → Grau D
+| rowspan="2" | +11 
+| {{Item List|id=1000325 |item=Aquamarina de Éter |num=1}}
+| 100.000z 
+| <span style="color:#FF0000">Perde tudo</span>
+| rowspan="2" | 70%
+| rowspan="2" | +1% a cada 1 Bênção.
+|-
+| {{Item List|id=1000325 |item=Aquamarina de Éter |num=5}}
+| 500.000z 
+| Seguro
+|-
+! rowspan="2" | Grau D → Grau C
+| rowspan="2" | +11
+| {{Item List|id=1000326 |item=Topázio de Éter |num=1}}
+| 125.000z 
+| <span style="color:#FF0000">Perde tudo</span>
+| rowspan="2" | 60%
+| rowspan="2" | +1% a cada 3 Bênção.
+|-
+| {{Item List|id=1000326 |item=Topázio de Éter |num=5}}
+| 625.000z 
+| Seguro
+|-
+! rowspan="2" | Grau C → Grau B
+| rowspan="2" | +11 
+| {{Item List|id=1000327 |item=Ametista de Éter |num=1}}
+| 200.000z 
+| <span style="color:#FF0000">Perde tudo</span>
+| rowspan="2" | 50% 
+| rowspan="2" | +1% a cada 5 Bênção.
+|-
+| {{Item List|id=1000327 |item=Ametista de Éter |num=5}}
+| 1.000.000z 
+| Seguro
+|-
+! rowspan="2" | Grau B → Grau A
+| rowspan="2" | +11
+| {{Item List|id=1000328 |item=Âmbar de Éter |num=2}}
+| 500.000z 
+| <span style="color:#FF0000">Perde tudo</span>
+| rowspan="2" | 40% 
+| rowspan="2" | +1% a cada 7 Bênção.
+|-
+| {{Item List|id=1000328 |item=Âmbar de Éter |num=10}}
+| 2.500.000z 
+| Seguro
+|}
+
+=== Materiais ===
+Para conseguir os materiais, você pode falar com os [[NPC]]s [[Arquivo:gradingNPC.png|link=]].
+
+{|class="wikitable"
+! Item !! Zeny !! colspan=3| Materiais
+|-
+! {{Item List|id=1000323 |item=Pedra de Éter}}
+| 100.000z
+| colspan=2| {{Item List|id=1000322|item=Pó de Éter|num=5}}
+|-
+! {{Item List|id=1000337 |item=Bênção do Éter}}
+| 100.000z
+| {{Item List|id=1000322|item=Pó de Éter|num=5}}
+| {{Item List|id=6635 |item=Bênção do Ferreiro|num=1}}
+|-
+! {{Item List|id=1000325|item=Aquamarina de Éter}}
+| 100.000z
+| {{Item List|id=1000323 |item=Pedra de Éter|num=3}}
+| {{Item List|id=720|item=Aquamarina|num=1}}
+|-
+! {{Item List|id=1000326|item=Topázio de Éter}}
+| 200.000z
+| {{Item List|id=1000323 |item=Pedra de Éter|num=6}}
+| {{Item List|id=728|item=Topázio|num=1}}
+|-
+! {{Item List|id=1000327|item=Ametista de Éter}}
+| 300.000z
+| {{Item List|id=1000323 |item=Pedra de Éter|num=10}}
+| {{Item List|id=719|item=Ametista|num=1}}
+|-
+! {{Item List|id=1000328|item=Âmbar de Éter}}
+| 500.000z
+| {{Item List|id=1000323 |item=Pedra de Éter|num=15}}
+| {{Item List|id=1000321|item=Âmbar|num=1}}
+|}
+* '''Topázio''' e '''Âmbar''' você pode comprar com a ''Joalheira'' {{navi|morocc|166|54}}.
+
+== Chances ==
+O evento de grau é conhecido por aumentar as chances de sucesso ao subir o Grau um item. 
+
+É um evento sazonal, ou seja, retornando ao jogo de tempos em tempos.
+
+Ele sempre fica ativo junto com o [[Evento de Refino]].
+
+{|
+|
+<tabber>
+|-| Armas =
+
+{| class="wikitable" style="text-align:center; height:400px; width:50%;"
+! colspan=5| Fora do período do evento
+|-
+! Refino !! x → D !! D → C !! C → B !! B → A
+|-
+! +9
+| style="color:black;background:#FFA07A" | 10%
+| -
+| -
+| -
+|-
+! +10
+| style="color:black;background:#FFB6C1" | 20%
+| style="color:black;background:#FFB6C1" | 20%
+| -
+| -
+|-
+! +11
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +12
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +13
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +14
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +15
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +16
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +17
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +18
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +19
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +20
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|}
+
+|-| Armas (Evento) =
+
+{| class="wikitable" style="text-align:center; height:400px; width:50%;"
+! colspan=5| Dentro do período do evento
+|-
+! Refino !! x → D !! D → C !! C → B !! B → A
+|-
+! +9
+| style="color:black;background:#FFB6C1" | 20%
+| -
+| -
+| -
+|-
+! +10
+| style="color:black;background:#FFF8DC" | 30%
+| style="color:black;background:#FFF8DC" | 30%
+| -
+| -
+|-
+! +11
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +12
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +13
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +14
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +15
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +16
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|-
+! +17
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|-
+! +18
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|-
+! +19
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|-
+! +20
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|}
+
+|-| Equipamentos =
+
+{| class="wikitable" style="text-align:center; height:400px; width:50%;"
+! colspan=5| Fora do período do evento
+|-
+! Refino !! x → D !! D → C !! C → B !! B → A
+|-
+! +9
+| style="color:black;background:#FFA07A" | 10%
+| -
+| -
+| -
+|-
+! +10
+| style="color:black;background:#FFB6C1" | 20%
+| style="color:black;background:#FFB6C1" | 20%
+| -
+| -
+|-
+! +11
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +12
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +13
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +14
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +15
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+| style="color:black;background:#FFEBCD" | 40%
+|-
+! +16
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +17
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +18
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +19
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +20
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|}
+
+|-| Equipamentos (Evento) =
+
+{| class="wikitable" style="text-align:center; height:400px; width:50%;"
+! colspan=5| Dentro do período do evento
+|-
+! Refino !! x → D !! D → C !! C → B !! B → A
+|-
+! +9
+| style="color:black;background:#FFB6C1" | 20%
+| -
+| -
+| -
+|-
+! +10
+| style="color:black;background:#FFF8DC" | 30%
+| style="color:black;background:#FFF8DC" | 30%
+| -
+| -
+|-
+! +11
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +12
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +13
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +14
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +15
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+| style="color:black;background:#FFCCCC" | 50%
+|-
+! +16
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|-
+! +17
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|-
+! +18
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|-
+! +19
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|-
+! +20
+| style="color:black;background:#00FF7F" | 90%
+| style="color:black;background:#90EE90" | 80%
+| style="color:black;background:#98FB98" | 70%
+| style="color:black;background:#FFE4C4" | 60%
+|}
+</tabber>
+|}
+
+{{Itens}}

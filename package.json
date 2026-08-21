@@ -1,0 +1,37 @@
+{
+  "name": "refinometro",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "data:fetch": "node scripts/fetch-browiki.mjs",
+    "data:parse": "node scripts/parse-browiki.mjs",
+    "data:items": "node scripts/fetch-divinepride.mjs",
+    "test:watch": "vitest",
+    "perf": "vite-node scripts/perf.ts",
+    "demo": "vite-node scripts/demo.ts",
+    "item": "vite-node scripts/fetch-item.ts --",
+    "buscar": "vite-node scripts/buscar.ts --"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tailwindcss": "^4.1.14",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9",
+    "vite-node": "^6.0.0",
+    "vitest": "^4.1.11"
+  }
+}

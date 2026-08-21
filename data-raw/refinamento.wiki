@@ -1,0 +1,517 @@
+[[Arquivo:HugoHollgrehenn.jpg|link=|right|400px]]
+Refinar significa adicionar mais poder em [[armas]] e [[equipamentos]]. 
+
+Os [[itens]] refinados possuem uma indicação do número de vezes que foram refinados:
+* <code>Espada</code> Item sem refinamento.
+* <code>+2 Espada</code> Item refinado 2 vezes.
+
+== Como refinar ==
+# Vá para uma Refinaria e fale com o [[NPC]] [[Arquivo:Map_bigorna.png|link=]]
+# A interface de refino será aberta, basta arrastar o item até a janela e selecionar os materiais.
+#:[[Arquivo:JanelaRefino01.png|link=|200px]]
+
+Preste atenção!
+* <span style="color:#FF0000">'''Existem chances de falha'''</span> e perda total do item.
+* Existe um limite de segurança que o item pode ser refinado com 100% de sucesso.
+** Armas de nível 1: +7.
+** Armas de nível 2: +6.
+** Armas de nível 3: +5.
+** Armas de nível 4 e armaduras de nível 1: +4.
+** Armas de nível 5 e armaduras de nível 2: +3.
+* [[Itens]] indicados como "''Indestrutíveis em Batalha''" ainda serão destruídos em refinamentos.
+* '''[[Equipamentos Sombrios]]''':
+** O limite máximo de refinos é o +10. Eles não vão até o +20 com os equipamentos comuns.
+** Manoplas Sombrias possuem os mesmos requisitos de refino que as Armas de nível 4.
+** O restante dos equipamentos sombrios possuem nível 1.
+** Os acessórios sombrios (Brinco e Colar) podem ser refinados.
+** A {{Item |id=6635 Bênção do Ferreiro}} e Pergaminhos de Refino não funcionam.
+
+=== Bônus por refino ===
+Cada refino fornece um bônus acumulativo e se o refinamento ultrapassar o limite de segurança (chamado de ''Over'' na tabela abaixo) esse bônus é aumentado consideravelmente.
+
+Se o [[item]] for refinado para o +15 ou mais, haverá o ''bônus adicional'', que aumenta [[ATQ]] e [[ATQM]] a cada refino acima do +16.
+
+Armas de ataque à distância não recebem bônus de [[ATQM]] nem o bônus de ''Over'' igual outras armas.
+
+[[Equipamentos Sombrios]] não recebem os bônus abaixo.
+
+{| class="wikitable" style="text-align:center; font-size: smaller"
+|-
+! Arma !! [[ATQ]]/[[ATQM]] por refino !! Bônus de ''Over'' !! Bônus adicional !! Bônus Adic. por refino !! [[P.ATQ]]/[[S.ATQM]] por refino
+|-
+! Nv.1 
+|| 2 || 1 ~ 3 || 16 || 1 || -
+|-
+! Nv.2 
+|| 3 || 1 ~ 5 || 32 || 2 || -
+|-
+! Nv.3 
+|| 5 || 1 ~ 8 || 32 || 2 || -
+|-
+! Nv.4 
+|| 7 || 1 ~ 14 || 48 || 3 || -
+|-
+! Nv.5 sem [[Grau]] 
+|| 8 || - || - || - || 2
+|-
+! Nv.5 e [[Grau]] D 
+|| 8,8 || - || - || - || 2
+|-
+! Nv.5 e [[Grau]] C 
+|| 10,4 || - || - || - || 2
+|-
+! Nv.5 e [[Grau]] B 
+|| 12 || - || - || - || 2
+|-
+! Nv.5 e [[Grau]] A 
+|| 16 || - || - || - || 2
+|-
+! rowspan=2| Equipamento !! colspan=4| [[DEF]]/[[DEFM]] por refino !! rowspan=2| [[TEN]]/[[TENM]] por refino
+|-
+! +1 ~ +4 !! +5 ~ +8 !! +9 ~ +12 !! +13 ~ +20
+|-
+! Nv.1 
+|| 1 || 2 || 3 || 4 ~ 5 || -
+|-
+! Nv.2 
+|| 1 || 2 ~ 3 || 3 ~ 4 || 4 ~ 6 || 2
+|}
+
+== Minérios ==
+Refinar custa dinheiro e precisa dos minérios corretos.
+
+Observe o nível do item para saber qual minério usar.
+
+Você pode obter os minérios através dos [[NPC]]s de dentro das refinarias por um valor em [[zeny]] ou trocando por itens.
+
+{| class="wikitable" style="text-align:center; font-size: smaller"
+| {{rh}} colspan=6 | Minérios comuns para Armas
+|-
+! Minério !! Nv. da arma !! Refina entre !! Penalidade da falha !! Obtenção via [[NPC]]
+|-
+! {{Item List|id=1010 |item=Fracon}}
+| 1 || 0 ao +9 || style="text-align: left"| <span style="color:#FF0000">Perde a arma</span>
+| 200z
+|-
+! {{Item List|id=1011 |item=Emveretarcon}}
+| 2 || 0 ao +9 || style="text-align: left"| <span style="color:#FF0000">Perde a arma</span>
+| 1.000z
+|-
+! {{Item List|id=984 |item=Oridecon}}
+| 3 ~ 4 || 0 ao +9 || style="text-align: left"| <span style="color:#FF0000">Perde a arma</span>
+| {{Item List|id=756 |item=Minério de Oridecon|num=5|simple=y}}
+|-
+! {{Item List|id=6224 |item=Bradium}}
+| 1 ~ 4 || +10 ao +19 || style="text-align: left"| Perde 3 refinos
+| 50.000z + {{Item List|id=984 |item=Oridecon|num=3|simple=y}}
+|-
+! {{Item List|id=1000332 |item=Eteridecon}}
+| 5 || 0 ao +9 || style="text-align: left"| Perde 3 refinos
+| 10.000z + {{Item List|id=984 |item=Oridecon|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=1|simple=y}}
+|-
+! {{Item List|id=1000368 |item=Bradium de Éter}}
+| 5 || +10 ao +19 || style="text-align: left"| <span style="color:#FF0000">Perde a arma</span>
+| 30.000z + {{Item List|id=6224 |item=Bradium|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=3|simple=y}}
+|-
+| {{rh}} colspan=6 | Minérios especiais para Armas
+|-
+! {{Item List|id=7620 |item=Oridecon Enriquecido}}
+| 3 ~ 4 || 0 ao +9 || style="text-align: left"| <span style="color:#FF0000">Perde a arma</span>
+| [[JoyCoins]]
+|-
+! {{Item List|id=6240 |item=Oridecon Perfeito}}
+| 3 ~ 4 || +7 ao +9 || style="text-align: left"| Perde 1 refino
+| [[JoyCoins]]
+|-
+! {{Item List|id=6226 |item=Bradium Perfeito}}
+| 1 ~ 4 || +10 ao +19 || style="text-align: left"| Perde 1 refino
+| [[JoyCoins]]
+|-
+! {{Item List|id=1000334 |item=Eteridecon Enriquecido}}
+| 5 || 0 ao +9 || style="text-align: left"| Perde 1 refino
+| 20.000z + {{Item List|id=7620 |item=Oridecon Enriquecido|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=2|simple=y}}
+|-
+! {{Item List|id=1000336 |item=Eteridecon Perfeito}}
+| 5 || +10 ao +14 || style="text-align: left"| <span style="color:#FF0000">Perde a arma</span>
+| 50.000z + {{Item List|id=6240 |item=Oridecon Perfeito|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=3|simple=y}}
+|-
+! {{Item List|id=1000369  |item=Bradium de Éter Perfeito}}
+| 5 || +15 ao +19 || style="text-align: left"| <span style="color:#FF0000">Perde a arma</span>
+| 50.000z + {{Item List|id=6226 |item=Bradium Perfeito|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=3|simple=y}}
+|-
+| {{rh}} colspan=6 | Minérios comuns para Equipamentos
+|-
+! Minério !! Equip. !! Refina entre !! Penalidade da falha !! Obtenção via [[NPC]]
+|-
+! {{Item List|id=985 |item=Elunium}}
+| Nv.1 || 0 ao +9 || style="text-align: left"| <span style="color:#FF0000">Perde o equipamento</span>
+| {{Item List|id=757 |item=Minério de Elunium|num=5|simple=y}}
+|-
+! {{Item List|id=6223 |item=Carnium}}
+| Nv.1 || +10 ao +19 || style="text-align: left"| Perde 3 refinos
+| 50.000z + {{Item List|id=985 |item=Elunium|num=3|simple=y}}
+|-
+! {{Item List|id=1000331 |item=Eterium}}
+| Nv.2 || 0 ao +9 || style="text-align: left"| Perde 3 refinos
+| 10.000z + {{Item List|id=985 |item=Elunium|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=1|simple=y}}
+|-
+! {{Item List|id=1000370 |item=Carnium de Éter}}
+| Nv.2 || +10 ao +19 || style="text-align: left"| <span style="color:#FF0000">Perde o equipamento</span>
+| 50.000z + {{Item List|id=6223 |item=Carnium|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=3|simple=y}}
+|-
+| {{rh}} colspan=6 | Minérios especiais para Equipamentos
+|-
+! {{Item List|id=7619 |item=Elunium Enriquecido}}
+| Nv.1 || 0 ao +9 || style="text-align: left"| <span style="color:#FF0000">Perde o equipamento</span>
+| [[JoyCoins]]
+|-
+! {{Item List|id=6241 |item=Elunium Perfeito}}
+| Nv.1 || +7 ao +9 || style="text-align: left"| Perde 1 refino
+| [[JoyCoins]]
+|-
+! {{Item List|id=6225 |item=Carnium Perfeito}}
+| Nv.1 || +10 ao +19 || style="text-align: left"| Perde 1 refino
+| [[JoyCoins]]
+|-
+! {{Item List|id=1000333 |item=Eterium Enriquecido}}
+| Nv.2 || 0 ao +9 || style="text-align: left"| Perde 1 refino
+| 20.000z + {{Item List|id=7619 |item=Elunium Enriquecido|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=2|simple=y}}
+|-
+! {{Item List|id=1000335 |item=Eterium Perfeito}}
+| Nv.2 || +10 ao +14 || style="text-align: left"| <span style="color:#FF0000">Perde o equipamento</span>
+| 50.000z + {{Item List|id=6241 |item=Elunium Perfeito|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=3|simple=y}}
+|-
+! {{Item List|id=1000371 |item=Carnium de Éter Perfeito}}
+| Nv.2 || +15 ao +19 || style="text-align: left"| <span style="color:#FF0000">Perde o equipamento</span>
+| 50.000z + {{Item List|id=6225 |item=Carnium Perfeito|num=1|simple=y}} + {{Item List|id=1000322 |item=Pó de Éter|num=3|simple=y}}
+|}
+
+== Outros ==
+Existem outros métodos refinamento, na maioria dos casos, sendo através de [[itens]] especiais.
+
+{| class="wikitable"
+! Minério || Efeito
+|-
+| {{rh}} | {{Item List|id=6635 |item=Bênção do Ferreiro|simple=yes}}
+| 
+* [[Armas]] e [[equipamentos]] não serão perdidos ou refino rebaixado em caso de falha. 
+* Só pode ser usado em conjunto com algum outro minério.
+* Não funciona com [[Equipamentos Sombrios]].
+* Funciona somente nos refinos +7 ao +13, nas seguintes proporções: <small>
+** +7 → +8: 1 un.
+** +8 → +9: 2 un.
+** +9 → +10: 4 un.
+** +10 → +11: 7 un.
+** +11 → +12: 11 un.
+** +12 → +13: 16 un.
+** +13 → +14: 22 un.
+** +14 em diante: não funciona.
+</small>
+|-
+| {{rh}} | {{Item List|id=22944 |item=Pergaminho de Refino |simple=yes}}
+| 
+* [[Armas]] ou [[equipamentos]] vão direto para o refino indicado pelo pergaminho. 
+* Não acumula com refinos já adicionados no [[item]]. 
+* Pergaminhos não podem ser negociados, eles devem ser colocados em envelopes no [[JoyCoins|shopping]].
+* <span style="color:#FF0000">Não funciona em Armas de nível 5 e Equipamentos de nível 2.</span>
+* Você deve levar o Pergaminho para o Mestre do Refino {{navi|prontera|184|177}}.
+*: [[Arquivo:MestreRefineiro.png|link=]]
+|-
+| {{rh}} | {{Item List|id=100270 |item=Cubos de Refino |simple=yes}}
+| 
+* [[Armas]] ou [[equipamentos]] vão direto para o refino indicado pelo cubo. 
+* Não acumula com refinos já adicionados no [[item]]. 
+* Funcionam usando o sistema de [[Combinação]].
+|-
+| {{rh}} | {{Item List|id=23436 |item=Martelos de Refino |simple=yes}}
+| 
+* Funcionam em [[Equipamentos Sombrios]] e vão direto para o refino indicado ou aleatório.
+* Não acumula com refinos já adicionados no [[item]]. 
+* Funcionam usando o sistema de [[Combinação]].
+|}
+
+== Chances de sucesso ==
+As tabelas abaixo exibem as chances de sucesso usando minérios comuns e os minérios especiais fora e durante o evento de refinamento.
+
+Os minérios especiais são todos aqueles que estão listados na tabela acima.
+
+=== Evento de Refino ===
+O evento de refino é conhecido por aumentar as chances de sucesso ao refinar um item em [[NPC]]s de forja. 
+
+É um evento sazonal, ou seja, retornando ao jogo de tempos em tempos.
+
+{|
+|
+<tabber>
+|-| Minérios Comuns =
+{| class="wikitable" style="text-align:center; height:800px; width:70%;"
+|-
+! rowspan=2| Refino !! colspan=5| Arma !! colspan=3| Equipamento
+|-
+! Nível 1 !! Nível 2 !! Nível 3 !! Nível 4 !! Nível 5 !! Nível 1 !! Nível 2 !! Sombrio
+|-
+! +1 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100%
+|-
+! +2 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100%
+|-
+! +3 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% 
+|-
+! +4 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#b3ffb3" | 100% 
+|-
+! +5 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 60%
+|-
+! +6 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40%
+|-
+! +7 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 50% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40%
+|-
+! +8 
+| style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20%
+|-
+! +9 
+| style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20%
+|-
+! +10 
+| style="color:black;background:#faf6d3" | 19% || style="color:black;background:#faf6d3" | 19% || style="color:black;background:#faf6d3" | 19% || style="color:black;background:#FFCCCC" | 9% || style="color:black;background:#FFCCCC" | 9% || style="color:black;background:#FFCCCC" | 9% || style="color:black;background:#FFCCCC" | 9% || style="color:black;background:#FFCCCC" | 10%
+|-
+! +11 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || -
+|-
+! +12 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || -
+|-
+! +13 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || -
+|-
+! +14 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#FFCCCC" | 8% || -
+|-
+! +15 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || -
+|-
+! +16 
+| style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || -
+|-
+! +17 
+| style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || -
+|-
+! +18 
+| style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 7% || -
+|-
+! +19 
+| style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 5% || -
+|-
+! +20 
+| style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 5% || -
+|}
+|-| Minérios Comuns (Evento) =
+{| class="wikitable" style="text-align:center; height:800px; width:70%;"
+|-
+! rowspan=2| Refino !! colspan=5| Arma !! colspan=3| Equipamento
+|-
+! Nível 1 !! Nível 2 !! Nível 3 !! Nível 4 !! Nível 5 !! Nível 1 !! Nível 2 !! Sombrio
+|-
+! +1 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100%
+|-
+! +2 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100%
+|-
+! +3 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% 
+|-
+! +4 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#b3ffb3" | 100% 
+|-
+! +5 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#CCFFCC" | 60%
+|-
+! +6 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#faf6d3" | 40%
+|-
+! +7 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 50% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#faf6d3" | 40%
+|-
+! +8 
+| style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20%
+|-
+! +9 
+| style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20%
+|-
+! +10 
+| style="color:black;background:#faf6d3" | 19% || style="color:black;background:#faf6d3" | 19% || style="color:black;background:#faf6d3" | 19% || style="color:black;background:#FFCCCC" | 9% || style="color:black;background:#faf6d3" | 18% || style="color:black;background:#FFCCCC" | 9% || style="color:black;background:#faf6d3" | 18% || style="color:black;background:#FFCCCC" | 10%
+|-
+! +11 
+| style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 16% || -
+|-
+! +12 
+| style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 16% || -
+|-
+! +13 
+| style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#ffe8c7" | 16% || -
+|-
+! +14 
+| style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#ffe8c7" | 16% || -
+|-
+! +15 
+| style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 25% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 14% || -
+|-
+! +16 
+| style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 25% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 14% || -
+|-
+! +17 
+| style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 14% || -
+|-
+! +18 
+| style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 14% || -
+|-
+! +19 
+| style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || -
+|-
+! +20 
+| style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || -
+|}
+|-| Minérios Especiais =
+{| class="wikitable" style="text-align:center; height:800px; width:70%;"
+|-
+! rowspan=2| Refino !! colspan=5| Arma !! colspan=3| Equipamento
+|-
+! Nível 1 !! Nível 2 !! Nível 3 !! Nível 4 !! Nível 5 !! Nível 1 !! Nível 2 !! Sombrio
+|-
+! +1 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100%
+|-
+! +2 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100%
+|-
+! +3 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% 
+|-
+! +4 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 90% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 90% || style="color:black;background:#b3ffb3" | 100% 
+|-
+! +5 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 90% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 90% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 90%
+|-
+! +6 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 90% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 70%
+|-
+! +7 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 90% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 70%
+|-
+! +8 
+| style="color:black;background:#CCFFCC" | 90% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40%
+|-
+! +9 
+| style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40%
+|-
+! +10 
+| style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20%
+|-
+! +11 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#ffe8c7" | 15% || -
+|-
+! +12 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#ffe8c7" | 15% || -
+|-
+! +13 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#ffe8c7" | 15% || -
+|-
+! +14 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#FFCCCC" | 8% || style="color:black;background:#ffe8c7" | 15% || -
+|-
+! +15 
+| style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#ffe8c7" | 18% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#ffe8c7" | 10% || -
+|-
+! +16 
+| style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#ffe8c7" | 10% || -
+|-
+! +17 
+| style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#ffe8c7" | 10% || -
+|-
+! +18 
+| style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#ffe8c7" | 17% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#ffe8c7" | 10% || -
+|-
+! +19 
+| style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 7% || -
+|-
+! +20 
+| style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 7% || style="color:black;background:#FFCCCC" | 5% || style="color:black;background:#FFCCCC" | 7% || -
+|}
+|-| Minérios Especiais (Evento) =
+{| class="wikitable" style="text-align:center; height:800px; width:70%;"
+|-
+! rowspan=2| Refino !! colspan=5| Arma !! colspan=3| Equipamento
+|-
+! Nível 1 !! Nível 2 !! Nível 3 !! Nível 4 !! Nível 5 !! Nível 1 !! Nível 2 !! Sombrio
+|-
+! +1 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100%
+|-
+! +2 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100%
+|-
+! +3 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% 
+|-
+! +4 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 95% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 95% || style="color:black;background:#b3ffb3" | 100% 
+|-
+! +5 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 95% || style="color:black;background:#CCFFCC" | 85% || style="color:black;background:#CCFFCC" | 95% || style="color:black;background:#CCFFCC" | 85% || style="color:black;background:#CCFFCC" | 95%
+|-
+! +6 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 95% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 80%
+|-
+! +7 
+| style="color:black;background:#b3ffb3" | 100% || style="color:black;background:#CCFFCC" | 95% || style="color:black;background:#CCFFCC" | 90% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#CCFFCC" | 65% || style="color:black;background:#CCFFCC" | 80% || style="color:black;background:#CCFFCC" | 65% || style="color:black;background:#CCFFCC" | 80%
+|-
+! +8 
+| style="color:black;background:#CCFFCC" | 95% || style="color:black;background:#CCFFCC" | 85% || style="color:black;background:#CCFFCC" | 70% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 55% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 55% || style="color:black;background:#CCFFCC" | 60%
+|-
+! +9 
+| style="color:black;background:#CCFFCC" | 85% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 60% || style="color:black;background:#CCFFCC" | 50% || style="color:black;background:#faf6d3" | 45% || style="color:black;background:#CCFFCC" | 50% || style="color:black;background:#faf6d3" | 45% || style="color:black;background:#CCFFCC" | 50%
+|-
+! +10 
+| style="color:black;background:#CCFFCC" | 55% || style="color:black;background:#faf6d3" | 45% || style="color:black;background:#faf6d3" | 45% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 25% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 25% || style="color:black;background:#faf6d3" | 35%
+|-
+! +11 
+| style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || -
+|-
+! +12 
+| style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 40% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || -
+|-
+! +13 
+| style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#faf6d3" | 20% || -
+|-
+! +14 
+| style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#faf6d3" | 35% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 16% || style="color:black;background:#faf6d3" | 20% || -
+|-
+! +15 
+| style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || -
+|-
+! +16 
+| style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#faf6d3" | 30% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || -
+|-
+! +17 
+| style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 15% || -
+|-
+! +18 
+| style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#faf6d3" | 20% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 14% || style="color:black;background:#ffe8c7" | 15% || -
+|-
+! +19 
+| style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || -
+|-
+! +20 
+| style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 15% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || style="color:black;background:#ffe8c7" | 10% || -
+|}
+</tabber>
+|}
+
+{{Itens}}

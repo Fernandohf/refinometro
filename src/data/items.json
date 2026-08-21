@@ -1,0 +1,109 @@
+{
+  "_fonte": "https://www.divine-pride.net/ (páginas públicas, servidor LATAM)",
+  "_servidor": "LATAM",
+  "_geradoEm": "2026-08-21",
+  "itens": [
+    {
+      "id": 20404,
+      "nome": "[Visual] Benção Angelingal",
+      "slots": 0,
+      "naoRefinavel": "visual"
+    },
+    {
+      "id": 460005,
+      "nome": "Absorvedor Mágico",
+      "slots": 1,
+      "kind": "a2"
+    },
+    {
+      "id": 450168,
+      "nome": "Armadura Astral",
+      "slots": 1,
+      "kind": "a2"
+    },
+    {
+      "id": 15247,
+      "nome": "Armadura de Caça",
+      "slots": 0,
+      "kind": "a1"
+    },
+    {
+      "id": 400246,
+      "nome": "Bacsojin Hat-LT",
+      "slots": 1,
+      "kind": "a2"
+    },
+    {
+      "id": 2405,
+      "nome": "Botas",
+      "slots": 0,
+      "kind": "a1"
+    },
+    {
+      "id": 22169,
+      "nome": "Botas de Caça",
+      "slots": 0,
+      "kind": "a1"
+    },
+    {
+      "id": 5031,
+      "nome": "Capacete de Mineiro",
+      "slots": 0,
+      "kind": "a1"
+    },
+    {
+      "id": 24020,
+      "nome": "Colar Sombrio Físico",
+      "slots": 0,
+      "kind": "shadowA"
+    },
+    {
+      "id": 24070,
+      "nome": "Greva Sombria do Exorcista",
+      "slots": 0,
+      "kind": "shadowA"
+    },
+    {
+      "id": 1867,
+      "nome": "Luva de Segurança",
+      "slots": 2,
+      "kind": "w4"
+    },
+    {
+      "id": 2617,
+      "nome": "Luva Sacra",
+      "slots": 0,
+      "naoRefinavel": "acessorio"
+    },
+    {
+      "id": 24144,
+      "nome": "Malha Sombria do Furto",
+      "slots": 0,
+      "kind": "shadowA"
+    },
+    {
+      "id": 20903,
+      "nome": "Manto de Caça",
+      "slots": 0,
+      "kind": "a1"
+    },
+    {
+      "id": 2278,
+      "nome": "Máscara Feliz",
+      "slots": 0,
+      "naoRefinavel": "cabeca-meio-baixo"
+    },
+    {
+      "id": 18984,
+      "nome": "Memorável Sentido de Caça",
+      "slots": 1,
+      "kind": "a1"
+    },
+    {
+      "id": 2101,
+      "nome": "Vembrassa",
+      "slots": 0,
+      "kind": "a1"
+    }
+  ]
+}
