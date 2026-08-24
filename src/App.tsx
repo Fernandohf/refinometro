@@ -3,38 +3,20 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode 
 import { DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
 import { GRADE_ORDER, type Grade } from './data/grade';
 import type { ItemKind } from './data/ores';
+import { CATEGORIAS, ROTULO_GRAU } from './data/rotulos';
 import { calcular, type Resultado as ResultadoPlano } from './engine/plan';
 import type { PedidoSimulacao, RespostaSimulacao } from './engine/worker';
 import { maxRefine, safeLimit } from './engine/refine';
 import { suportaGrau } from './engine/grade';
 import type { CalcInput, PriceTable } from './engine/types';
 import type { Estoque } from './engine/estoque';
-import { MARGENS, Resultado, type MargemKey } from './components/Resultado';
+import { Resultado, type MargemKey } from './components/Resultado';
 import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { META } from './data/items';
 import { Campo, NumeroZeny, Painel, Select, Toggle } from './components/ui';
+import { TrilhaRefino } from './components/TrilhaRefino';
 import { zeny } from './format';
-
-const CATEGORIAS: { key: ItemKind; rotulo: string }[] = [
-  { key: 'w1', rotulo: 'Arma nível 1' },
-  { key: 'w2', rotulo: 'Arma nível 2' },
-  { key: 'w3', rotulo: 'Arma nível 3' },
-  { key: 'w4', rotulo: 'Arma nível 4' },
-  { key: 'w5', rotulo: 'Arma nível 5' },
-  { key: 'a1', rotulo: 'Armadura / Equipamento nível 1' },
-  { key: 'a2', rotulo: 'Armadura / Equipamento nível 2' },
-  { key: 'shadowW', rotulo: 'Arma Sombria' },
-  { key: 'shadowA', rotulo: 'Equipamento Sombrio' },
-];
-
-const ROTULO_GRAU: Record<Grade, string> = {
-  none: 'Sem grau',
-  D: 'Grau D',
-  C: 'Grau C',
-  B: 'Grau B',
-  A: 'Grau A',
-};
 
 interface Estado {
   /** Nome do item escolhido na busca, só para exibição. */
@@ -205,7 +187,7 @@ export default function App() {
 
               <Campo
                 label="Categoria"
-                dica={`Refina com 100% de sucesso até +${limite}. Máximo +${max}.`}
+                dica="Escolhida sozinha quando o item vem da busca. Ela define a tabela de chances."
               >
                 <Select value={e.kind} onChange={(v) => set('kind', v as ItemKind)}>
                   {CATEGORIAS.map((c) => (
@@ -215,14 +197,15 @@ export default function App() {
                   ))}
                 </Select>
               </Campo>
+            </div>
+          </Painel>
 
-              <Campo
-                label="Preço do item sem refino"
-                dica="Quanto custa comprar outro igual, no +0. É o que você perde a cada quebra."
-              >
-                <NumeroZeny value={e.precoItem} onChange={(v) => set('precoItem', v)} />
-              </Campo>
-
+          {/* O alvo é a pergunta da calculadora, então tem painel próprio e vem
+              antes de preço e condições: mudar o +10 para +12 muda a resposta em
+              ordens de grandeza, mudar o preço de um minério muda alguns por
+              cento. */}
+          <Painel titulo="Aonde você quer chegar">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <Campo label="Refino atual">
                   <Select
@@ -241,43 +224,44 @@ export default function App() {
                     {Array.from({ length: max + 1 }, (_, i) => (
                       <option key={i} value={i}>
                         +{i}
+                        {i > limite ? ' — pode falhar' : ''}
                       </option>
                     ))}
                   </Select>
                 </Campo>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Campo label="Grau atual">
-                  <Select
-                    value={e.grauAtual}
-                    disabled={!temGrau}
-                    onChange={(v) => set('grauAtual', v as Grade)}
-                  >
-                    {GRADE_ORDER.map((g) => (
-                      <option key={g} value={g}>
-                        {ROTULO_GRAU[g]}
-                      </option>
-                    ))}
-                  </Select>
-                </Campo>
-                <Campo
-                  label="Grau alvo"
-                  dica={temGrau ? undefined : 'Só Arma nv5 e Armadura nv2 têm Grau.'}
-                >
-                  <Select
-                    value={e.grauAlvo}
-                    disabled={!temGrau}
-                    onChange={(v) => set('grauAlvo', v as Grade)}
-                  >
-                    {graus.map((g) => (
-                      <option key={g} value={g}>
-                        {ROTULO_GRAU[g]}
-                      </option>
-                    ))}
-                  </Select>
-                </Campo>
-              </div>
+              <TrilhaRefino atual={e.refinoAtual} alvo={e.refinoAlvo} max={max} limite={limite} />
+
+              {/* Grau só existe em duas categorias. Dois campos permanentemente
+                  desligados ocupariam o lugar mais nobre do formulário para não
+                  dizer nada; fora dessas categorias sobra uma linha de texto. */}
+              {temGrau ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <Campo label="Grau atual">
+                    <Select value={e.grauAtual} onChange={(v) => set('grauAtual', v as Grade)}>
+                      {GRADE_ORDER.map((g) => (
+                        <option key={g} value={g}>
+                          {ROTULO_GRAU[g]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Campo>
+                  <Campo label="Grau alvo" dica="Cada degrau de Grau zera o refino de volta ao +0.">
+                    <Select value={e.grauAlvo} onChange={(v) => set('grauAlvo', v as Grade)}>
+                      {graus.map((g) => (
+                        <option key={g} value={g}>
+                          {ROTULO_GRAU[g]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Campo>
+                </div>
+              ) : (
+                <p className="text-xs text-suave">
+                  Grau não se aplica: só Arma nv5 e Armadura nv2 têm.
+                </p>
+              )}
             </div>
           </Painel>
 
@@ -308,35 +292,36 @@ export default function App() {
                 onChange={(v) => set('perdaAceitavel', v)}
               />
             </div>
-
-            <div className="mt-4">
-              <Campo label="Margem de segurança">
-                <Select value={e.margem} onChange={(v) => set('margem', v as MargemKey)}>
-                  {MARGENS.map((m) => (
-                    <option key={m.key} value={m.key}>
-                      {m.rotulo} — {m.explica}
-                    </option>
-                  ))}
-                </Select>
-              </Campo>
-            </div>
           </Painel>
 
-          <Precos precos={e.precos} onChange={(p) => set('precos', p)} />
+          <Precos
+            precos={e.precos}
+            onChange={(p) => set('precos', p)}
+            precoItem={e.precoItem}
+            onPrecoItem={(v) => set('precoItem', v)}
+          />
         </div>
 
         <div className="min-w-0">
           {erro ? (
-            <Painel>
+            // Um pedido impossível (alvo abaixo do atual, grau em item que não
+            // tem) merece o mesmo lugar que os avisos: no topo, sozinho, sem
+            // números velhos ao lado sugerindo que ainda valem.
+            <Painel titulo="Não dá para calcular isso">
               <p className="text-perigo">{erro}</p>
+              <p className="mt-2 text-sm text-suave">
+                Ajuste o alvo à esquerda e a conta volta sozinha.
+              </p>
             </Painel>
           ) : exibido ? (
             <div className={calculando ? 'opacity-60 transition-opacity' : undefined}>
-              <Precisao afinando={preciso.afinando} plano={exibido} />
               <Resultado
                 plano={exibido}
+                itemNome={e.itemNome}
                 margem={e.margem}
+                onMargem={(m) => set('margem', m)}
                 afinando={preciso.afinando}
+                precisao={<Precisao afinando={preciso.afinando} plano={exibido} />}
                 moduloEstoque={
                   <SimuladorDeEstoque
                     plano={exibido}
@@ -409,7 +394,7 @@ function Precisao({ afinando, plano }: { afinando: boolean; plano: ResultadoPlan
   const sim = plano.simulacao;
 
   return (
-    <p className="mb-2 text-right text-xs text-suave" aria-live="polite">
+    <span className="text-xs text-suave" aria-live="polite">
       {afinando ? (
         <span className="text-realce/80">afinando a simulação…</span>
       ) : sim ? (
@@ -420,42 +405,72 @@ function Precisao({ afinando, plano }: { afinando: boolean; plano: ResultadoPlan
       ) : (
         'sem simulação: só o cálculo exato'
       )}
-    </p>
+    </span>
   );
 }
 
 function Precos({
   precos,
   onChange,
+  precoItem,
+  onPrecoItem,
 }: {
   precos: PriceTable;
   onChange: (p: PriceTable) => void;
+  precoItem: number;
+  onPrecoItem: (v: number) => void;
 }) {
   const [aberto, setAberto] = useState(false);
+  const padrao = PRICE_FIELDS.every(
+    (g) => g.itens.every((i) => (precos[i.itemId] ?? 0) === (DEFAULT_PRICES[i.itemId] ?? 0)),
+  );
 
   return (
     <Painel
       titulo="Preços do mercado"
       aside={
-        <button
-          type="button"
-          className="text-xs text-realce hover:underline"
-          onClick={() => setAberto((a) => !a)}
-        >
-          {aberto ? 'esconder' : 'editar'}
-        </button>
+        <div className="flex gap-3">
+          {!padrao && (
+            <button
+              type="button"
+              className="text-xs text-suave hover:underline"
+              onClick={() => onChange(DEFAULT_PRICES)}
+            >
+              restaurar padrão
+            </button>
+          )}
+          <button
+            type="button"
+            className="text-xs text-realce hover:underline"
+            aria-expanded={aberto}
+            onClick={() => setAberto((a) => !a)}
+          >
+            {aberto ? 'esconder' : 'editar'}
+          </button>
+        </div>
       }
     >
+      {/* O preço do item mora aqui, e não junto do refino, porque é da mesma
+          natureza do resto deste painel: uma cotação de mercado que só você
+          conhece. Fica de fora do trecho recolhível por ser o único que muda
+          de item para item — e o que decide quanto custa cada quebra. */}
+      <Campo
+        label="Preço do item sem refino"
+        dica="Quanto custa comprar outro igual, no +0. É o que você perde a cada quebra."
+      >
+        <NumeroZeny value={precoItem} onChange={onPrecoItem} />
+      </Campo>
+
       {!aberto && (
-        <p className="text-sm leading-relaxed text-suave">
-          Os preços de partida são um chute — ajuste para o que você está vendo no jogo, senão o
+        <p className="mt-4 text-sm leading-relaxed text-suave">
+          Os preços dos minérios são um chute — ajuste para o que você está vendo no jogo, senão o
           orçamento não vale nada. Oridecon está em {zeny(precos[984] ?? 0)}, Bênção do Ferreiro em{' '}
           {zeny(precos[6635] ?? 0)}.
         </p>
       )}
 
       {aberto && (
-        <div className="space-y-5">
+        <div className="mt-5 space-y-5">
           <p className="text-xs leading-relaxed text-suave">
             Deixe em 0 o que você prefere fabricar no NPC: a calculadora cota pela receita e escolhe
             sozinha a via mais barata entre comprar pronto e fabricar.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import {
   carregarBase,
@@ -8,19 +8,8 @@ import {
   type BaseItens,
   type ItemDb,
 } from '../data/items';
+import { rotuloCurto } from '../data/rotulos';
 import { Campo } from './ui';
-
-const ROTULO_KIND: Record<string, string> = {
-  w1: 'Arma nv1',
-  w2: 'Arma nv2',
-  w3: 'Arma nv3',
-  w4: 'Arma nv4',
-  w5: 'Arma nv5',
-  a1: 'Equip. nv1',
-  a2: 'Equip. nv2',
-  shadowW: 'Arma Sombria',
-  shadowA: 'Equip. Sombrio',
-};
 
 const dataBR = (iso: string) => iso.split('-').reverse().join('/');
 
@@ -48,6 +37,10 @@ export function BuscaItem({
   const [base, setBase] = useState<BaseItens | null>(null);
   const [querBase, setQuerBase] = useState(false);
   const [erro, setErro] = useState(false);
+  /** Item sob o cursor do teclado; -1 = nenhum, e o Enter não faz nada. */
+  const [ativo, setAtivo] = useState(-1);
+  const listaId = useId();
+  const lista = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     if (!querBase) return;
@@ -65,6 +58,52 @@ export function BuscaItem({
   const mostrarLista = focado && resultados.length > 0;
   const carregando = querBase && !base && !erro;
 
+  // O cursor volta ao começo a cada busca nova: manter a quinta linha marcada
+  // enquanto a lista inteira mudou apontaria para um item que a pessoa nunca viu.
+  useEffect(() => setAtivo(-1), [termo]);
+
+  // Andar com o teclado tem de arrastar a lista junto, senão o cursor
+  // desaparece embaixo da borda depois do sexto item.
+  useEffect(() => {
+    if (ativo < 0) return;
+    lista.current?.children[ativo]?.scrollIntoView({ block: 'nearest' });
+  }, [ativo]);
+
+  function escolher(item: ItemDb) {
+    // Itens não refináveis continuam aparecendo na busca: é mais útil dizer POR
+    // QUE não dá do que fingir que não existem.
+    if (item.kind) {
+      onSelecionar(item);
+      setRecusado(null);
+    } else {
+      setRecusado(item);
+    }
+    setTermo('');
+    setFocado(false);
+    setAtivo(-1);
+  }
+
+  function teclado(ev: React.KeyboardEvent<HTMLInputElement>) {
+    if (ev.key === 'Escape') {
+      setFocado(false);
+      setAtivo(-1);
+      return;
+    }
+    if (!mostrarLista) return;
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      // Circular: do último volta ao primeiro, e a primeira seta para cima leva
+      // ao fim da lista — é o que qualquer campo de busca faz.
+      setAtivo((i) => (i + 1 >= resultados.length ? 0 : i + 1));
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      setAtivo((i) => (i <= 0 ? resultados.length - 1 : i - 1));
+    } else if (ev.key === 'Enter' && ativo >= 0) {
+      ev.preventDefault();
+      escolher(resultados[ativo]!);
+    }
+  }
+
   return (
     <div>
       <Campo
@@ -80,6 +119,11 @@ export function BuscaItem({
         <div className="relative">
           <input
             type="text"
+            role="combobox"
+            aria-expanded={mostrarLista}
+            aria-controls={listaId}
+            aria-autocomplete="list"
+            aria-activedescendant={ativo >= 0 ? `${listaId}-${ativo}` : undefined}
             className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-texto outline-none focus:border-realce focus:ring-1 focus:ring-realce"
             placeholder="Ex.: Luva de Segurança"
             value={termo}
@@ -91,36 +135,39 @@ export function BuscaItem({
               setQuerBase(true);
               setFocado(true);
             }}
+            onKeyDown={teclado}
             // O blur é adiado para o clique no resultado chegar antes da lista sumir.
             onBlur={() => setTimeout(() => setFocado(false), 150)}
           />
 
           {mostrarLista && (
-            <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-borda bg-painel shadow-lg">
-              {resultados.map((item) => (
-                <li key={item.id}>
+            <ul
+              id={listaId}
+              ref={lista}
+              role="listbox"
+              className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-borda bg-painel shadow-lg"
+            >
+              {resultados.map((item, i) => (
+                <li
+                  key={item.id}
+                  id={`${listaId}-${i}`}
+                  role="option"
+                  aria-selected={i === ativo}
+                  className={i === ativo ? 'bg-fundo' : undefined}
+                >
                   <button
                     type="button"
+                    tabIndex={-1}
                     className="flex w-full items-baseline justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-fundo"
-                    onClick={() => {
-                      // Itens não refináveis continuam aparecendo na busca: é mais
-                      // útil dizer POR QUE não dá do que fingir que não existem.
-                      if (item.kind) {
-                        onSelecionar(item);
-                        setRecusado(null);
-                      } else {
-                        setRecusado(item);
-                      }
-                      setTermo('');
-                      setFocado(false);
-                    }}
+                    onMouseEnter={() => setAtivo(i)}
+                    onClick={() => escolher(item)}
                   >
                     <span className={item.kind ? undefined : 'text-suave line-through'}>
                       {item.nome}
                       {item.slots > 0 && <span className="text-suave"> [{item.slots}]</span>}
                     </span>
                     <span className="shrink-0 text-xs text-suave">
-                      {item.kind ? ROTULO_KIND[item.kind] : 'não refina'}
+                      {item.kind ? rotuloCurto(item.kind) : 'não refina'}
                     </span>
                   </button>
                 </li>

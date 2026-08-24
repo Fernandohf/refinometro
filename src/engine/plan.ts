@@ -68,6 +68,9 @@ const MAX_REFINO_ALVO = 20;
 
 const zeny = (n: number) => `${Math.round(n).toLocaleString('pt-BR')}z`;
 
+/** Percentual em português: vírgula decimal, como todo número da tela. */
+const pct = (p: number) => `${(p * 100).toFixed(1).replace('.', ',')}%`;
+
 /**
  * Tentativas de refino que a simulação vence por milissegundo, medida com
  * `npm run perf` no pior caso (alvos baratos, em que o custo por execução pesa
@@ -440,7 +443,7 @@ function gerarAvisos(
     if (semQuebra < 0.999) {
       avisos.push({
         nivel: semQuebra < 0.5 ? 'perigo' : 'atencao',
-        texto: `Chance de atravessar a campanha sem destruir nenhum item: ${(semQuebra * 100).toFixed(1)}%. Em ${(100 - semQuebra * 100).toFixed(1)}% das vezes você vai precisar recomprar o equipamento pelo menos uma vez.`,
+        texto: `Chance de atravessar a campanha sem destruir nenhum item: ${pct(semQuebra)}. Em ${pct(1 - semQuebra)} das vezes você vai precisar recomprar o equipamento pelo menos uma vez.`,
       });
     }
   }

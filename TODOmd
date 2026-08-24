@@ -51,7 +51,42 @@
     de fã, sem vínculo com Gravity, Level Up! ou Divine Pride.
   - O item escolhido na busca mostra link para a ficha de origem no Divine Pride, para o
     número poder ser conferido em vez de aceito.
-- [ ] Melhorar a interface:
+- [x] Melhorar a interface: prioridade de entrada e saída.
+  - Análise: a tela tratava tudo com o mesmo peso. Na entrada, o alvo — a pergunta da
+    calculadora — vinha depois do preço do item, e a margem de segurança morava no fim do
+    formulário, longe do número que ela muda. Na saída, os três grandes números apareciam do
+    mesmo tamanho, sendo que o texto do próprio custo médio desaconselha planejar por ele; e
+    os avisos de perigo ("uma falha aí destrói o equipamento") vinham depois de quatro painéis,
+    ou seja, depois do orçamento que eles desmentem.
+  - Entrada, reordenada por impacto na resposta: **O item** (busca + categoria) → **Aonde você
+    quer chegar** (refino atual/alvo, com a `TrilhaRefino` desenhando quantos degraus caem fora
+    da faixa de 100%) → **Condições** → **Preços do mercado**. Mudar o +10 para +12 muda a
+    resposta em ordens de grandeza; mudar o preço de um minério muda alguns por cento — e agora
+    a ordem da tela diz isso.
+  - O preço do item saiu de "O item" e foi para "Preços do mercado": é da mesma natureza do
+    resto de lá, uma cotação que só o jogador conhece. O painel ganhou "restaurar padrão", que
+    faltava para quem bagunçou os preços e ficou preso ao `localStorage`.
+  - Os campos de Grau só existem em Arma nv5 e Armadura nv2; nas outras sete categorias eram
+    dois `<select>` permanentemente desligados ocupando o melhor lugar do formulário. Agora
+    somem, e sobra uma linha dizendo por quê.
+  - Saída, reordenada pela sequência de perguntas: **avisos de perigo/atenção** → **quanto vai
+    custar** → **lista de compras** → **dá com o que eu tenho?** → **melhor estratégia** →
+    **minérios e materiais** (recolhido) → notas informativas. "Valor do item" deixou de ser um
+    painel no fim da página e virou um dos números de apoio do painel de custo — é ele que
+    responde "compensa comprar pronto?".
+  - Hierarquia dentro do custo: o orçamento é `text-5xl`, média/cópias/valor justo caíram para
+    `text-xl`. A margem de segurança virou um `Segmentado` no cabeçalho do painel, e a legenda
+    dos cinco percentis virou o próprio controle — comparar e escolher passaram a ser o mesmo
+    gesto, em vez de escolher às cegas num campo e só depois ver no que deu.
+  - "Minérios e materiais" ficou recolhido atrás de um resumo: é conferência, não decisão, e
+    duplicava a lista de compras a ponto de a página precisar de um parágrafo explicando por
+    que os dois totais não batem.
+  - A busca ganhou teclado (setas, Enter, Esc) e ARIA de combobox — antes só respondia a mouse.
+  - `CATEGORIAS`/`ROTULO_GRAU` estavam duplicados em `App.tsx` e `BuscaItem.tsx`, com nomes
+    diferentes para a mesma categoria; foram para `src/data/rotulos.ts`.
+  - Travado por testes de ordem em `tests/render.test.tsx` ('põe o que muda a decisão antes do
+    que só a explica', 'deixa a margem de segurança ao lado do número que ela muda').
+- [ ] Melhorar a interface (continuação):
    - [ ] Mostrando a imagem e descrição do item (retirando do divine pride), assim como as mudanças no nome e cores (dos refinos/grau)
    - [ ] Deixar a interface mais inspirada no jogo
-   - [ ] Adicionar um modo de visualização que mostra de forma iterative as chances de cada desição na cadeira de markov das simulações
+   - [ ] Adicionar um modo de visualização que mostra de forma iterative as chances de cada decisão na cadeira de markov das simulações

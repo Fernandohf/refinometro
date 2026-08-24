@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 export function Painel({ titulo, aside, children }: { titulo?: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="rounded-xl border border-borda bg-painel/60 p-4 sm:p-5">
       {titulo && (
-        <header className="mb-4 flex items-baseline justify-between gap-3">
+        <header className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
           <h2 className="text-sm font-semibold tracking-wide text-suave uppercase">{titulo}</h2>
           {aside}
         </header>
@@ -150,5 +150,94 @@ export function Toggle({
         {dica && <span className="mt-0.5 block text-xs leading-snug text-suave">{dica}</span>}
       </span>
     </label>
+  );
+}
+
+/**
+ * Escolha entre poucas opções, sempre visíveis.
+ *
+ * Um `<select>` esconde as alternativas atrás de um clique — serve para listas
+ * longas. Quando as opções são cinco e a escolha muda o número principal da
+ * tela, deixá-las à mostra é o que permite comparar antes de escolher.
+ */
+export function Segmentado<T extends string>({
+  value,
+  onChange,
+  opcoes,
+  rotulo,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  opcoes: { key: T; rotulo: string; dica?: string }[];
+  /** Nome do grupo para leitores de tela. */
+  rotulo: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={rotulo}
+      className="inline-flex flex-wrap gap-1 rounded-lg border border-borda bg-fundo/60 p-1"
+    >
+      {opcoes.map((o) => {
+        const ativo = o.key === value;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            role="radio"
+            aria-checked={ativo}
+            title={o.dica}
+            onClick={() => onChange(o.key)}
+            className={
+              'rounded-md px-2.5 py-1 text-xs font-medium transition-colors ' +
+              (ativo
+                ? 'bg-realce text-fundo'
+                : 'text-suave hover:bg-painel hover:text-texto')
+            }
+          >
+            {o.rotulo}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Painel que abre e fecha, para detalhe que não precisa estar sempre na tela.
+ *
+ * O estado mora aqui porque é só aparência: nada do que está fechado deixa de
+ * ser calculado, e reabrir não recalcula nada.
+ */
+export function PainelRecolhivel({
+  titulo,
+  resumo,
+  abreComo = 'fechado',
+  children,
+}: {
+  titulo: string;
+  /** Uma linha que responde o essencial sem precisar abrir. */
+  resumo?: ReactNode;
+  abreComo?: 'aberto' | 'fechado';
+  children: ReactNode;
+}) {
+  const [aberto, setAberto] = useState(abreComo === 'aberto');
+
+  return (
+    <Painel
+      titulo={titulo}
+      aside={
+        <button
+          type="button"
+          className="text-xs text-realce hover:underline"
+          aria-expanded={aberto}
+          onClick={() => setAberto((a) => !a)}
+        >
+          {aberto ? 'esconder' : 'ver detalhe'}
+        </button>
+      }
+    >
+      {aberto ? children : resumo ? <div className="text-sm text-suave">{resumo}</div> : null}
+    </Painel>
   );
 }

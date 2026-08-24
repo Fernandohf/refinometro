@@ -4,8 +4,9 @@ import { nomeDoItem } from '../data/nomes';
 import { listaDeCompras, sourcingOf } from '../engine/pricing';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
+import { rotuloCurto, ROTULO_GRAU } from '../data/rotulos';
 import { porcento, quantidade, zeny, zenyExato } from '../format';
-import { Painel } from './ui';
+import { Painel, PainelRecolhivel, Segmentado } from './ui';
 
 export type MargemKey = keyof Percentis;
 
@@ -32,14 +33,22 @@ function quantidadesNaMargem(plano: ResultadoPlano, margem: MargemKey): Record<n
 
 export function Resultado({
   plano,
+  itemNome,
   margem,
+  onMargem,
   afinando = false,
+  precisao,
   moduloEstoque,
 }: {
   plano: ResultadoPlano;
+  /** Nome do item escolhido na busca, quando houve um. */
+  itemNome?: string | null;
   margem: MargemKey;
+  onMargem: (m: MargemKey) => void;
   /** O passe preciso ainda está rodando: este resultado é o do passe rápido. */
   afinando?: boolean;
+  /** De quantas campanhas simuladas vieram os percentis — rodapé do painel. */
+  precisao?: ReactNode;
   /**
    * Simulador de estoque, encaixado logo depois da lista de compras: "dá com o
    * que eu tenho?" é a pergunta que vem depois de "o que comprar", e ela lê as
@@ -49,64 +58,104 @@ export function Resultado({
 }) {
   const sim = plano.simulacao;
   const margemInfo = MARGENS.find((m) => m.key === margem)!;
+  // Um aviso que muda a decisão (o item quebra, o alvo não fecha, um preço está
+  // zerado) precisa ser lido ANTES do número que ele desmente. O que é só
+  // contexto pode esperar o fim da página.
+  const criticos = plano.avisos.filter((a) => a.nivel !== 'info');
+  const informativos = plano.avisos.filter((a) => a.nivel === 'info');
 
   return (
     <div className="space-y-4">
-      <Painel titulo="Quanto vai custar">
-        <div className="grid gap-4 sm:grid-cols-3">
+      {criticos.length > 0 && (
+        <ul className="space-y-2">
+          {criticos.map((a, i) => (
+            <AvisoLinha key={i} aviso={a} />
+          ))}
+        </ul>
+      )}
+
+      <Painel
+        titulo="Quanto vai custar"
+        aside={
+          sim ? (
+            <Segmentado
+              rotulo="Margem de segurança"
+              value={margem}
+              onChange={onMargem}
+              opcoes={MARGENS.map((m) => ({ key: m.key, rotulo: m.rotulo, dica: m.explica }))}
+            />
+          ) : undefined
+        }
+      >
+        <Trajetoria plano={plano} itemNome={itemNome} />
+
+        {/* O orçamento é a resposta; média e valor justo são apoio. Antes os
+            três vinham do mesmo tamanho, o que punha a média — que o próprio
+            texto desaconselha usar — no mesmo peso da recomendação. */}
+        <div className="mt-4">
+          <div className="text-xs tracking-wide text-suave uppercase">Orçamento recomendado</div>
           {sim ? (
-            <div>
-              <div className="text-xs tracking-wide text-suave uppercase">Orçamento recomendado</div>
+            <>
               <div
-                className="mt-1 text-3xl font-semibold text-realce tabular-nums"
+                className="mt-1 text-4xl font-semibold text-realce tabular-nums sm:text-5xl"
                 title={zenyExato(sim.custo[margem])}
               >
                 {zeny(sim.custo[margem])}
               </div>
-              <div className="mt-1 text-xs text-suave">
+              <div className="mt-1 text-sm text-suave">
                 Margem de {margemInfo.rotulo.toLowerCase()} — {margemInfo.explica}.
               </div>
-            </div>
+            </>
           ) : (
-            <div>
-              <div className="text-xs tracking-wide text-suave uppercase">Orçamento recomendado</div>
+            <>
               {/* Um alvo caro não cabe no passe rápido, mas pode caber no
                   preciso. Chamá-lo de inalcançável antes da hora seria dar um
                   veredito que a simulação longa ainda pode desmentir. */}
               <div
                 className={
-                  'mt-1 text-3xl font-semibold ' + (afinando ? 'text-suave' : 'text-perigo')
+                  'mt-1 text-4xl font-semibold sm:text-5xl ' +
+                  (afinando ? 'text-suave' : 'text-perigo')
                 }
               >
                 {afinando ? 'calculando…' : 'fora de alcance'}
               </div>
-              <div className="mt-1 text-xs text-suave">
+              <div className="mt-1 text-sm text-suave">
                 Este alvo pede ~{Math.round(plano.tentativasEsperadas).toLocaleString('pt-BR')}{' '}
                 tentativas de refino
                 {afinando
                   ? '. A simulação longa está tentando; pode ser que nem ela alcance.'
                   : '. Não há margem que faça sentido calcular.'}
               </div>
-            </div>
+            </>
           )}
-          <div>
-            <div className="text-xs tracking-wide text-suave uppercase">Custo médio</div>
-            <div className="mt-1 text-3xl font-semibold tabular-nums" title={zenyExato(plano.custoEsperado)}>
-              {zeny(plano.custoEsperado)}
-            </div>
-            <div className="mt-1 text-xs text-suave">
-              A média é puxada pelos azarados. Planejar por ela dá errado em quase metade das vezes.
-            </div>
-          </div>
-
-          <Copias plano={plano} margem={margem} />
         </div>
 
-        {sim && <Distribuicao custo={sim.custo} media={plano.custoEsperado} margem={margem} />}
-      </Painel>
+        {sim && (
+          <Distribuicao
+            custo={sim.custo}
+            media={plano.custoEsperado}
+            margem={margem}
+            onMargem={onMargem}
+          />
+        )}
 
-      <Painel titulo="Minérios e materiais">
-        <Materiais plano={plano} margem={margem} />
+        <div className="mt-5 grid gap-4 border-t border-borda pt-4 sm:grid-cols-3">
+          <Copias plano={plano} margem={margem} />
+          <Secundario
+            rotulo="Custo médio"
+            valor={zeny(plano.custoEsperado)}
+            titulo={zenyExato(plano.custoEsperado)}
+            nota="A média é puxada pelos azarados. Planejar por ela dá errado em quase metade das vezes."
+          />
+          <Secundario
+            rotulo="Valor do item pronto"
+            valor={zeny(plano.valorJusto)}
+            titulo={zenyExato(plano.valorJusto)}
+            nota={`Preço no +0 (${zeny(plano.input.precoItem)}) mais o custo médio do caminho. Se alguém vender o item já refinado por menos que isso, comprar pronto sai mais barato — e sem o risco.`}
+          />
+        </div>
+
+        {precisao && <div className="mt-4 text-right">{precisao}</div>}
       </Painel>
 
       {Object.keys(plano.recursos.itens).length > 0 && (
@@ -132,29 +181,76 @@ export function Resultado({
         )}
       </Painel>
 
-      {plano.avisos.length > 0 && (
-        <Painel titulo="Avisos">
+      {/* Consumo por minério é conferência, não decisão: quem vai ao jogo leva a
+          lista de compras. Fica recolhido para não competir com ela — e para os
+          dois totais divergentes não aparecerem lado a lado sem necessidade. */}
+      <PainelRecolhivel
+        titulo="Minérios e materiais"
+        resumo={
+          <>
+            O consumo material por material, antes de a lista de compras desmontar em receita de
+            NPC o que compensa fabricar. Média de{' '}
+            {Math.round(plano.recursos.tentativas).toLocaleString('pt-BR')} tentativas de refino.
+          </>
+        }
+      >
+        <Materiais plano={plano} margem={margem} />
+      </PainelRecolhivel>
+
+      {informativos.length > 0 && (
+        <Painel titulo="Notas sobre este plano">
           <ul className="space-y-2">
-            {plano.avisos.map((a, i) => (
+            {informativos.map((a, i) => (
               <AvisoLinha key={i} aviso={a} />
             ))}
           </ul>
         </Painel>
       )}
+    </div>
+  );
+}
 
-      <Painel titulo="Valor do item">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-2xl font-semibold text-realce tabular-nums" title={zenyExato(plano.valorJusto)}>
-            {zeny(plano.valorJusto)}
-          </span>
-          <span className="text-sm text-suave">preço justo do item pronto</span>
-        </div>
-        <p className="mt-2 text-sm leading-relaxed text-suave">
-          É o preço do item sem refino ({zeny(plano.input.precoItem)}) mais o custo médio de levá-lo até o
-          alvo ({zeny(plano.custoEsperado)}). Se alguém vender o item já pronto por menos que isso, comprar
-          pronto sai mais barato do que refinar — e sem o risco.
-        </p>
-      </Painel>
+/** O que está sendo calculado, em uma linha, antes de qualquer número. */
+function Trajetoria({ plano, itemNome }: { plano: ResultadoPlano; itemNome?: string | null }) {
+  const i = plano.input;
+  const mudaGrau = i.grauAlvo !== i.grauAtual;
+
+  return (
+    <p className="text-sm leading-relaxed text-suave">
+      <strong className="text-texto">{itemNome ?? rotuloCurto(i.kind)}</strong>
+      {itemNome ? ` (${rotuloCurto(i.kind)})` : ''}, do{' '}
+      <strong className="text-texto tabular-nums">+{i.refinoAtual}</strong> ao{' '}
+      <strong className="text-texto tabular-nums">+{i.refinoAlvo}</strong>
+      {mudaGrau && (
+        <>
+          , subindo de <strong className="text-texto">{ROTULO_GRAU[i.grauAtual].toLowerCase()}</strong>{' '}
+          para <strong className="text-texto">{ROTULO_GRAU[i.grauAlvo]}</strong>
+        </>
+      )}
+      .
+    </p>
+  );
+}
+
+/** Número de apoio: menor que o orçamento, com a ressalva junto. */
+function Secundario({
+  rotulo,
+  valor,
+  titulo,
+  nota,
+}: {
+  rotulo: string;
+  valor: string;
+  titulo?: string;
+  nota: string;
+}) {
+  return (
+    <div>
+      <div className="text-xs tracking-wide text-suave uppercase">{rotulo}</div>
+      <div className="mt-1 text-xl font-semibold tabular-nums" title={titulo}>
+        {valor}
+      </div>
+      <div className="mt-1 text-xs leading-snug text-suave">{nota}</div>
     </div>
   );
 }
@@ -178,10 +274,10 @@ function Copias({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey })
   return (
     <div>
       <div className="text-xs tracking-wide text-suave uppercase">Cópias do item</div>
-      <div className="mt-1 text-3xl font-semibold tabular-nums">
+      <div className="mt-1 text-xl font-semibold tabular-nums">
         {naMargem === null ? quantidade(plano.copiasItem) : quantidade(naMargem)}
       </div>
-      <div className="mt-1 text-xs text-suave">
+      <div className="mt-1 text-xs leading-snug text-suave">
         {reposicoes <= 0 ? (
           <>Nessa margem o item não quebra: a sua, no +{inicial}, basta.</>
         ) : (
@@ -197,8 +293,24 @@ function Copias({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey })
   );
 }
 
-/** Barra que mostra onde a margem escolhida cai dentro da distribuição. */
-function Distribuicao({ custo, media, margem }: { custo: Percentis; media: number; margem: MargemKey }) {
+/**
+ * Barra que mostra onde a margem escolhida cai dentro da distribuição.
+ *
+ * A legenda dos cinco percentis é clicável: ela já mostra o valor de cada
+ * margem, então é o lugar em que comparar e escolher são o mesmo gesto — em vez
+ * de escolher às cegas num campo e só depois ver no que deu.
+ */
+function Distribuicao({
+  custo,
+  media,
+  margem,
+  onMargem,
+}: {
+  custo: Percentis;
+  media: number;
+  margem: MargemKey;
+  onMargem: (m: MargemKey) => void;
+}) {
   const max = custo.p99 || 1;
   const pos = (v: number) => Math.min(100, (v / max) * 100);
 
@@ -206,7 +318,7 @@ function Distribuicao({ custo, media, margem }: { custo: Percentis; media: numbe
     <div className="mt-5">
       <div className="relative h-2 rounded-full bg-fundo">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-realce/30"
+          className="absolute inset-y-0 left-0 rounded-full bg-realce/30 transition-[width]"
           style={{ width: `${pos(custo[margem])}%` }}
         />
         <div
@@ -215,16 +327,25 @@ function Distribuicao({ custo, media, margem }: { custo: Percentis; media: numbe
           title={`Média: ${zenyExato(media)}`}
         />
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-1 text-xs sm:grid-cols-5">
         {MARGENS.map((m) => (
-          <div key={m.key} className={m.key === margem ? 'text-realce' : 'text-suave'}>
-            <dt className="tracking-wide uppercase">{m.rotulo}</dt>
-            <dd className="tabular-nums" title={zenyExato(custo[m.key])}>
-              {zeny(custo[m.key])}
-            </dd>
-          </div>
+          <button
+            key={m.key}
+            type="button"
+            onClick={() => onMargem(m.key)}
+            title={`${m.explica} — ${zenyExato(custo[m.key])}`}
+            className={
+              'rounded-md px-2 py-1 text-left transition-colors ' +
+              (m.key === margem
+                ? 'bg-realce/10 text-realce'
+                : 'text-suave hover:bg-fundo hover:text-texto')
+            }
+          >
+            <span className="block tracking-wide uppercase">{m.rotulo}</span>
+            <span className="block tabular-nums">{zeny(custo[m.key])}</span>
+          </button>
         ))}
-      </dl>
+      </div>
     </div>
   );
 }
@@ -314,7 +435,6 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
             )}
           </>
         ) : null}
-        Média de {Math.round(plano.recursos.tentativas).toLocaleString('pt-BR')} tentativas de refino.
       </p>
     </>
   );

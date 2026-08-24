@@ -46,11 +46,37 @@ describe('página', () => {
     // O que levar para o jogo: quantidades da margem e cópias do equipamento.
     expect(html).toContain('Lista de compras');
     expect(html).toContain('Cópias do item');
-    expect(html).toContain('Ter em mãos');
     expect(html).toContain('Valor do item');
     // O padrão é Arma nv4 +0 → +10, que passa por minérios e Bênção.
     expect(html).toContain('Oridecon');
     expect(html).toContain('browiki.org');
+  });
+
+  it('põe o que muda a decisão antes do que só a explica', () => {
+    // A ordem da coluna de resultado é a ordem das perguntas: o que pode dar
+    // errado, quanto custa, o que comprar. Um aviso de perigo lido depois do
+    // orçamento chega tarde — ele existe justamente para desmentir o número.
+    const html = renderToString(<App />);
+
+    const aviso = html.indexOf('Risco de quebra do item');
+    const orcamento = html.indexOf('Orçamento recomendado');
+    const compras = html.indexOf('Lista de compras');
+    const materiais = html.indexOf('Minérios e materiais');
+
+    expect(aviso).toBeGreaterThan(-1);
+    expect(aviso).toBeLessThan(orcamento);
+    expect(orcamento).toBeLessThan(compras);
+    // Consumo por minério é conferência: fica recolhido, atrás do resumo.
+    expect(compras).toBeLessThan(materiais);
+    expect(html).not.toContain('Ter em mãos');
+    expect(html).toContain('ver detalhe');
+  });
+
+  it('deixa a margem de segurança ao lado do número que ela muda', () => {
+    // Antes ela era um <select> no fim do formulário, do outro lado da tela.
+    const html = renderToString(<App />);
+    expect(html).toContain('aria-label="Margem de segurança"');
+    expect(html).toContain('aria-checked="true"');
   });
 
   it('credita todas as fontes, cada uma dizendo o que fornece', () => {
