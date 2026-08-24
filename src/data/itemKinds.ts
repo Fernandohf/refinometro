@@ -21,6 +21,14 @@ export interface DivinePrideItem {
   /** "Nível da armadura: N", quando existe. Ausente significa nível 1. */
   nivelArmadura: number | null;
   slots: number;
+  /**
+   * A descrição declara, com todas as letras, que o item não pode ser refinado.
+   *
+   * Vale mais que qualquer regra nossa: é o texto do próprio jogo. Aparece em
+   * itens de aluguel e em alguns de evento, que por tipo e subtipo passariam por
+   * equipamento comum e ganhariam um orçamento de refino que não existe.
+   */
+  negaRefino?: boolean;
 }
 
 export type MotivoNaoRefinavel =
@@ -29,9 +37,11 @@ export type MotivoNaoRefinavel =
   | 'cabeca-meio-baixo'
   | 'nao-equipamento'
   | 'nivel-desconhecido'
-  | 'posicao-desconhecida';
+  | 'posicao-desconhecida'
+  | 'ficha-nega';
 
 export const EXPLICACAO: Record<MotivoNaoRefinavel, string> = {
+  'ficha-nega': 'A descrição do item diz que ele não pode ser refinado — costuma ser o caso de itens de aluguel e de evento.',
   visual: 'Itens visuais (Costume) não são refináveis.',
   acessorio: 'Acessórios comuns não são refináveis — só os acessórios sombrios.',
   'cabeca-meio-baixo':
@@ -59,6 +69,11 @@ const contem = (s: string, termo: string) => s.toLowerCase().includes(termo.toLo
  */
 export function classificar(item: DivinePrideItem): Classificacao {
   const { tipo, subtipo } = item;
+
+  // A descrição do jogo vem antes de qualquer regra nossa. Um equipamento de
+  // aluguel é Armor/Armor com tudo no lugar, e sem esta linha ganharia um plano
+  // de refino completo para algo que o jogo não deixa refinar de jeito nenhum.
+  if (item.negaRefino) return { refinavel: false, motivo: 'ficha-nega' };
 
   // Visuais: não refinam, e vêm antes de tudo porque um "Costume Headgear"
   // também casaria com as regras de equipamento de cabeça.
@@ -105,6 +120,41 @@ export function classificar(item: DivinePrideItem): Classificacao {
     // ficha declara nível 2 (o conteúdo de Éter, que é o que tem Grau).
     return { refinavel: true, kind: item.nivelArmadura === 2 ? 'a2' : 'a1' };
   }
+
+  return { refinavel: false, motivo: 'nao-equipamento' };
+}
+
+/**
+ * Classifica com o pouco que a LISTAGEM do Divine Pride traz — tipo e subtipo.
+ *
+ * Devolve `null` quando não dá para decidir sem abrir a ficha, e é esse `null`
+ * que faz a varredura da base valer a pena: os sombrios (mil e poucos itens) se
+ * resolvem aqui e economizam uma requisição cada.
+ *
+ * O cuidado está em não confundir "a ficha não disse" com "a ficha disse que
+ * não". Chamar `classificar` direto com os campos vazios devolveria `a1` para
+ * toda armadura, escondendo os de nível 2 — os de Éter, justamente os que têm
+ * Grau. Por isso arma e armadura saem daqui como indecididas, sempre.
+ */
+export function classificarPelaListagem(
+  item: Pick<DivinePrideItem, 'tipo' | 'subtipo'>,
+): Classificacao | null {
+  const { tipo, subtipo } = item;
+
+  if (contem(tipo, 'costume') || contem(subtipo, 'costume')) {
+    return { refinavel: false, motivo: 'visual' };
+  }
+  // Sombrio: a categoria já é a resposta, e arma/armadura se separam pelo
+  // subtipo. Nível e posição não entram na conta.
+  if (contem(tipo, 'shadow') || contem(subtipo, 'shadow')) {
+    const arma = contem(tipo, 'weapon') || contem(subtipo, 'weapon');
+    return { refinavel: true, kind: arma ? 'shadowW' : 'shadowA' };
+  }
+  if (contem(tipo, 'armor') && contem(subtipo, 'accessory')) {
+    return { refinavel: false, motivo: 'acessorio' };
+  }
+  // Arma precisa do nível; armadura, do nível do equipamento; chapéu, da posição.
+  if (contem(tipo, 'weapon') || contem(tipo, 'armor')) return null;
 
   return { refinavel: false, motivo: 'nao-equipamento' };
 }

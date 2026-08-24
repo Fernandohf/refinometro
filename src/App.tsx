@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
 import { GRADE_ORDER, type Grade } from './data/grade';
@@ -12,6 +12,7 @@ import type { Estoque } from './engine/estoque';
 import { MARGENS, Resultado, type MargemKey } from './components/Resultado';
 import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
+import { META } from './data/items';
 import { Campo, NumeroZeny, Painel, Select, Toggle } from './components/ui';
 import { zeny } from './format';
 
@@ -38,6 +39,8 @@ const ROTULO_GRAU: Record<Grade, string> = {
 interface Estado {
   /** Nome do item escolhido na busca, só para exibição. */
   itemNome: string | null;
+  /** ID no Divine Pride do item escolhido, para poder linkar a ficha de origem. */
+  itemId: number | null;
   kind: ItemKind;
   precoItem: number;
   refinoAtual: number;
@@ -54,6 +57,7 @@ interface Estado {
 
 const INICIAL: Estado = {
   itemNome: null,
+  itemId: null,
   kind: 'w4',
   precoItem: 30_000_000,
   refinoAtual: 0,
@@ -184,12 +188,18 @@ export default function App() {
             <div className="space-y-4">
               <BuscaItem
                 selecionado={e.itemNome}
+                idSelecionado={e.itemId}
                 onSelecionar={(item) =>
                   // A busca só chama isto para itens refináveis, mas o tipo é
                   // opcional na base: sem o guarda, um item não refinável zeraria
                   // a categoria escolhida.
                   item.kind &&
-                  setE((a) => ({ ...a, kind: item.kind!, itemNome: item.nome }))
+                  setE((a) => ({
+                    ...a,
+                    kind: item.kind!,
+                    itemNome: item.nome,
+                    itemId: item.id,
+                  }))
                 }
               />
 
@@ -477,32 +487,101 @@ function Precos({
   );
 }
 
+/** Uma fonte da tabela de créditos: o que ela fornece e de onde. */
+function Fonte({
+  o_que,
+  href,
+  nome,
+  children,
+}: {
+  o_que: string;
+  /** Ausente quando a fonte não é um site — o próprio usuário, por exemplo. */
+  href?: string;
+  nome: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="grid gap-x-3 gap-y-0.5 sm:grid-cols-[10rem_minmax(0,1fr)]">
+      <dt className="font-semibold text-texto">{o_que}</dt>
+      <dd>
+        {href ? (
+          <a
+            className="text-realce hover:underline"
+            href={href}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            {nome}
+          </a>
+        ) : (
+          <strong className="text-texto">{nome}</strong>
+        )}
+        {children}
+      </dd>
+    </div>
+  );
+}
+
 function Rodape() {
   return (
-    <footer className="mt-6 space-y-3 rounded-xl border border-borda bg-painel/40 p-4 text-xs leading-relaxed text-suave">
-      <p>
-        Chances, minérios, penalidades e custos vêm do{' '}
-        <a className="text-realce hover:underline" href="https://browiki.org/wiki/Refinamento">
-          Browiki — Refinamento
-        </a>{' '}
-        e{' '}
-        <a className="text-realce hover:underline" href="https://browiki.org/wiki/Grau">
-          Browiki — Grau
-        </a>
-        . A taxa que o refinador cobra por tentativa vem do{' '}
-        <a className="text-realce hover:underline" href="https://irowiki.org/wiki/Refinement_System">
-          iROwiki
-        </a>
-        , única fonte que a publica, e ainda não foi conferida in-game.
-      </p>
+    <footer className="mt-6 space-y-4 rounded-xl border border-borda bg-painel/40 p-4 text-xs leading-relaxed text-suave">
+      <section>
+        <h2 className="mb-2 text-xs font-semibold tracking-wide text-texto uppercase">
+          De onde vêm os números
+        </h2>
+        <dl className="space-y-2">
+          <Fonte
+            o_que="Chances e minérios"
+            href="https://browiki.org/wiki/Refinamento"
+            nome="Browiki — Refinamento"
+          >
+            {' '}
+            e{' '}
+            <a className="text-realce hover:underline" href="https://browiki.org/wiki/Grau">
+              Browiki — Grau
+            </a>
+            . Daí saem as chances de cada nível, os minérios, as penalidades de falha e o que o NPC
+            cobra pelos materiais.
+          </Fonte>
+
+          <Fonte
+            o_que="Taxa do refinador"
+            href="https://irowiki.org/wiki/Refinement_System"
+            nome="iROwiki"
+          >
+            {' '}
+            — única fonte que publica a taxa por tentativa. Ainda não foi conferida in-game.
+          </Fonte>
+
+          <Fonte
+            o_que="Itens da busca"
+            href={META.fonte}
+            nome={`Divine Pride — servidor ${META.servidor}`}
+          >
+            {' '}
+            — nome, cartas e categoria de refino de{' '}
+            <strong className="text-texto">{META.total.toLocaleString('pt-BR')}</strong> itens,
+            varridos das páginas públicas em {META.geradoEm.split('-').reverse().join('/')}. A
+            calculadora usa a ficha só para saber a categoria; o que ela afirma sobre um item pode
+            ser conferido clicando no link da ficha.
+          </Fonte>
+
+          <Fonte o_que="Preços de mercado" nome="Você">
+            {' '}
+            — nada de cotação vem de fora. Os valores padrão são um chute inicial, e o resultado só
+            vale o que valerem os preços que você colocar.
+          </Fonte>
+        </dl>
+      </section>
+
       <p>
         <strong className="text-texto">O que a calculadora não considera:</strong> cartas nos itens.
         Também não considera encantamentos, bônus aleatórios, nem Pergaminhos, Cubos e Martelos de
         Refino — que pulam direto para um refino fixo em vez de tentar.
       </p>
       <p>
-        Os preços de mercado são informados por você. As chances são as do Browiki; se o seu servidor
-        rodar valores diferentes, o resultado sai diferente.
+        Projeto de fã, sem vínculo com a Gravity, a Level Up! Games ou o Divine Pride. As chances são
+        as do Browiki; se o seu servidor rodar valores diferentes, o resultado sai diferente.
       </p>
     </footer>
   );

@@ -52,4 +52,21 @@ describe('página', () => {
     expect(html).toContain('Oridecon');
     expect(html).toContain('browiki.org');
   });
+
+  it('credita todas as fontes, cada uma dizendo o que fornece', () => {
+    // Nenhum número da tela é do projeto: chances são do Browiki, a taxa do
+    // refinador do iROwiki, os itens do Divine Pride e os preços do usuário.
+    // Se uma fonte sumir do rodapé, a página passa a se apresentar como autora.
+    const html = renderToString(<App />);
+
+    expect(html).toContain('De onde vêm os números');
+    expect(html).toContain('browiki.org/wiki/Refinamento');
+    expect(html).toContain('browiki.org/wiki/Grau');
+    expect(html).toContain('irowiki.org');
+    expect(html).toContain('divine-pride.net');
+    // A base é datada e contada na própria página, para não envelhecer calada.
+    expect(html).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    // E a calculadora não se confunde com o jogo nem com a fonte dos dados.
+    expect(html).toContain('sem vínculo com a Gravity');
+  });
 });

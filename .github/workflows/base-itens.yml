@@ -1,0 +1,79 @@
+name: Atualizar a base de itens
+
+# Revarre o Divine Pride e comita src/data/items.json quando algo mudou.
+#
+# Se nada mudou, não há commit e nada sobe.
+#
+# O deploy é chamado à mão no fim, e isso é obrigatório: push feito com o
+# GITHUB_TOKEN não dispara outros workflows (o GitHub corta aí para evitar
+# recursão), então o `on: push` do deploy.yml ficaria mudo. `workflow_dispatch` é
+# justamente a exceção dessa regra, e por isso funciona.
+on:
+  schedule:
+    # Segunda de manhã (06:00 UTC). Item novo no LATAM entra na busca em no
+    # máximo uma semana; o incremental faz a execução custar poucos minutos.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      forcar:
+        description: 'Reconferir a ficha de TODOS os itens (~20 min a mais)'
+        type: boolean
+        default: false
+
+# Nunca duas varreduras ao mesmo tempo: as duas gravariam o mesmo arquivo, e a
+# segunda a comitar apagaria o que a primeira achou.
+concurrency:
+  group: base-itens
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  # Para chamar o deploy.yml depois de comitar.
+  actions: write
+
+jobs:
+  varrer:
+    runs-on: ubuntu-latest
+    # A varredura completa leva ~20 min; a incremental, poucos. A folga é para
+    # o dia em que o Divine Pride estiver lento e as tentativas se acumularem.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Varrer o Divine Pride
+        run: npm run data:items -- ${{ inputs.forcar && '--forcar' || '' }}
+
+      # A base é entrada do cálculo: item classificado errado dá orçamento errado.
+      # Os testes conferem as invariantes do arquivo (toda linha com categoria ou
+      # motivo, metadados batendo com a contagem) antes de qualquer commit.
+      - run: npm test
+
+      - name: Comitar se mudou
+        id: commit
+        run: |
+          if git diff --quiet -- src/data/items.json src/data/itemsMeta.json; then
+            echo "Base sem mudanças — nada a comitar."
+            exit 0
+          fi
+
+          resumo=$(git diff --numstat -- src/data/items.json | awk '{print $1" linha(s) a mais, "$2" a menos"}')
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/data/items.json src/data/itemsMeta.json
+          git commit -m "Base de itens: varredura de $(date -u +%F)" -m "$resumo"
+          git push
+          echo "mudou=sim" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar a base nova
+        if: steps.commit.outputs.mudou == 'sim'
+        run: gh workflow run deploy.yml --ref "${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -11,7 +11,7 @@
     "test": "vitest run",
     "data:fetch": "node scripts/fetch-browiki.mjs",
     "data:parse": "node scripts/parse-browiki.mjs",
-    "data:items": "node scripts/fetch-divinepride.mjs",
+    "data:items": "vite-node scripts/atualizar-base.ts --",
     "test:watch": "vitest",
     "perf": "vite-node scripts/perf.ts",
     "demo": "vite-node scripts/demo.ts",

@@ -1,6 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { buscarItens, ITENS, motivoLegivel, TEM_BASE_DE_ITENS, type ItemDb } from '../data/items';
+import {
+  carregarBase,
+  fichaNoDivinePride,
+  META,
+  motivoLegivel,
+  type BaseItens,
+  type ItemDb,
+} from '../data/items';
 import { Campo } from './ui';
 
 const ROTULO_KIND: Record<string, string> = {
@@ -15,40 +22,60 @@ const ROTULO_KIND: Record<string, string> = {
   shadowA: 'Equip. Sombrio',
 };
 
+const dataBR = (iso: string) => iso.split('-').reverse().join('/');
+
 /**
- * Busca o item na base montada a partir do Divine Pride, só para descobrir a
- * categoria dele — que é a única coisa que o cálculo precisa saber sobre o
- * equipamento. O preço continua sendo informado à mão, porque o Divine Pride não
- * guarda cotação.
+ * Busca o item na base varrida do Divine Pride, só para descobrir a categoria
+ * dele — que é a única coisa que o cálculo precisa saber sobre o equipamento. O
+ * preço continua sendo informado à mão, porque o Divine Pride não guarda cotação.
+ *
+ * A base tem milhares de itens e só é baixada quando alguém mexe na busca; até
+ * lá o campo aceita digitação e mostra que está carregando. Quem só quer fazer
+ * uma conta escolhendo a categoria na mão nunca paga esse download.
  */
 export function BuscaItem({
   selecionado,
+  idSelecionado,
   onSelecionar,
 }: {
   selecionado: string | null;
+  idSelecionado: number | null;
   onSelecionar: (item: ItemDb) => void;
 }) {
   const [termo, setTermo] = useState('');
   const [focado, setFocado] = useState(false);
   const [recusado, setRecusado] = useState<ItemDb | null>(null);
+  const [base, setBase] = useState<BaseItens | null>(null);
+  const [querBase, setQuerBase] = useState(false);
+  const [erro, setErro] = useState(false);
 
-  const resultados = useMemo(() => buscarItens(termo), [termo]);
-  const mostrarLista = focado && resultados.length > 0;
-
-  if (!TEM_BASE_DE_ITENS) {
-    return (
-      <div className="rounded-lg border border-borda bg-fundo/40 p-3 text-xs leading-relaxed text-suave">
-        <p>A base de itens ainda está vazia, então escolha a categoria à mão.</p>
-        <code className="mt-1.5 block break-all text-realce">npm run item -- 1867</code>
-      </div>
+  useEffect(() => {
+    if (!querBase) return;
+    let vivo = true;
+    carregarBase().then(
+      (b) => vivo && setBase(b),
+      () => vivo && setErro(true),
     );
-  }
+    return () => {
+      vivo = false;
+    };
+  }, [querBase]);
+
+  const resultados = useMemo(() => base?.buscar(termo) ?? [], [base, termo]);
+  const mostrarLista = focado && resultados.length > 0;
+  const carregando = querBase && !base && !erro;
 
   return (
     <div>
       <Campo
         label="Buscar item"
-        dica={selecionado ? `Selecionado: ${selecionado}` : `${ITENS.length} itens na base.`}
+        dica={
+          selecionado
+            ? `Selecionado: ${selecionado}`
+            : erro
+              ? 'Não deu para carregar a base — escolha a categoria abaixo.'
+              : `${META.total.toLocaleString('pt-BR')} itens do Divine Pride (${META.servidor}), varridos em ${dataBR(META.geradoEm)}.`
+        }
       >
         <div className="relative">
           <input
@@ -56,8 +83,14 @@ export function BuscaItem({
             className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-texto outline-none focus:border-realce focus:ring-1 focus:ring-realce"
             placeholder="Ex.: Luva de Segurança"
             value={termo}
-            onChange={(ev) => setTermo(ev.target.value)}
-            onFocus={() => setFocado(true)}
+            onChange={(ev) => {
+              setQuerBase(true);
+              setTermo(ev.target.value);
+            }}
+            onFocus={() => {
+              setQuerBase(true);
+              setFocado(true);
+            }}
             // O blur é adiado para o clique no resultado chegar antes da lista sumir.
             onBlur={() => setTimeout(() => setFocado(false), 150)}
           />
@@ -94,8 +127,31 @@ export function BuscaItem({
               ))}
             </ul>
           )}
+
+          {focado && !mostrarLista && termo.trim().length >= 2 && (
+            <p className="absolute z-10 mt-1 w-full rounded-lg border border-borda bg-painel px-3 py-2 text-xs text-suave shadow-lg">
+              {carregando
+                ? 'Carregando a base do Divine Pride…'
+                : 'Nenhum item com esse nome. A base cobre armas, equipamentos e sombrios do LATAM — acessórios comuns e visuais ficam de fora porque não refinam.'}
+            </p>
+          )}
         </div>
       </Campo>
+
+      {idSelecionado !== null && (
+        <p className="mt-2 text-xs text-suave">
+          Categoria e slots vindos da ficha no{' '}
+          <a
+            className="text-realce hover:underline"
+            href={fichaNoDivinePride(idSelecionado)}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Divine Pride
+          </a>{' '}
+          (#{idSelecionado}). Confira se bate com o item no jogo.
+        </p>
+      )}
 
       {recusado?.naoRefinavel && (
         <p className="mt-2 rounded-lg border border-atencao/40 bg-atencao/10 p-2.5 text-xs leading-relaxed text-atencao">

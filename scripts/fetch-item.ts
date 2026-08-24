@@ -5,9 +5,13 @@
 //
 // Para achar o ID a partir do nome, use `npm run buscar -- "nome do item"`.
 //
-// Por que não a API: a API oficial exige chave. A página pública não exige nada
-// e já traz o nome em português do servidor LATAM. Em compensação ela pesa ~400 KB,
-// então a base cresce sob demanda, com os itens que alguém realmente quis calcular.
+// Por que não a API: a API oficial exige chave e não tem endpoint de listagem.
+// A página pública não exige nada e já traz o nome em português do servidor LATAM.
+//
+// Para popular a base não é aqui: `npm run data:items` varre as três categorias
+// inteiras. Este script existe para o caso pontual — um item recém-lançado que a
+// varredura semanal ainda não pegou, ou um que voltou sem nome em português e só
+// pode ser cadastrado pelo ID.
 
 import { classificar } from '../src/data/itemKinds';
 import { lerBase, pegarFicha, salvarBase, sleep, type ItemSalvo } from './divinepride';

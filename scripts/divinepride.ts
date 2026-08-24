@@ -1,8 +1,13 @@
-// Acesso às páginas públicas do Divine Pride: busca e ficha de item.
+// Acesso às páginas públicas do Divine Pride: busca, varredura e ficha de item.
 //
-// Usado por `scripts/buscar.ts` e `scripts/fetch-item.ts`. Nada daqui roda no
-// navegador — o site não manda CORS, então a base de itens é montada por CLI e
-// versionada no repositório.
+// Usado por `scripts/atualizar-base.ts` (a varredura que gera a base),
+// `scripts/buscar.ts` e `scripts/fetch-item.ts`.
+//
+// Nada daqui roda no navegador, e não é por escolha: o site não manda
+// `Access-Control-Allow-Origin` em página nenhuma, nem na API oficial, e a busca
+// depende de um cookie de idioma que proxy genérico não repassa. Por isso a base
+// é varrida por CLI e versionada — o README detalha as medições em "Por que a
+// base é varrida, e não consultada ao vivo".
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
@@ -12,6 +17,9 @@ import type { DivinePrideItem } from '../src/data/itemKinds';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const ITEMS_JSON = resolve(ROOT, 'src/data/items.json');
+/** Data e tamanho da base, separados para a interface poder creditar a fonte
+ *  sem baixar os milhares de itens junto. */
+export const ITEMS_META_JSON = resolve(ROOT, 'src/data/itemsMeta.json');
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -34,13 +42,34 @@ const BASE = 'https://www.divine-pride.net';
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function baixar(url: string): Promise<string | null> {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, Cookie: COOKIES } });
-  if (!res.ok) {
-    console.error(`  HTTP ${res.status} em ${url}`);
-    return null;
+/**
+ * Baixa uma página, insistindo quando a falha parece passageira.
+ *
+ * A varredura completa são milhares de requisições contra um site atrás de
+ * Cloudflare: 429 e 5xx acontecem, e desistir na primeira faz a base perder
+ * itens em silêncio. 404 e 403 não são tentados de novo — não vão melhorar.
+ */
+async function baixar(url: string, tentativas = 3): Promise<string | null> {
+  for (let tentativa = 1; ; tentativa++) {
+    let status: number;
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': UA, Cookie: COOKIES } });
+      if (res.ok) return res.text();
+      status = res.status;
+      if (status < 429) {
+        console.error(`  HTTP ${status} em ${url}`);
+        return null;
+      }
+    } catch (erro) {
+      status = 0;
+      if (tentativa >= tentativas) console.error(`  rede: ${(erro as Error).message} em ${url}`);
+    }
+    if (tentativa >= tentativas) {
+      console.error(`  desisti de ${url} após ${tentativas} tentativas (último: ${status || 'rede'})`);
+      return null;
+    }
+    await sleep(1000 * 2 ** (tentativa - 1));
   }
-  return res.text();
 }
 
 export function textoDe(html: string): string {
@@ -66,6 +95,33 @@ export interface Resultado {
   nome: string;
   tipo: string;
   subtipo: string;
+  /** Cartas, lido do sufixo "[N]" do nome. */
+  slots: number;
+}
+
+/**
+ * Separa o nome da célula em nome limpo e número de slots.
+ *
+ * A célula traz as cartas grudadas no fim ("Livro nv1 [4]") e às vezes um
+ * prefixo entre colchetes que NÃO é slot ("[Aluguel] Machado TE"), então só o
+ * colchete final conta. Devolve `null` quando não sobra nome nenhum.
+ */
+export function lerNome(celula: string): { nome: string; slots: number } | null {
+  const bruto = textoDe(celula);
+  const m = bruto.match(/^(.*?)\s*\[(\d)\]$/);
+  const nome = (m?.[1] ?? bruto).trim();
+  const slots = Number(m?.[2] ?? 0);
+
+  // Item sem tradução sai com a célula vazia — ou contendo só o marcador de
+  // slots, que sozinho não é nome nenhum. São itens que não chegaram ao LATAM.
+  if (!nome) return null;
+
+  // O cartão em português de alguns itens vem preenchido com o nome coreano ou
+  // japonês original. Passa pelo teste de "tem nome", mas ninguém vai procurar
+  // por ele na interface, e ter Hangul na lista só suja a busca.
+  if (/[぀-ヿ㐀-䶿一-鿿가-힯]/.test(nome)) return null;
+
+  return { nome, slots };
 }
 
 /**
@@ -131,20 +187,19 @@ export function parsearBusca(html: string, url = '<html>'): Pagina {
 
   for (const m of html.matchAll(re)) {
     vistas++;
-    // Item sem tradução sai com a célula de nome vazia — ou contendo só o
-    // marcador de slots, "[1]", que sozinho não é nome nenhum. São itens que não
-    // chegaram ao LATAM; sem nome não há como reconhecê-los nem procurá-los na
-    // interface, então ficam de fora.
-    const nome = textoDe(m[2]!);
-    if (/^(\[\d\])?$/.test(nome)) {
+    // Sem nome aproveitável não há como reconhecer nem procurar o item na
+    // interface, então ele fica de fora — ver `lerNome`.
+    const lido = lerNome(m[2]!);
+    if (!lido) {
       semNome++;
       continue;
     }
     linhas.push({
       id: Number(m[1]),
-      nome,
+      nome: lido.nome,
       tipo: textoDe(m[3]!),
       subtipo: textoDe(m[4]!),
+      slots: lido.slots,
     });
   }
 
@@ -190,6 +245,39 @@ export async function buscar(
   return { linhas, total, semNome, vistos };
 }
 
+/**
+ * Percorre a categoria inteira, página a página.
+ *
+ * É `buscar` sem termo e sem teto de páginas — o que monta a base. Vai em série
+ * de propósito: são ~360 páginas somando as três categorias, e paralelizar a
+ * parte barata só adiantaria segundos ao custo de bater mais forte no site.
+ */
+export async function varrer(
+  categoria: Categoria,
+  aoAvancar?: (pagina: number, paginas: number, achadas: number) => void,
+  pausaMs = 250,
+): Promise<{ linhas: Resultado[]; total: number; semNome: number }> {
+  const linhas: Resultado[] = [];
+  let total = 0;
+  let semNome = 0;
+  let paginas = 1;
+
+  for (let pagina = 1; pagina <= paginas; pagina++) {
+    const html = await baixar(urlDaBusca(categoria, '', pagina));
+    if (html === null) break;
+
+    const p = parsearBusca(html, urlDaBusca(categoria, '', pagina));
+    total = p.total;
+    paginas = p.paginas;
+    semNome += p.semNome;
+    linhas.push(...p.linhas);
+    aoAvancar?.(pagina, paginas, linhas.length);
+    if (pagina < paginas) await sleep(pausaMs);
+  }
+
+  return { linhas, total, semNome };
+}
+
 // ---------------------------------------------------------------------- ficha
 
 export type Ficha = DivinePrideItem & { servidor: string };
@@ -200,13 +288,20 @@ export type Ficha = DivinePrideItem & { servidor: string };
  * O LATAM é o alvo do projeto. Os outros entram como reserva porque conteúdo
  * novo costuma chegar ao Divine Pride antes de chegar ao LATAM — melhor cadastrar
  * o item com nome em inglês do que não cadastrar.
+ *
+ * A comparação é feita SEM caixa de propósito. O site já escreveu estes rótulos
+ * como "LATAM - portuguese" e hoje escreve "LATAM - Portuguese"; casar exato
+ * fazia toda ficha voltar vazia, e o pior é que falhava em silêncio — a
+ * varredura seguia até o fim relatando "sem ficha utilizável" para 100% dos
+ * itens, como se o site é que estivesse fora do ar.
  */
 const SERVIDORES = [
-  'LATAM - portuguese',
-  'bRO - portuguese',
-  'dpRO - english',
-  'iRO - english',
-  'kROS - english',
+  'LATAM - Portuguese',
+  'bRO - Portuguese',
+  'LATAM - English',
+  'dpRO - English',
+  'iRO - English',
+  'kROS - English',
 ];
 
 /** Extrai a ficha do item da página. Devolve `null` se a página não servir. */
@@ -226,13 +321,18 @@ export function extrairFicha(id: number, html: string): Ficha | null {
   // A página traz um cartão de descrição por servidor. É dele que saem o nome
   // e as linhas de nível, então pegamos o primeiro servidor disponível na ordem
   // de preferência.
+  const minusculo = html.toLowerCase();
   let cartao = '';
   let servidor = '';
   let nome = '';
   for (const s of SERVIDORES) {
-    const i = html.indexOf(s);
+    const i = minusculo.indexOf(s.toLowerCase());
     if (i === -1) continue;
-    const bloco = html.slice(i, i + 4000);
+    // O bloco vai até o começo do próximo cartão. Cortar por número fixo de
+    // caracteres perdia o fim das descrições longas — e são justamente os itens
+    // de Éter, cheios de bônus por faixa de refino, que têm as descrições longas.
+    const fim = minusculo.indexOf('<div class="card"', i + 1);
+    const bloco = html.slice(i, fim === -1 ? undefined : fim);
     const n = textoDe(bloco.match(/<h3[^>]*>(.*?)<\/h3>/s)?.[1] ?? '');
     if (!n) continue;
     cartao = bloco;
@@ -270,10 +370,17 @@ export function extrairFicha(id: number, html: string): Ficha | null {
     return null;
   };
 
+  // A frase vem no cartão do idioma que estivermos lendo, e `textoDe` já
+  // decodificou as entidades ("N&#xE3;o" -> "Não") antes de chegar aqui.
+  const negaRefino = todas.some((l) =>
+    /n[ãa]o pode ser refinad|cannot be refined|no se puede refinar/i.test(l),
+  );
+
   return {
     id,
     servidor,
     nome,
+    negaRefino,
     tipo,
     subtipo: ficha.get('Sub Type') ?? '',
     // Posição do equipamento de cabeça: "Equipa em: Topo" (pt) ou
@@ -300,6 +407,40 @@ export async function pegarFicha(id: number): Promise<Ficha | null> {
   return html === null ? null : extrairFicha(id, html);
 }
 
+/**
+ * Baixa muitas fichas com concorrência e ritmo limitados.
+ *
+ * A ficha é o gargalo da base: ~20 KB comprimidos cada, e é a única fonte do
+ * nível da arma, do nível do equipamento e da posição na cabeça — sem ela não
+ * dá para dizer a categoria de refino. São milhares delas, então vale paralelizar
+ * um pouco; mas `pausaMs` por trabalhador segura o ritmo em algo que um site
+ * comunitário aguenta sem sentir. Devolve `null` na posição de quem falhou, para
+ * o chamador poder tentar de novo no dia seguinte em vez de gravar lixo.
+ */
+export async function pegarFichas(
+  ids: number[],
+  aoConcluir?: (feitos: number, total: number, ficha: Ficha | null, id: number) => void,
+  concorrencia = 4,
+  pausaMs = 250,
+): Promise<Map<number, Ficha | null>> {
+  const fichas = new Map<number, Ficha | null>();
+  let proximo = 0;
+  let feitos = 0;
+
+  const trabalhador = async () => {
+    while (proximo < ids.length) {
+      const id = ids[proximo++]!;
+      const ficha = await pegarFicha(id);
+      fichas.set(id, ficha);
+      aoConcluir?.(++feitos, ids.length, ficha, id);
+      if (proximo < ids.length) await sleep(pausaMs);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(concorrencia, ids.length) }, trabalhador));
+  return fichas;
+}
+
 // ------------------------------------------------------------ base de itens
 
 export interface ItemSalvo {
@@ -310,26 +451,77 @@ export interface ItemSalvo {
   naoRefinavel?: string;
 }
 
+/**
+ * Uma linha da base: `[id, nome, slots, classe]`.
+ *
+ * `classe` é a categoria de refino (`w4`, `a1`, `shadowA`…) ou, quando o item
+ * não refina, o motivo com `!` na frente (`!acessorio`). A tupla existe porque a
+ * base passou de 17 itens escolhidos a mão para milhares varridos do site: em
+ * objeto com chaves, os nomes dos campos repetidos sozinhos custariam mais que
+ * todos os nomes de item juntos, e este arquivo é baixado por quem abre a
+ * calculadora.
+ */
+export type LinhaSalva = [id: number, nome: string, slots: number, classe: string];
+
+const codificar = (i: ItemSalvo): LinhaSalva => [
+  i.id,
+  i.nome,
+  i.slots,
+  i.kind ?? `!${i.naoRefinavel}`,
+];
+
+export function decodificar([id, nome, slots, classe]: LinhaSalva): ItemSalvo {
+  return classe.startsWith('!')
+    ? { id, nome, slots, naoRefinavel: classe.slice(1) }
+    : { id, nome, slots, kind: classe };
+}
+
 export async function lerBase(): Promise<Map<number, ItemSalvo>> {
-  const base = JSON.parse(await readFile(ITEMS_JSON, 'utf8')) as { itens: ItemSalvo[] };
-  return new Map(base.itens.map((i) => [i.id, i]));
+  const base = JSON.parse(await readFile(ITEMS_JSON, 'utf8')) as { itens: LinhaSalva[] };
+  return new Map(base.itens.map((l) => [l[0], decodificar(l)]));
 }
 
 export async function salvarBase(porId: Map<number, ItemSalvo>): Promise<number> {
-  const itens = [...porId.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const itens = [...porId.values()]
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    .map(codificar);
+
+  const geradoEm = new Date().toISOString().slice(0, 10);
+
+  // Uma linha por item: o arquivo tem milhares delas, e o diff do commit
+  // semanal precisa mostrar o que entrou e o que saiu, não um bloco só.
+  const corpo = itens.map((l) => `    ${JSON.stringify(l)}`).join(',\n');
   await writeFile(
     ITEMS_JSON,
+    `{
+  "_fonte": "https://www.divine-pride.net/ (páginas públicas, servidor LATAM)",
+  "_servidor": "LATAM",
+  "_geradoEm": ${JSON.stringify(geradoEm)},
+  "_campos": ["id", "nome", "slots", "classe (categoria de refino, ou !motivo)"],
+  "itens": [
+${corpo}
+  ]
+}
+`,
+    'utf8',
+  );
+
+  // O mesmo cabeçalho, sozinho: a interface credita a fonte e mostra a data da
+  // varredura no rodapé, e seria absurdo baixar milhares de itens para isso.
+  await writeFile(
+    ITEMS_META_JSON,
     JSON.stringify(
       {
-        _fonte: 'https://www.divine-pride.net/ (páginas públicas, servidor LATAM)',
-        _servidor: 'LATAM',
-        _geradoEm: new Date().toISOString().slice(0, 10),
-        itens,
+        fonte: 'https://www.divine-pride.net/',
+        servidor: 'LATAM',
+        geradoEm,
+        total: itens.length,
       },
       null,
       2,
     ) + '\n',
     'utf8',
   );
+
   return itens.length;
 }

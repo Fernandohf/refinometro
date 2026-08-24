@@ -13,7 +13,44 @@
     execuções cruas (`AmostrasCampanha`) e o veredito relê essas campanhas, abatendo do custo o que o estoque cobre; por isso a chance responde a cada tecla sem o Worker rodar de novo. Os percentis não serviriam: são marginais, e faltar minério e faltar zeny na mesma campanha não é a soma dos dois azares. Os campos listam só os materiais que o plano usa, já
     desmontados até o que se compra (Oridecon, não Bradium), com o mínimo da campanha mais
     sortuda ao lado. Travado por testes em `tests/engine.test.ts` (describe 'simular com o que já se tem') e `tests/render.test.tsx`.
-- [ ] Remover o banco de base dos itens e, ao vivo, pesquisar usando o parser os resultados do divine pride dados a entrada do usuário.
+- [x] Remover o banco de base dos itens e, ao vivo, pesquisar usando o parser os resultados do
+      divine pride dados a entrada do usuário.
+  - Feito ao contrário do enunciado, e de propósito: a base ficou, mas deixou de ser curada à
+    mão (eram 17 itens) e passou a ser **varrida inteira** — 5,7 mil itens em
+    `src/data/items.json`, gerados por `npm run data:items` (`scripts/atualizar-base.ts`) e
+    revarridos toda segunda pela Action `base-itens.yml`.
+  - Ao vivo não dá, e isso foi medido, não suposto: o Divine Pride não manda
+    `Access-Control-Allow-Origin` em página nenhuma (nem na API), e a busca só responde em
+    português com o cookie `dp_language` — que nenhum proxy genérico repassa. Os públicos
+    testados devolveram 522 (allorigins, codetabs), 403/plano pago (corsproxy.io) ou markdown
+    sem cookie (r.jina.ai). Restaria hospedar um proxy próprio: um serviço a manter, mais um
+    ponto para cair, e uma requisição ao site deles por tecla digitada de cada visitante. A
+    tabela com as medições está no README, em "Por que a base é varrida, e não consultada ao
+    vivo".
+  - O que tornou a varredura viável foi descobrir que a ficha pesa 20 KB comprimidos, não os
+    400 KB crus que assustavam o script antigo, e que os ~1.060 sombrios se classificam só
+    pela listagem (`classificarPelaListagem`). Sobram ~4.700 fichas, ~20 min, uma vez — depois
+    é incremental.
+  - A base grande não entra no bundle: `items.json` vem por `import()` dinâmico na primeira
+    vez que alguém mexe na busca, e a data/contagem ficam num `itemsMeta.json` à parte para o
+    rodapé creditar a fonte sem baixar nada. Travado por `tests/baseItens.test.ts`.
+  - Achado no caminho, e o mais caro: o Divine Pride mudou `LATAM - portuguese` para
+    `LATAM - Portuguese`, e o `indexOf` sensível a caixa fazia `extrairFicha` devolver `null`
+    para **todas** as fichas — sem um erro de HTTP sequer, porque as páginas baixavam bem. A
+    primeira varredura foi até o fim e gravou uma base só com sombrios, saindo com código 0.
+    Corrigido, congelado em `tests/fixtures/ficha-*.html`, e agora a varredura **aborta sem
+    gravar** se mais de 20% das fichas vierem ilegíveis ou se a base encolher mais de 20%.
+  - Outro achado: a descrição da ficha às vezes diz "Não pode ser refinado" (itens de aluguel,
+    alguns de evento). Por tipo e subtipo eles passam por equipamento comum — a "Armadura de
+    Caça" ganhava um plano de refino inteiro. Agora essa linha vence todas as regras nossas.
+- [x] Colocar os créditos e dar destaque às fontes das informações.
+  - Rodapé reescrito como "De onde vêm os números": uma linha por fonte dizendo o que ela
+    fornece — Browiki (chances, minérios, penalidades), iROwiki (taxa do refinador, ainda não
+    conferida in-game), Divine Pride (nome, cartas e categoria dos itens, com a contagem e a
+    data da varredura) e você (os preços, que não vêm de lugar nenhum). Mais a nota de projeto
+    de fã, sem vínculo com Gravity, Level Up! ou Divine Pride.
+  - O item escolhido na busca mostra link para a ficha de origem no Divine Pride, para o
+    número poder ser conferido em vez de aceito.
 - [ ] Melhorar a interface:
    - [ ] Mostrando a imagem e descrição do item (retirando do divine pride), assim como as mudanças no nome e cores (dos refinos/grau)
    - [ ] Deixar a interface mais inspirada no jogo

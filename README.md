@@ -364,7 +364,7 @@ O `--` antes dos argumentos é obrigatório nos scripts que recebem parâmetros 
 `item`): sem ele o npm engole o resto da linha. `demo` e `perf` rodam offline; `buscar` e
 `item` falam com o Divine Pride e precisam de conexão.
 
-Os comandos que atualizam os dados versionados (`data:fetch`, `data:parse`, `item`) estão
+Os comandos que atualizam os dados versionados (`data:fetch`, `data:parse`, `data:items`, `item`) estão
 descritos em [Dados](#dados) — não são necessários para rodar o site.
 
 ## Dados
@@ -411,31 +411,70 @@ nv1–2, Sombrio) e se ele é refinável — é a única coisa que o cálculo pr
 item. O preço continua sendo informado à mão: o Divine Pride não guarda cotação.
 
 Os dados vêm da **página pública**, que não exige chave e já traz o nome em português do
-servidor LATAM.
+servidor LATAM. A base inteira é varrida e versionada em `src/data/items.json`:
 
-**Buscando pelo nome:**
+```bash
+npm run data:items                  # varredura incremental
+npm run data:items -- --forcar      # reconfere a ficha de todo mundo
+npm run data:items -- --so=shadow   # uma categoria só
+```
+
+A varredura roda sozinha toda segunda-feira pela Action `base-itens.yml`, que comita o
+arquivo quando algo mudou e chama o deploy em seguida (ver [Publicação](#publicação)). Item
+novo no LATAM entra na busca em no máximo uma semana, sem ninguém rodar nada.
+
+`scripts/buscar.ts` e `scripts/fetch-item.ts` continuam existindo para inspeção manual — ver
+um item específico sem esperar a varredura semanal:
 
 ```bash
 npm run buscar -- "Espingarda"                 # lista o que achou
-npm run buscar -- "Espingarda" --salvar        # resolve e grava na base
 npm run buscar -- Caça --cat=armor             # weapon | armor | shadow
-npm run buscar -- Sombrio --paginas=5          # 20 resultados por página
+npm run item -- 1867                           # cadastra por ID
 ```
 
-**Cadastrando por ID**, quando você já sabe qual é:
+#### Por que a base é varrida, e não consultada ao vivo
 
-```bash
-npm run item -- 1867
-npm run item -- https://www.divine-pride.net/database/item/1867/
-npm run item -- 1867 5031 2101      # vários de uma vez
-```
+A pergunta óbvia é por que não pesquisar no Divine Pride na hora em que a pessoa digita, em
+vez de carregar uma base inteira. A resposta é que o navegador **não consegue**:
 
-Cada item resolvido é acrescentado a `src/data/items.json`, que fica versionado. Sem a base,
-o site funciona igual — só pede que você escolha a categoria à mão.
+| Tentativa | O que acontece |
+| --- | --- |
+| `fetch` direto do site | Sem `Access-Control-Allow-Origin` — nas páginas e na `/api/` |
+| Buscar sem o cookie de idioma | `0 results` para qualquer termo em português |
+| Passar o idioma por query (`?language=`, `?lang=`) | Não existe; é só cookie |
+| Proxies públicos de CORS | allorigins e codetabs devolvem 522, corsproxy.io exige plano pago |
+| `r.jina.ai` | Responde, mas não repassa cookie (`0 results`) e devolve markdown |
 
-A base cresce sob demanda de propósito: a ficha completa pesa ~400 KB, então varrer o banco
-inteiro significaria gigabytes de tráfego no servidor deles. Por isso `--salvar` recusa mais
-de 40 resultados de uma vez.
+Ou seja: busca ao vivo exigiria um proxy **próprio** que repassasse `Cookie` e devolvesse
+CORS — um serviço a manter, um ponto a mais para cair, e uma requisição ao Divine Pride por
+tecla digitada de cada visitante. A varredura semanal troca isso por um arquivo estático:
+busca instantânea, funciona offline, e o site continua sendo só HTML no GitHub Pages.
+
+O custo da varredura é bem menor do que parece à primeira vista. A ficha pesa ~400 KB cru,
+mas **20 KB comprimidos**, e o `fetch` do Node pede gzip sozinho. Somando:
+
+| | Requisições | Tráfego |
+| --- | --- | --- |
+| Listagens (357 páginas, 3 categorias) | 357 | ~5 MB |
+| Fichas de arma, equipamento e chapéu | ~4.700 | ~95 MB |
+| Sombrios | 0 — a listagem já basta | — |
+
+A ~5 requisições por segundo, isso dá ~20 minutos, uma vez. Depois disso a varredura é
+**incremental**: quem já está na base com categoria resolvida não é baixado de novo, e a
+execução semanal gasta pouco mais que as listagens. `--forcar` existe para o ponto cego desse
+esquema — se o Divine Pride corrigir o nível de uma arma já cadastrada, só a reconferência
+completa enxerga.
+
+Os sombrios (mil e poucos) saem de graça porque `classificarPelaListagem` decide a categoria
+deles só com tipo e subtipo. Arma e armadura não têm essa sorte, e a função devolve `null` em
+vez de chutar: a listagem não traz nível de equipamento, e responder "nível 1" por omissão
+esconderia os de nível 2 — os de Éter, justamente os que têm Grau.
+
+**O arquivo é grande, então não entra no bundle.** `src/data/items.ts` carrega
+`items.json` por `import()` dinâmico, na primeira vez que alguém mexe na busca; quem só quer
+fazer uma conta escolhendo a categoria à mão nunca paga esse download. A data da varredura e
+a contagem ficam num arquivo separado (`itemsMeta.json`), para o rodapé poder creditar a
+fonte sem baixar a base junto.
 
 #### Duas armadilhas da busca
 
@@ -446,10 +485,32 @@ manda `dp_language=portuguese; dp_region=LATAM` em toda requisição.
 
 **Item sem tradução aparece com o nome em branco.** O site mantém um cartão LATAM vazio para
 esses casos, e a listagem sai com a célula de nome vazia — às vezes contendo só o marcador de
-slots, `[1]`, que sozinho não é nome. São itens que não chegaram ao LATAM, e a busca os
-descarta: sem nome não há como reconhecê-los nem procurá-los na interface. O rodapé diz
-quantos foram ignorados, e eles continuam cadastráveis pelo ID (`npm run item -- <id>`), aí
-sim com o nome vindo do servidor em inglês.
+slots, `[1]`, que sozinho não é nome; outras vezes com o nome coreano original, que passa no
+teste de "tem nome" mas ninguém vai procurar em português. São ~1.350 dos 7.100 itens
+listados, e `lerNome` descarta os três casos: sem nome utilizável não há como reconhecê-los
+nem procurá-los na interface. Eles continuam cadastráveis pelo ID (`npm run item -- <id>`),
+aí sim com o nome vindo do servidor em inglês.
+
+**O colchete do fim é slot; o do começo, não.** `[Aluguel] Machado TE` não tem cartas, e
+`Livro nv1 [4]` tem quatro. Só o colchete final vira `slots`.
+
+**A ficha falha em silêncio quando o site muda.** Isto não é hipótese: durante este trabalho o
+Divine Pride passou a escrever `LATAM - Portuguese` onde escrevia `LATAM - portuguese`, e o
+`indexOf` sensível a caixa fez `extrairFicha` devolver `null` para **todas** as 4.689 fichas —
+sem um único erro de HTTP, porque as páginas baixaram perfeitamente. A varredura foi até o
+fim, gravou uma base só com os sombrios (os únicos que não precisam de ficha) e saiu com
+código 0.
+
+Por isso `atualizar-base.ts` tem duas travas, e elas abortam **sem gravar**:
+
+- mais de 20% das fichas ilegíveis → "isso não é rede, é o HTML que mudou";
+- a base encolher mais de 20% de uma execução para a outra.
+
+O parser da busca tem a mesma filosofia (`parsearBusca` estoura quando o total anunciado não
+bate com o que conseguiu ler). A regra geral é: **num scraper, o modo de falha perigoso é o
+silencioso** — devolver lista vazia parece "nada encontrado", e ninguém investiga isso.
+
+Os fixtures em `tests/fixtures/ficha-*.html` são HTML real congelado justamente desse episódio.
 
 Cuidado com um detalhe ao mexer nisso: o aviso de "truncado" compara o total anunciado com as
 linhas **lidas**, não com as aproveitadas. Comparar com as aproveitadas faria toda busca que
@@ -461,9 +522,9 @@ O filtro é aplicado **na origem**: a busca de armaduras manda
 classificador, com a ficha completa em mãos — a listagem não traz nível de arma nem posição na
 cabeça, e sem isso não dá para saber se um headgear é de Topo.
 
-Existe também `scripts/fetch-divinepride.mjs`, que usa a API oficial e conseguiria gerar a
-base inteira de uma vez, mas exige `DIVINE_PRIDE_API_KEY`. Está guardado para quando fizer
-sentido; o mapeamento de campos dele ainda não foi validado contra uma resposta real.
+A API oficial resolveria isso de forma mais limpa, mas exige `DIVINE_PRIDE_API_KEY`, não tem
+endpoint de listagem (só consulta por ID) e também não manda CORS — não serve nem para a
+varredura nem para o navegador.
 
 #### O que não é refinável
 
@@ -471,12 +532,18 @@ sentido; o mapeamento de campos dele ainda não foi validado contra uma resposta
 
 | Situação | Refina? |
 | --- | --- |
+| A descrição diz *"Não pode ser refinado"* | não — e essa linha vence todas as outras |
 | Equipamento de cabeça no **Topo** (`Location: Upper`) | sim |
 | Equipamento de cabeça só no **Meio** e/ou **Baixo** | não |
 | Acessório comum | não |
 | **Acessório sombrio** (Brinco, Colar) | sim |
 | Item visual (Costume) | não |
 | Armadura, escudo, calçado, capa | sim |
+
+A primeira linha existe porque um equipamento de aluguel é `Armor/Armor` com tudo no lugar —
+a "Armadura de Caça" (15247) passa por todas as regras acima e ganharia um plano de refino
+completo. A própria descrição do jogo desmente isso, e ela é fonte melhor que qualquer regra
+nossa, então `negaRefino` é checado antes de tudo.
 
 Os sombrios são duas categorias, não uma: arma sombria refina com Oridecon e armadura sombria
 com Elunium, embora ambas usem a mesma coluna de chances.
@@ -543,6 +610,16 @@ sozinha a via mais barata entre comprar pronto e fabricar.
 `.github/workflows/deploy.yml` roda os testes, faz o build e publica no GitHub Pages a cada
 push na `main`. O `base` do Vite está em `/refinometro/`; se o repositório tiver outro nome,
 ajuste em `vite.config.ts`.
+
+`.github/workflows/base-itens.yml` revarre o Divine Pride toda segunda-feira e comita
+`src/data/items.json` quando algo mudou. Se nada mudou, não há commit e nada sobe. O passo de
+testes roda **antes** do commit: a base é entrada do cálculo, e item classificado errado vira
+orçamento errado.
+
+Depois de comitar, ele **chama o deploy explicitamente** (`gh workflow run deploy.yml`). Isso
+não é redundância: push feito com o `GITHUB_TOKEN` não dispara outros workflows — o GitHub
+corta aí para evitar recursão infinita — então o `on: push` do deploy ficaria mudo e a base
+nova nunca chegaria ao site. `workflow_dispatch` é a exceção documentada dessa regra.
 
 ## Estrutura
 

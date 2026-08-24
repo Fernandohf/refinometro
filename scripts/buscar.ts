@@ -5,10 +5,13 @@
 //   npm run buscar -- Caça --cat=armor        só uma categoria
 //   npm run buscar -- Sombrio --paginas=5     mais resultados (20 por página)
 //
-// A listagem sai de uma requisição leve (~40 KB) por categoria. Ela traz nome,
-// tipo e subtipo, mas NÃO traz nível de arma nem posição na cabeça — e sem isso
-// não dá para dizer a categoria de refino. Por isso `--salvar` abre a ficha
-// completa de cada item, que é a parte cara.
+// A listagem sai de uma requisição leve (~13 KB comprimidos) por categoria. Ela
+// traz nome, tipo e subtipo, mas NÃO traz nível de arma nem posição na cabeça —
+// e sem isso não dá para dizer a categoria de refino. Por isso `--salvar` abre a
+// ficha completa de cada item, que é a parte cara.
+//
+// Para cadastrar em massa não é aqui: `npm run data:items` varre tudo de uma vez.
+// Este script é para olhar um item específico sem esperar a varredura semanal.
 
 import { classificar } from '../src/data/itemKinds';
 import {
@@ -22,7 +25,7 @@ import {
   type Resultado,
 } from './divinepride';
 
-/** Acima disso, `--salvar` recusa: cada ficha pesa ~400 KB e leva 400 ms. */
+/** Acima disso, `--salvar` recusa: para volume existe `npm run data:items`. */
 const MAX_SALVAR = 40;
 
 const args = process.argv.slice(2);
@@ -106,7 +109,7 @@ if (!salvar) {
 if (achados.length > MAX_SALVAR) {
   console.error(
     `\n${achados.length} resultados é demais para --salvar (limite ${MAX_SALVAR}).\n` +
-      'Cada item exige abrir a ficha completa, que pesa ~400 KB. Refine a busca\n' +
+      'Cada item exige abrir a ficha completa. Refine a busca\n' +
       'ou use --cat= para uma categoria só.',
   );
   process.exit(1);

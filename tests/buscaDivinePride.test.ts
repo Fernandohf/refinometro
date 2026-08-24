@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { parsearBusca } from '../scripts/divinepride';
-import { classificar } from '../src/data/itemKinds';
+import { lerNome, parsearBusca } from '../scripts/divinepride';
+import { classificar, classificarPelaListagem } from '../src/data/itemKinds';
 
 const fixture = (nome: string) =>
   readFileSync(resolve(import.meta.dirname, 'fixtures', nome), 'utf8');
@@ -23,9 +23,9 @@ describe('parser da busca', () => {
     expect(total).toBe(4);
     expect(semNome).toBe(0);
     expect(linhas).toEqual([
-      { id: 15247, nome: 'Armadura de Caça', tipo: 'Armor', subtipo: 'Armor' },
-      { id: 22169, nome: 'Botas de Caça', tipo: 'Armor', subtipo: 'Shoes' },
-      { id: 20903, nome: 'Manto de Caça', tipo: 'Armor', subtipo: 'Garment' },
+      { id: 15247, nome: 'Armadura de Caça', tipo: 'Armor', subtipo: 'Armor', slots: 0 },
+      { id: 22169, nome: 'Botas de Caça', tipo: 'Armor', subtipo: 'Shoes', slots: 0 },
+      { id: 20903, nome: 'Manto de Caça', tipo: 'Armor', subtipo: 'Garment', slots: 0 },
     ]);
   });
 
@@ -80,6 +80,76 @@ describe('parser da busca', () => {
   });
 });
 
+describe('nome e slots da célula', () => {
+  it('separa as cartas do nome', () => {
+    expect(lerNome('Livro nv1 [4]')).toEqual({ nome: 'Livro nv1', slots: 4 });
+    expect(lerNome('Armadura de Caça')).toEqual({ nome: 'Armadura de Caça', slots: 0 });
+  });
+
+  it('não confunde prefixo entre colchetes com slot', () => {
+    // "[Aluguel] Machado TE" tem colchete no COMEÇO e não é slot nenhum. Só o
+    // colchete final conta, senão o item perderia o prefixo e ganharia cartas.
+    expect(lerNome('[Aluguel] Machado TE')).toEqual({ nome: '[Aluguel] Machado TE', slots: 0 });
+    expect(lerNome('[Aluguel] Adaga [3]')).toEqual({ nome: '[Aluguel] Adaga', slots: 3 });
+  });
+
+  it('trata célula vazia e "[1]" solto como ausência de nome', () => {
+    expect(lerNome('')).toBeNull();
+    expect(lerNome('[1]')).toBeNull();
+  });
+
+  it('descarta nome que voltou em coreano', () => {
+    // Alguns itens têm cartão LATAM preenchido com o nome original. Passam pelo
+    // teste de "tem nome", mas ninguém procura por eles em português, e deixá-los
+    // na base só suja a busca.
+    expect(lerNome('[카츄아]라크마 [1]')).toBeNull();
+    expect(lerNome('Espada 一 do Leste')).toBeNull();
+  });
+});
+
+describe('classificação só com a listagem', () => {
+  it('resolve os sombrios sem abrir a ficha', () => {
+    // São ~1.060 itens que a varredura não precisa baixar um a um.
+    expect(classificarPelaListagem({ tipo: 'Shadow Equipment', subtipo: 'Shadow Armor' })).toEqual({
+      refinavel: true,
+      kind: 'shadowA',
+    });
+    expect(classificarPelaListagem({ tipo: 'Shadow Equipment', subtipo: 'Shadow Weapon' })).toEqual({
+      refinavel: true,
+      kind: 'shadowW',
+    });
+    // Acessório sombrio é a exceção da regra dos acessórios: refina.
+    expect(
+      classificarPelaListagem({ tipo: 'Shadow Equipment', subtipo: 'Shadow Accessory (Right)' }),
+    ).toEqual({ refinavel: true, kind: 'shadowA' });
+  });
+
+  it('admite não saber quando o veredito depende da ficha', () => {
+    // Este é o ponto perigoso: a listagem não traz nível de arma, nível de
+    // equipamento nem posição na cabeça. Responder por conta própria devolveria
+    // "a1" para toda armadura e esconderia as de nível 2 — as de Éter, que são
+    // justamente as que têm Grau.
+    expect(classificarPelaListagem({ tipo: 'Weapon', subtipo: 'Katar' })).toBeNull();
+    expect(classificarPelaListagem({ tipo: 'Armor', subtipo: 'Armor' })).toBeNull();
+    expect(classificarPelaListagem({ tipo: 'Armor', subtipo: 'Headgear' })).toBeNull();
+  });
+
+  it('descarta visual e acessório comum sem gastar requisição', () => {
+    expect(classificarPelaListagem({ tipo: 'Costume', subtipo: 'Costume Headgear' })).toEqual({
+      refinavel: false,
+      motivo: 'visual',
+    });
+    expect(classificarPelaListagem({ tipo: 'Armor', subtipo: 'Accessory' })).toEqual({
+      refinavel: false,
+      motivo: 'acessorio',
+    });
+    expect(classificarPelaListagem({ tipo: 'Card', subtipo: '' })).toEqual({
+      refinavel: false,
+      motivo: 'nao-equipamento',
+    });
+  });
+});
+
 describe('filtro da busca', () => {
   it('as linhas de armadura passam pelo classificador sem surpresa', () => {
     // A busca filtra por subTypes na origem (sem Acessório, sem Costume), mas o
@@ -94,7 +164,7 @@ describe('filtro da busca', () => {
         posicao: null,
         nivelArma: null,
         nivelArmadura: null,
-        slots: 0,
+        slots: linha.slots,
       });
       expect(c).toEqual({ refinavel: true, kind: 'a1' });
     }
