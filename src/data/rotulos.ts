@@ -34,3 +34,40 @@ export const ROTULO_GRAU: Record<Grade, string> = {
   B: 'Grau B',
   A: 'Grau A',
 };
+
+/**
+ * Cor da letra do Grau, como o jogo a desenha.
+ *
+ * Os valores não são escolha de design: são a cor dominante de cada ícone
+ * `itemgrade_*.png` do Browiki (https://browiki.org/wiki/Grau), amostrada do
+ * PNG. Sem isso o Grau viraria só uma letra, e no jogo a cor é o que se
+ * reconhece de longe.
+ */
+export const COR_GRAU: Record<Grade, { letra: string; forte: string; claro: string } | null> = {
+  none: null,
+  D: { letra: 'D', forte: '#BF5159', claro: '#FF968F' },
+  C: { letra: 'C', forte: '#CF9400', claro: '#F1CD00' },
+  B: { letra: 'B', forte: '#249000', claro: '#9BD300' },
+  A: { letra: 'A', forte: '#7E6E8F', claro: '#D0CCE2' },
+};
+
+/**
+ * O nome do item como ele aparece no jogo: `+10 [B] Adaga [2]`.
+ *
+ * O prefixo do Grau entre colchetes é o formato documentado no Browiki; o `+N`
+ * vem antes, e os slots depois, como no cliente. As partes voltam separadas
+ * porque cada uma é pintada de um jeito.
+ */
+export function nomeNoJogo(
+  nome: string,
+  refino: number,
+  grau: Grade,
+  slots = 0,
+): { refino: string | null; grau: string | null; nome: string; slots: string | null } {
+  return {
+    refino: refino > 0 ? `+${refino}` : null,
+    grau: grau === 'none' ? null : `[${grau}]`,
+    nome,
+    slots: slots > 0 ? `[${slots}]` : null,
+  };
+}

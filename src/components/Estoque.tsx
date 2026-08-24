@@ -5,7 +5,7 @@ import { avaliarEstoque, emMateriais, type Estoque, type VereditoEstoque } from 
 import type { Resultado as ResultadoPlano } from '../engine/plan';
 import { porcento, zeny, zenyExato } from '../format';
 import { MARGENS, type MargemKey } from './Resultado';
-import { Campo, NumeroQtd, NumeroZeny, Painel } from './ui';
+import { BotaoDoPainel, Campo, NumeroQtd, NumeroZeny, Painel } from './ui';
 
 export const ESTOQUE_VAZIO: Estoque = { zeny: 0, itens: {}, copias: 1 };
 
@@ -56,13 +56,9 @@ export function SimuladorDeEstoque({
     <Painel
       titulo="Dá com o que eu tenho?"
       aside={
-        <button
-          type="button"
-          className="text-xs text-realce hover:underline"
-          onClick={() => setAberto((a) => !a)}
-        >
+        <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
           {aberto ? 'esconder' : 'simular'}
-        </button>
+        </BotaoDoPainel>
       }
     >
       {!aberto ? (
@@ -105,13 +101,9 @@ export function SimuladorDeEstoque({
 
           <div>
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-xs font-semibold tracking-wide text-suave uppercase">
-                O que você já tem
-              </h3>
+              <h3 className="text-xs font-semibold tracking-wide text-suave uppercase">O que você já tem</h3>
               <div className="flex gap-3 text-xs">
-                <button
-                  type="button"
-                  className="text-realce hover:underline"
+                <BotaoDoPainel
                   onClick={() =>
                     onChange({
                       ...estoque,
@@ -122,14 +114,10 @@ export function SimuladorDeEstoque({
                   }
                 >
                   preencher com o mínimo
-                </button>
-                <button
-                  type="button"
-                  className="text-suave hover:underline"
-                  onClick={() => onChange({ ...estoque, itens: {} })}
-                >
+                </BotaoDoPainel>
+                <BotaoDoPainel discreto onClick={() => onChange({ ...estoque, itens: {} })}>
                   zerar
-                </button>
+                </BotaoDoPainel>
               </div>
             </div>
 

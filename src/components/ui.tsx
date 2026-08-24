@@ -227,17 +227,46 @@ export function PainelRecolhivel({
     <Painel
       titulo={titulo}
       aside={
-        <button
-          type="button"
-          className="text-xs text-realce hover:underline"
-          aria-expanded={aberto}
-          onClick={() => setAberto((a) => !a)}
-        >
+        <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
           {aberto ? 'esconder' : 'ver detalhe'}
-        </button>
+        </BotaoDoPainel>
       }
     >
       {aberto ? children : resumo ? <div className="text-sm text-suave">{resumo}</div> : null}
     </Painel>
+  );
+}
+
+/**
+ * Botão de canto de painel: o que abre, fecha ou preenche uma seção.
+ *
+ * Existia copiado em quatro arquivos, com pequenas divergências de tamanho e
+ * cor. É discreto de propósito — fica no cabeçalho, ao lado do título, e não
+ * deve competir com o conteúdo do painel.
+ */
+export function BotaoDoPainel({
+  children,
+  onClick,
+  aberto,
+  discreto,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  /** Quando o botão controla uma seção que abre e fecha. */
+  aberto?: boolean;
+  /** Ação secundária ("zerar", "restaurar padrão"): sai do dourado. */
+  discreto?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={
+        'text-xs hover:underline ' + (discreto ? 'text-suave' : 'text-realce')
+      }
+      aria-expanded={aberto}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }

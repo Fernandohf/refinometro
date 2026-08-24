@@ -232,7 +232,7 @@ describe('taxa do refinador', () => {
     expect(taxaDaTentativa('w5', eterEnriquecido)).toBe(TAXA_REFINO.w5);
   });
 
-  it('conta a taxa por tentativa de verdade, não por tentativa média', () => {
+  it('conta a taxa de refino por tentativa de verdade, não por tentativa média', () => {
     // Uma campanha que mistura minério isento e não isento não pode ter a taxa
     // calculada como `tentativas x valor fixo` — foi assim que ela nasceu, com
     // um campo único no formulário, e é o erro que a soma vinda do motor evita.

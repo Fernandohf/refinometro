@@ -14,7 +14,7 @@ import { Resultado, type MargemKey } from './components/Resultado';
 import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { META } from './data/items';
-import { Campo, NumeroZeny, Painel, Select, Toggle } from './components/ui';
+import { BotaoDoPainel, Campo, NumeroZeny, Painel, Select, Toggle } from './components/ui';
 import { TrilhaRefino } from './components/TrilhaRefino';
 import { zeny } from './format';
 
@@ -23,6 +23,8 @@ interface Estado {
   itemNome: string | null;
   /** ID no Divine Pride do item escolhido, para poder linkar a ficha de origem. */
   itemId: number | null;
+  /** Slots do item, só para escrever o nome como o jogo escreve: `Adaga [2]`. */
+  itemSlots: number;
   kind: ItemKind;
   precoItem: number;
   refinoAtual: number;
@@ -40,6 +42,7 @@ interface Estado {
 const INICIAL: Estado = {
   itemNome: null,
   itemId: null,
+  itemSlots: 0,
   kind: 'w4',
   precoItem: 30_000_000,
   refinoAtual: 0,
@@ -181,6 +184,7 @@ export default function App() {
                     kind: item.kind!,
                     itemNome: item.nome,
                     itemId: item.id,
+                    itemSlots: item.slots,
                   }))
                 }
               />
@@ -224,7 +228,7 @@ export default function App() {
                     {Array.from({ length: max + 1 }, (_, i) => (
                       <option key={i} value={i}>
                         +{i}
-                        {i > limite ? ' — pode falhar' : ''}
+                        {i > limite ? ' ⚠' : ''}
                       </option>
                     ))}
                   </Select>
@@ -318,6 +322,8 @@ export default function App() {
               <Resultado
                 plano={exibido}
                 itemNome={e.itemNome}
+                itemId={e.itemId}
+                itemSlots={e.itemSlots}
                 margem={e.margem}
                 onMargem={(m) => set('margem', m)}
                 afinando={preciso.afinando}
@@ -431,22 +437,13 @@ function Precos({
       aside={
         <div className="flex gap-3">
           {!padrao && (
-            <button
-              type="button"
-              className="text-xs text-suave hover:underline"
-              onClick={() => onChange(DEFAULT_PRICES)}
-            >
+            <BotaoDoPainel discreto onClick={() => onChange(DEFAULT_PRICES)}>
               restaurar padrão
-            </button>
+            </BotaoDoPainel>
           )}
-          <button
-            type="button"
-            className="text-xs text-realce hover:underline"
-            aria-expanded={aberto}
-            onClick={() => setAberto((a) => !a)}
-          >
+          <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
             {aberto ? 'esconder' : 'editar'}
-          </button>
+          </BotaoDoPainel>
         </div>
       }
     >
@@ -478,9 +475,7 @@ function Precos({
 
           {PRICE_FIELDS.map((grupo) => (
             <div key={grupo.grupo}>
-              <h3 className="mb-2 text-xs font-semibold tracking-wide text-suave uppercase">
-                {grupo.grupo}
-              </h3>
+              <h3 className="mb-2 text-xs font-semibold tracking-wide text-suave uppercase">{grupo.grupo}</h3>
               <div className="space-y-2">
                 {grupo.itens.map((item) => (
                   <div key={item.itemId} className="flex items-center gap-2">
@@ -541,9 +536,7 @@ function Rodape() {
   return (
     <footer className="mt-6 space-y-4 rounded-xl border border-borda bg-painel/40 p-4 text-xs leading-relaxed text-suave">
       <section>
-        <h2 className="mb-2 text-xs font-semibold tracking-wide text-texto uppercase">
-          De onde vêm os números
-        </h2>
+        <h2 className="mb-2 text-xs font-semibold tracking-wide text-texto uppercase">De onde vêm os números</h2>
         <dl className="space-y-2">
           <Fonte
             o_que="Chances e minérios"

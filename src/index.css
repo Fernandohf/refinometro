@@ -35,3 +35,27 @@ input[type='number']::-webkit-inner-spin-button {
 input[type='number'] {
   -moz-appearance: textfield;
 }
+
+/*
+  Bronze do balcão do NPC, no diagrama de custo.
+
+  Existe porque o diagrama precisa de cinco faixas distinguíveis e as quatro
+  cores de estado (realce, perigo, atenção, ok) já têm dono. É parente do
+  dourado dos minérios — preparar o minério é primo de comprá-lo — e fica bem
+  abaixo dele em croma para as duas faixas não virarem uma. Longe do vermelho
+  de propósito: "reposição do item" e "fabricação" são vizinhas no desenho e
+  significam coisas opostas.
+*/
+@theme {
+  --color-bronze: oklch(0.6 0.06 55);
+}
+
+/*
+  Arte de item vinda do Divine Pride: sprite pequeno, ampliado sem borrar.
+
+  Não é decoração de tema — é a única forma de exibir com honestidade a arte de
+  um jogo feito em pixel. Suavizá-la mostraria uma imagem que o jogo não tem.
+*/
+.sprite {
+  image-rendering: pixelated;
+}

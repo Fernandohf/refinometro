@@ -564,7 +564,7 @@ O NPC cobra um valor em zeny por tentativa, além do minério. Nem o Browiki nem
 publicam esses números; o [iROwiki](https://irowiki.org/wiki/Refinement_System) publica, e é
 de lá que sai a tabela em `src/data/ores.ts`:
 
-| Categoria | Taxa por tentativa |
+| Categoria | Taxa de Refino por tentativa |
 | --- | --- |
 | Arma nv1 | 50z |
 | Arma nv2 | 200z |

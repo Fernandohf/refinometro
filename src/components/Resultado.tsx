@@ -2,9 +2,13 @@ import type { ReactNode } from 'react';
 
 import { nomeDoItem } from '../data/nomes';
 import { listaDeCompras, sourcingOf } from '../engine/pricing';
+import { fluxoDeCusto, quantidadesNaMargem } from '../engine/fluxoDeCusto';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
-import { rotuloCurto, ROTULO_GRAU } from '../data/rotulos';
+import { ROTULO_GRAU, rotuloCurto } from '../data/rotulos';
+import { CartaoItem } from './ItemNoJogo';
+import { CadeiaDeDecisoes } from './Cadeia';
+import { ResumoDoFluxo, SankeyCusto } from './SankeyCusto';
 import { porcento, quantidade, zeny, zenyExato } from '../format';
 import { Painel, PainelRecolhivel, Segmentado } from './ui';
 
@@ -18,22 +22,11 @@ export const MARGENS: { key: MargemKey; rotulo: string; explica: string }[] = [
   { key: 'p99', rotulo: '99%', explica: 'só 1 em 100 estoura este orçamento' },
 ];
 
-/**
- * Quantidade de cada material na margem escolhida — o número que responde
- * "quanto preciso ter em mãos". Sem simulação, sobra a média.
- */
-function quantidadesNaMargem(plano: ResultadoPlano, margem: MargemKey): Record<number, number> {
-  const saida: Record<number, number> = {};
-  for (const [id, media] of Object.entries(plano.recursos.itens)) {
-    const itemId = Number(id);
-    saida[itemId] = Math.ceil(plano.simulacao?.itens[itemId]?.[margem] ?? media);
-  }
-  return saida;
-}
-
 export function Resultado({
   plano,
   itemNome,
+  itemId = null,
+  itemSlots = 0,
   margem,
   onMargem,
   afinando = false,
@@ -43,6 +36,9 @@ export function Resultado({
   plano: ResultadoPlano;
   /** Nome do item escolhido na busca, quando houve um. */
   itemNome?: string | null;
+  /** ID no Divine Pride, quando houve busca — é dele que vem a arte. */
+  itemId?: number | null;
+  itemSlots?: number;
   margem: MargemKey;
   onMargem: (m: MargemKey) => void;
   /** O passe preciso ainda está rodando: este resultado é o do passe rápido. */
@@ -87,7 +83,7 @@ export function Resultado({
           ) : undefined
         }
       >
-        <Trajetoria plano={plano} itemNome={itemNome} />
+        <Trajetoria plano={plano} itemNome={itemNome} itemId={itemId} itemSlots={itemSlots} />
 
         {/* O orçamento é a resposta; média e valor justo são apoio. Antes os
             três vinham do mesmo tamanho, o que punha a média — que o próprio
@@ -181,6 +177,14 @@ export function Resultado({
         )}
       </Painel>
 
+      <CadeiaDeDecisoes
+        fases={plano.fases}
+        itemId={itemId}
+        itemNome={itemNome ?? rotuloCurto(plano.input.kind)}
+        grau={plano.input.grauAlvo}
+        slots={itemSlots}
+      />
+
       {/* Consumo por minério é conferência, não decisão: quem vai ao jogo leva a
           lista de compras. Fica recolhido para não competir com ela — e para os
           dois totais divergentes não aparecerem lado a lado sem necessidade. */}
@@ -210,25 +214,48 @@ export function Resultado({
   );
 }
 
-/** O que está sendo calculado, em uma linha, antes de qualquer número. */
-function Trajetoria({ plano, itemNome }: { plano: ResultadoPlano; itemNome?: string | null }) {
+/**
+ * O que está sendo calculado, antes de qualquer número.
+ *
+ * O item aparece como vai FICAR — no refino e no grau alvo, com a arte e o nome
+ * no formato do jogo. É o que o orçamento logo abaixo está comprando, e ver
+ * `+10 [B] Adaga [2]` pronto é o que dá sentido ao número.
+ */
+function Trajetoria({
+  plano,
+  itemNome,
+  itemId,
+  itemSlots,
+}: {
+  plano: ResultadoPlano;
+  itemNome?: string | null;
+  itemId?: number | null;
+  itemSlots?: number;
+}) {
   const i = plano.input;
   const mudaGrau = i.grauAlvo !== i.grauAtual;
 
   return (
-    <p className="text-sm leading-relaxed text-suave">
-      <strong className="text-texto">{itemNome ?? rotuloCurto(i.kind)}</strong>
-      {itemNome ? ` (${rotuloCurto(i.kind)})` : ''}, do{' '}
-      <strong className="text-texto tabular-nums">+{i.refinoAtual}</strong> ao{' '}
-      <strong className="text-texto tabular-nums">+{i.refinoAlvo}</strong>
-      {mudaGrau && (
-        <>
-          , subindo de <strong className="text-texto">{ROTULO_GRAU[i.grauAtual].toLowerCase()}</strong>{' '}
-          para <strong className="text-texto">{ROTULO_GRAU[i.grauAlvo]}</strong>
-        </>
-      )}
-      .
-    </p>
+    <div className="space-y-2">
+      <CartaoItem
+        itemId={itemId ?? null}
+        itemNome={itemNome ?? null}
+        kind={i.kind}
+        refino={i.refinoAlvo}
+        grau={i.grauAlvo}
+        slots={itemSlots ?? 0}
+      />
+      <p className="text-sm leading-relaxed text-suave">
+        Saindo do <strong className="text-texto tabular-nums">+{i.refinoAtual}</strong>
+        {mudaGrau && (
+          <>
+            {' '}
+            e do <strong className="text-texto">{ROTULO_GRAU[i.grauAtual].toLowerCase()}</strong>
+          </>
+        )}
+        .
+      </p>
+    </div>
   );
 }
 
@@ -318,11 +345,11 @@ function Distribuicao({
     <div className="mt-5">
       <div className="relative h-2 rounded-full bg-fundo">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-realce/30 transition-[width]"
+          className="absolute inset-y-0 left-0 rounded-full bg-realce/40 transition-[width]"
           style={{ width: `${pos(custo[margem])}%` }}
         />
         <div
-          className="absolute inset-y-0 w-0.5 bg-texto"
+          className="absolute inset-y-0 w-1 bg-texto"
           style={{ left: `${pos(media)}%` }}
           title={`Média: ${zenyExato(media)}`}
         />
@@ -449,6 +476,7 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
  */
 function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
   const lista = listaDeCompras(quantidadesNaMargem(plano, margem), plano.input.precos);
+  const fluxo = fluxoDeCusto(plano, margem);
 
   const quebras = Math.ceil(
     plano.simulacao ? plano.simulacao.quebras[margem] : plano.recursos.itensQuebrados,
@@ -462,6 +490,20 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
 
   return (
     <>
+      {/* A tabela diz o que comprar; o desenho diz o que o dinheiro É. Numa
+          campanha de +10 nos preços padrão, dois terços do orçamento não são
+          minério — são proteção e reposição, e isso não se lê numa lista
+          ordenada por valor. */}
+      {fluxo.total > 0 && (
+        <div className="mb-5">
+          <h3 className="mb-1 text-xs font-semibold tracking-wide text-suave uppercase">
+            Para onde vai o zeny
+          </h3>
+          <SankeyCusto fluxo={fluxo} />
+          <ResumoDoFluxo fluxo={fluxo} />
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -485,7 +527,7 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
             ))}
             {lista.zenyNpc > 0 && (
               <tr>
-                <td className="py-2">Balcão do NPC (fabricação)</td>
+                <td className="py-2">Refino dos minérios (balcão do NPC)</td>
                 <td className="py-2 text-right text-suave tabular-nums">—</td>
                 <td className="py-2 text-right text-suave tabular-nums">—</td>
                 <td className="py-2 text-right tabular-nums" title={zenyExato(lista.zenyNpc)}>
@@ -528,7 +570,9 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
       </div>
       <p className="mt-3 text-xs leading-relaxed text-suave">
         Material com receita de NPC entra desmontado: o custo dele, em toda a calculadora, é o da
-        receita (materiais + balcão) sempre que fabricar sair mais barato que comprar pronto.
+        receita (materiais + balcão) sempre que fabricar sair mais barato que comprar pronto. O
+        balcão vem somado numa linha só aqui; no desenho acima ele aparece aberto por minério, que
+        é o que diz qual deles valeria procurar pronto no mercado.
         {plano.simulacao ? (
           <>
             {' '}

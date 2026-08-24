@@ -32,6 +32,19 @@ export interface PlanoDeFase {
   custoEsperado: number;
   trechos: StrategyRange[];
   grau?: GradeAttemptPlan;
+  /**
+   * A política de Markov crua desta fase: uma entrada por refino de partida,
+   * com a ação escolhida e o custo esperado dali até o alvo.
+   *
+   * `trechos` é a mesma informação já agrupada para leitura ("do +0 ao +4,
+   * Oridecon"). A tela da cadeia precisa dela desagrupada, porque cada degrau é
+   * um estado distinto: a chance, o destino da falha e o custo que ainda falta
+   * mudam de um para o outro mesmo quando o minério é o mesmo.
+   */
+  politica?: PolicyEntry[];
+  /** Refino de partida e de chegada da fase, para percorrer a cadeia. */
+  de?: number;
+  para?: number;
 }
 
 export interface Resultado {
@@ -167,6 +180,9 @@ export function calcular(input: CalcInput, opcoes: CalcOptions = {}): Resultado 
         tipo: 'refino',
         custoEsperado: degrau.custoPreparo,
         trechos: agruparTrechos(degrau.refinoPreparo.politica, refinoDe, degrau.refino),
+        politica: degrau.refinoPreparo.politica,
+        de: refinoDe,
+        para: degrau.refino,
       });
 
       const rotuloGrau = `Grau ${degrau.step.de === 'none' ? 'sem grau' : degrau.step.de} → ${degrau.step.para}`;
@@ -199,6 +215,9 @@ export function calcular(input: CalcInput, opcoes: CalcOptions = {}): Resultado 
         tipo: 'refino',
         custoEsperado: finalPlan.custoEsperado,
         trechos: agruparTrechos(finalPlan.politica, 0, input.refinoAlvo),
+        politica: finalPlan.politica,
+        de: 0,
+        para: input.refinoAlvo,
       });
     }
   } else if (input.refinoAlvo > input.refinoAtual) {
@@ -218,6 +237,9 @@ export function calcular(input: CalcInput, opcoes: CalcOptions = {}): Resultado 
       tipo: 'refino',
       custoEsperado: plan.custoEsperado,
       trechos: agruparTrechos(plan.politica, input.refinoAtual, input.refinoAlvo),
+      politica: plan.politica,
+      de: input.refinoAtual,
+      para: input.refinoAlvo,
     });
   }
 

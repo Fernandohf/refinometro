@@ -89,11 +89,27 @@ export interface CompraLinha {
   total: number;
 }
 
+/** O que o balcão do NPC cobrou para preparar um minério intermediário. */
+export interface FabricacaoLinha {
+  /** O minério que SAI da receita (Bradium, Eteridecon...), não os insumos. */
+  itemId: number;
+  /** Quantas unidades foram fabricadas. */
+  qtd: number;
+  /** Zeny de balcão desta receita, já multiplicado pela quantidade. */
+  zeny: number;
+}
+
 export interface ListaDeCompras {
   /** Só o que se compra de fato — os intermediários já vêm desmontados. */
   compras: CompraLinha[];
   /** Zeny pago no balcão do NPC para fabricar os intermediários. */
   zenyNpc: number;
+  /**
+   * O mesmo `zenyNpc`, aberto por minério fabricado. Só entram as receitas que
+   * cobram balcão: transformar 5 Minério de Oridecon em 1 Oridecon é de graça,
+   * e uma linha de 0z só ocuparia espaço.
+   */
+  fabricacao: FabricacaoLinha[];
   /** Compras + balcão do NPC. Não inclui taxa de refino nem itens quebrados. */
   total: number;
 }
@@ -113,6 +129,7 @@ export function listaDeCompras(
 ): ListaDeCompras {
   const memo = new Map<number, number>();
   const compras = new Map<number, number>();
+  const fabricados = new Map<number, { qtd: number; zeny: number }>();
   let zenyNpc = 0;
 
   const expandir = (itemId: number, qtd: number, profundidade: number) => {
@@ -125,6 +142,12 @@ export function listaDeCompras(
       return;
     }
     zenyNpc += receita.zeny * qtd;
+    if (receita.zeny > 0) {
+      const acc = fabricados.get(itemId) ?? { qtd: 0, zeny: 0 };
+      acc.qtd += qtd;
+      acc.zeny += receita.zeny * qtd;
+      fabricados.set(itemId, acc);
+    }
     for (const mat of receita.materiais) expandir(mat.itemId, mat.qtd * qtd, profundidade + 1);
   };
 
@@ -137,8 +160,12 @@ export function listaDeCompras(
     })
     .sort((a, b) => b.total - a.total || b.qtd - a.qtd);
 
+  const fabricacao: FabricacaoLinha[] = [...fabricados]
+    .map(([itemId, a]) => ({ itemId, qtd: a.qtd, zeny: a.zeny }))
+    .sort((a, b) => b.zeny - a.zeny);
+
   const total = linhas.reduce((s, l) => s + l.total, 0) + zenyNpc;
-  return { compras: linhas, zenyNpc, total };
+  return { compras: linhas, zenyNpc, fabricacao, total };
 }
 
 /** Custo de uma unidade de minério, pela via mais barata. */

@@ -9,6 +9,7 @@ import {
   type ItemDb,
 } from '../data/items';
 import { rotuloCurto } from '../data/rotulos';
+import { SlotItem } from './ItemNoJogo';
 import { Campo } from './ui';
 
 const dataBR = (iso: string) => iso.split('-').reverse().join('/');
@@ -158,13 +159,16 @@ export function BuscaItem({
                   <button
                     type="button"
                     tabIndex={-1}
-                    className="flex w-full items-baseline justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-fundo"
+                    className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-sm hover:bg-fundo"
                     onMouseEnter={() => setAtivo(i)}
                     onClick={() => escolher(item)}
                   >
-                    <span className={item.kind ? undefined : 'text-suave line-through'}>
-                      {item.nome}
-                      {item.slots > 0 && <span className="text-suave"> [{item.slots}]</span>}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <SlotItem id={item.id} />
+                      <span className={item.kind ? undefined : 'text-suave line-through'}>
+                        {item.nome}
+                        {item.slots > 0 && <span className="text-suave"> [{item.slots}]</span>}
+                      </span>
                     </span>
                     <span className="shrink-0 text-xs text-suave">
                       {item.kind ? rotuloCurto(item.kind) : 'não refina'}
