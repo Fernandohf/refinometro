@@ -127,6 +127,30 @@ describe('página', () => {
     expect(html).toContain('<title');
   });
 
+  it('desenha a distribuição do custo com o ponto na margem escolhida', () => {
+    // O número da margem sozinho não mostra por que subir de 90% para 99% custa
+    // tão caro: isso está na forma da distribuição, não na fila de percentis.
+    localStorage.setItem('refinometro:v1', JSON.stringify({ margem: 'p90' }));
+    const html = renderToString(<App />);
+    localStorage.removeItem('refinometro:v1');
+
+    const orcamento = html.indexOf('Orçamento recomendado');
+    const curva = html.indexOf('Cada faixa é a fatia das campanhas simuladas');
+    const compras = html.indexOf('Lista de compras');
+
+    // O desenho fica entre o número que ele explica e o que se leva ao jogo.
+    expect(curva).toBeGreaterThan(orcamento);
+    expect(curva).toBeLessThan(compras);
+    // A área acesa é a chance escolhida, e o ponto pousa no percentil dela.
+    expect(html).toContain('A margem escolhida, 90%, cai em');
+    // O texto acessível do desenho é uma string só, então dá para conferir a
+    // frase inteira; a legenda visível é interpolada e o SSR corta os nós com
+    // comentários no meio, o que não sobrevive a um `toContain`.
+    expect(html).toContain('cobre 90% delas');
+    // E a cauda que não cabe na escala é dita, não cortada em silêncio.
+    expect(html).toContain('O bloco solto na ponta é a cauda');
+  });
+
   it('credita todas as fontes, cada uma dizendo o que fornece', () => {
     // Nenhum número da tela é do projeto: chances são do Browiki, a taxa do
     // refinador do iROwiki, os itens do Divine Pride e os preços do usuário.

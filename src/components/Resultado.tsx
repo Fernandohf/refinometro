@@ -8,18 +8,25 @@ import type { Percentis } from '../engine/types';
 import { ROTULO_GRAU, rotuloCurto } from '../data/rotulos';
 import { CartaoItem } from './ItemNoJogo';
 import { CadeiaDeDecisoes } from './Cadeia';
+import { CurvaDeCusto } from './CurvaDeCusto';
 import { ResumoDoFluxo, SankeyCusto } from './SankeyCusto';
 import { porcento, quantidade, zeny, zenyExato } from '../format';
 import { Painel, PainelRecolhivel, Segmentado } from './ui';
 
 export type MargemKey = keyof Percentis;
 
-export const MARGENS: { key: MargemKey; rotulo: string; explica: string }[] = [
-  { key: 'p50', rotulo: 'Mediana', explica: 'metade das tentativas custa menos que isso' },
-  { key: 'p75', rotulo: '75%', explica: 'cobre 3 de cada 4 tentativas' },
-  { key: 'p90', rotulo: '90%', explica: 'cobre 9 de cada 10 tentativas' },
-  { key: 'p95', rotulo: '95%', explica: 'cobre 19 de cada 20 tentativas' },
-  { key: 'p99', rotulo: '99%', explica: 'só 1 em 100 estoura este orçamento' },
+/**
+ * As margens oferecidas. `chance` é a mesma coisa que o percentil, em número:
+ * o gráfico da distribuição precisa dela para dizer que fatia das campanhas a
+ * área acesa cobre, e ler isso de volta da chave ('p90' → 0,9) seria um parse
+ * inútil de um dado que já se sabe aqui.
+ */
+export const MARGENS: { key: MargemKey; rotulo: string; chance: number; explica: string }[] = [
+  { key: 'p50', rotulo: 'Mediana', chance: 0.5, explica: 'metade das tentativas custa menos que isso' },
+  { key: 'p75', rotulo: '75%', chance: 0.75, explica: 'cobre 3 de cada 4 tentativas' },
+  { key: 'p90', rotulo: '90%', chance: 0.9, explica: 'cobre 9 de cada 10 tentativas' },
+  { key: 'p95', rotulo: '95%', chance: 0.95, explica: 'cobre 19 de cada 20 tentativas' },
+  { key: 'p99', rotulo: '99%', chance: 0.99, explica: 'só 1 em 100 estoura este orçamento' },
 ];
 
 export function Resultado({
@@ -129,6 +136,7 @@ export function Resultado({
         {sim && (
           <Distribuicao
             custo={sim.custo}
+            amostras={sim.amostras.custo}
             media={plano.custoEsperado}
             margem={margem}
             onMargem={onMargem}
@@ -321,39 +329,42 @@ function Copias({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey })
 }
 
 /**
- * Barra que mostra onde a margem escolhida cai dentro da distribuição.
+ * Onde a margem escolhida cai dentro da distribuição do custo.
+ *
+ * Antes isto era uma barra: a fração preenchida dizia o percentil, e o traço
+ * claro, a média. Dizia onde, mas não dizia de quê — a forma da distribuição,
+ * que é o que explica o preço de cada margem, ficava de fora. O desenho a
+ * mostra inteira (ver `CurvaDeCusto`), com o ponto pousado na margem atual.
  *
  * A legenda dos cinco percentis é clicável: ela já mostra o valor de cada
  * margem, então é o lugar em que comparar e escolher são o mesmo gesto — em vez
- * de escolher às cegas num campo e só depois ver no que deu.
+ * de escolher às cegas num campo e só depois ver no que deu. Clicar move o
+ * ponto no gráfico logo acima.
  */
 function Distribuicao({
   custo,
+  amostras,
   media,
   margem,
   onMargem,
 }: {
   custo: Percentis;
+  /** Custo de cada campanha simulada, cru: é dele que sai a forma da curva. */
+  amostras: Float64Array;
   media: number;
   margem: MargemKey;
   onMargem: (m: MargemKey) => void;
 }) {
-  const max = custo.p99 || 1;
-  const pos = (v: number) => Math.min(100, (v / max) * 100);
+  const info = MARGENS.find((m) => m.key === margem)!;
 
   return (
     <div className="mt-5">
-      <div className="relative h-2 rounded-full bg-fundo">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-realce/40 transition-[width]"
-          style={{ width: `${pos(custo[margem])}%` }}
-        />
-        <div
-          className="absolute inset-y-0 w-1 bg-texto"
-          style={{ left: `${pos(media)}%` }}
-          title={`Média: ${zenyExato(media)}`}
-        />
-      </div>
+      <CurvaDeCusto
+        amostras={amostras}
+        media={media}
+        escolhida={{ rotulo: info.rotulo, chance: info.chance, valor: custo[margem] }}
+        margens={MARGENS.map((m) => custo[m.key])}
+      />
       <div className="mt-3 grid grid-cols-2 gap-1 text-xs sm:grid-cols-5">
         {MARGENS.map((m) => (
           <button
