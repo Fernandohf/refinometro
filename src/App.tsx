@@ -6,7 +6,7 @@ import type { ItemKind } from './data/ores';
 import { CATEGORIAS, ROTULO_GRAU } from './data/rotulos';
 import { calcular, type Resultado as ResultadoPlano } from './engine/plan';
 import type { PedidoSimulacao, RespostaSimulacao } from './engine/worker';
-import { maxRefine, safeLimit } from './engine/refine';
+import { maxRefine, riscoPorAlvo, safeLimit } from './engine/refine';
 import { suportaGrau } from './engine/grade';
 import type { CalcInput, PriceTable } from './engine/types';
 import type { Estoque } from './engine/estoque';
@@ -15,7 +15,7 @@ import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { META } from './data/items';
 import { BotaoDoPainel, Campo, NumeroZeny, Painel, Select, Toggle } from './components/ui';
-import { TrilhaRefino } from './components/TrilhaRefino';
+import { rotuloDoAlvo, TrilhaRefino } from './components/TrilhaRefino';
 import { zeny } from './format';
 
 interface Estado {
@@ -105,6 +105,26 @@ export default function App() {
   const max = maxRefine(e.kind);
   const limite = safeLimit(e.kind);
   const temGrau = suportaGrau(e.kind);
+
+  /**
+   * O que uma falha pode fazer no caminho até cada alvo da lista.
+   *
+   * Não entra no `useMemo` do plano porque não é resultado da conta: é a
+   * legenda da própria lista, precisa estar pronta antes de qualquer escolha e
+   * não pode esperar o valor adiado — a lista ficaria marcando o alvo anterior.
+   */
+  const riscos = useMemo(
+    () =>
+      riscoPorAlvo(e.refinoAtual, {
+        kind: e.kind,
+        precos: e.precos,
+        evento: e.evento,
+        usarBencaoFerreiro: e.usarBencaoFerreiro,
+        usarMineriosEspeciais: e.usarMineriosEspeciais,
+      }),
+    [e.refinoAtual, e.kind, e.precos, e.evento, e.usarBencaoFerreiro, e.usarMineriosEspeciais],
+  );
+  const riscoDoAlvo = riscos[e.refinoAlvo] ?? 'nenhuma';
 
   // Manter o estado coerente quando a categoria muda: Sombrio só vai até o +10,
   // e só Arma nv5 / Armadura nv2 têm Grau.
@@ -225,17 +245,27 @@ export default function App() {
                 </Campo>
                 <Campo label="Refino alvo">
                   <Select value={String(e.refinoAlvo)} onChange={(v) => set('refinoAlvo', Number(v))}>
+                    {/* A marca separa as duas coisas que "arriscado" mistura: o
+                        alvo que só derruba o refino na falha e o que pode
+                        destruir o item. Antes um ⚠ só cobria os dois, e o mais
+                        caro dos dois erros — mirar um alvo achando que o item
+                        sobrevive — era o que ele deixava passar. */}
                     {Array.from({ length: max + 1 }, (_, i) => (
                       <option key={i} value={i}>
-                        +{i}
-                        {i > limite ? ' ⚠' : ''}
+                        {rotuloDoAlvo(i, riscos[i] ?? 'nenhuma')}
                       </option>
                     ))}
                   </Select>
                 </Campo>
               </div>
 
-              <TrilhaRefino atual={e.refinoAtual} alvo={e.refinoAlvo} max={max} limite={limite} />
+              <TrilhaRefino
+                atual={e.refinoAtual}
+                alvo={e.refinoAlvo}
+                max={max}
+                limite={limite}
+                risco={riscoDoAlvo}
+              />
 
               {/* Grau só existe em duas categorias. Dois campos permanentemente
                   desligados ocupariam o lugar mais nobre do formulário para não

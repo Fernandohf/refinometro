@@ -17,6 +17,7 @@ import {
   chanceOf,
   maxRefine,
   pisoSeguro,
+  riscoPorAlvo,
   RefineImpossivel,
   safeLimit,
   solveRefine,
@@ -870,6 +871,33 @@ describe('equipamento que não pode ser perdido', () => {
     expect(pisoSeguro(10, opts({ kind: 'shadowW', perdaAceitavel: false }))).toBe(10);
     // Aceitando a perda o piso é sempre o +0: nada está fora do alcance.
     expect(pisoSeguro(12, opts({ kind: 'w4', perdaAceitavel: true }))).toBe(0);
+  });
+
+  it('separa o alvo que só derruba o refino do que pode destruir o item', () => {
+    // A lista de alvos precisa dizer QUAL das duas coisas a falha faz: são a
+    // mesma palavra ("arriscado") e decisões opostas — perder um refino custa
+    // mais uma tentativa, perder o item custa o item e tudo que já foi pago.
+    const cond = { precos: DEFAULT_PRICES, evento: false, usarBencaoFerreiro: true, usarMineriosEspeciais: true };
+
+    // Arma nv4 saindo do +0: até o +4 nada falha; do +5 em diante o caminho
+    // atravessa a faixa em que todo minério quebra o equipamento.
+    const doZero = riscoPorAlvo(0, { kind: 'w4', ...cond });
+    expect(doZero[4]).toBe('nenhuma');
+    expect(doZero[10]).toBe('quebra');
+
+    // O MESMO +10, saindo do +7, nunca destrói o item: dali para cima a Bênção
+    // segura, e é por isso que o risco não pode ser lido só do alvo.
+    expect(riscoPorAlvo(7, { kind: 'w4', ...cond })[10]).toBe('derruba');
+
+    // Arma nv5: o Eteridecon derruba 3 refinos e nunca quebra, então o caminho
+    // é seguro desde o +0 — até o +14. Acima disso a Bênção não alcança e todo
+    // minério da faixa destrói o item.
+    const nv5 = riscoPorAlvo(0, { kind: 'w5', ...cond });
+    expect(nv5[14]).toBe('derruba');
+    expect(nv5[15]).toBe('quebra');
+
+    // Sem Bênção do Ferreiro não existe rede: o que era queda vira quebra.
+    expect(riscoPorAlvo(7, { kind: 'w4', ...cond, usarBencaoFerreiro: false })[10]).toBe('quebra');
   });
 
   it('não escolhe nenhuma tentativa que possa destruir o item', () => {

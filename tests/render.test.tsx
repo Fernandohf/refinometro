@@ -127,6 +127,36 @@ describe('página', () => {
     expect(html).toContain('<title');
   });
 
+  it('separa, na lista de alvos, perder refino de perder o item', () => {
+    // Um ⚠ só para tudo acima do limite seguro escondia a diferença que mais
+    // muda a decisão: subir de +10 para +12 numa Arma nv4 só derruba o refino
+    // na falha; sair do +0 para o mesmo +12 atravessa a faixa em que todo
+    // minério destrói o equipamento.
+    localStorage.setItem(
+      'refinometro:v1',
+      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10 }),
+    );
+    const doZero = renderToString(<App />);
+    localStorage.removeItem('refinometro:v1');
+
+    // Até o limite seguro a opção sai limpa; acima dele, marcada.
+    expect(doZero).toContain('>+4</option>');
+    expect(doZero).toContain('>+10 ⚠</option>');
+    expect(doZero).toContain('Não há caminho até lá sem arriscar o equipamento');
+
+    localStorage.setItem(
+      'refinometro:v1',
+      JSON.stringify({ kind: 'w4', refinoAtual: 10, refinoAlvo: 12 }),
+    );
+    const doDez = renderToString(<App />);
+    localStorage.removeItem('refinometro:v1');
+
+    expect(doDez).toContain('>+12 ↓</option>');
+    expect(doDez).toContain('a falha derruba o refino, mas o item sobrevive');
+    // E o mesmo alvo, agora alcançável sem risco, perde o ⚠.
+    expect(doDez).not.toContain('>+12 ⚠</option>');
+  });
+
   it('desenha a distribuição do custo com o ponto na margem escolhida', () => {
     // O número da margem sozinho não mostra por que subir de 90% para 99% custa
     // tão caro: isso está na forma da distribuição, não na fila de percentis.

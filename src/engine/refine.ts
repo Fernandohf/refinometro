@@ -142,17 +142,86 @@ function acaoLegal(a: RefineAction, piso: number, opts: RefineOptions): boolean 
  */
 export function pisoSeguro(alvo: number, opts: RefineOptions): number {
   if (opts.perdaAceitavel) return 0;
+  return inicioDoTrechoSeguro(alvo, niveisSeguros(alvo, opts));
+}
 
+/**
+ * Para cada refino abaixo de `ate`, se dá para tentar dali sem arriscar o item.
+ *
+ * Não depende do alvo — é uma propriedade do nível e dos minérios que o
+ * atendem —, então uma passada só serve para responder por todos os alvos da
+ * lista (ver `riscoPorAlvo`).
+ */
+function niveisSeguros(ate: number, opts: RefineOptions): boolean[] {
   const seguro: boolean[] = [];
-  for (let r = 0; r < alvo; r++) {
+  for (let r = 0; r < ate; r++) {
     seguro[r] = actionsAt(r, opts).some(
       (a) => a.falhaVaiPara !== null && (a.falhaVaiPara === r || seguro[a.falhaVaiPara]!),
     );
   }
+  return seguro;
+}
 
-  let piso = alvo; // `alvo` significa "não há trecho seguro nenhum"
+/** Onde começa o trecho seguro que encosta em `alvo`. `alvo` = não há nenhum. */
+function inicioDoTrechoSeguro(alvo: number, seguro: boolean[]): number {
+  let piso = alvo;
   for (let r = alvo - 1; r >= 0 && seguro[r]; r--) piso = r;
   return piso;
+}
+
+/** O que uma falha pode fazer no caminho até um alvo. */
+export type RiscoDaFalha =
+  /** Nenhuma tentativa do caminho falha. */
+  | 'nenhuma'
+  /** A falha derruba o refino, mas o item sempre sobrevive. */
+  | 'derruba'
+  /** Alguma tentativa do caminho pode destruir o item. */
+  | 'quebra';
+
+/**
+ * As condições que decidem o risco. Nem o preço do item nem aceitar a perda
+ * entram: o risco é uma propriedade dos minérios que a categoria tem à mão, e
+ * não da disposição de quem refina — marcar a perda como aceitável não faz o
+ * Oridecon parar de quebrar o equipamento.
+ */
+export type CondicoesDeRisco = Pick<
+  RefineOptions,
+  'kind' | 'precos' | 'evento' | 'usarBencaoFerreiro' | 'usarMineriosEspeciais'
+>;
+
+/**
+ * O que uma falha pode fazer no caminho do refino `de` até cada alvo possível,
+ * indexado pelo alvo (0 a `maxRefine`).
+ *
+ * Existe para a lista de alvos poder distinguir as duas coisas que a palavra
+ * "risco" mistura: subir de +10 para +12 numa Arma nv4 só derruba o refino na
+ * falha, enquanto sair do +0 para o mesmo +12 passa por uma faixa em que todo
+ * minério pode destruir o equipamento. As duas seriam a mesma marca de aviso,
+ * e são decisões completamente diferentes.
+ *
+ * O critério é o do próprio motor (ver `pisoSeguro`): existe caminho até o alvo
+ * em que nenhuma tentativa destrói o item? Não basta olhar o minério de cada
+ * degrau — uma falha que derruba 3 refinos pode largar o item numa faixa de
+ * onde só se sai arriscando a quebra, e aí o caminho inteiro arrisca.
+ */
+export function riscoPorAlvo(de: number, cond: CondicoesDeRisco): RiscoDaFalha[] {
+  const max = maxRefine(cond.kind);
+  const limite = safeLimit(cond.kind);
+  const opts: RefineOptions = {
+    ...cond,
+    perdaAceitavel: false,
+    precoItem: 0,
+    refinoReposicao: 0,
+  };
+
+  const seguro = niveisSeguros(max, opts);
+
+  return Array.from({ length: max + 1 }, (_, alvo) => {
+    // Abaixo do refino atual não há tentativa nenhuma; até o limite seguro da
+    // categoria toda tentativa passa. Nos dois casos não há falha a qualificar.
+    if (alvo <= de || alvo <= limite) return 'nenhuma';
+    return de >= inicioDoTrechoSeguro(alvo, seguro) ? 'derruba' : 'quebra';
+  });
 }
 
 /** Para onde o refino cai quando a tentativa falha. `null` = item destruído. */
