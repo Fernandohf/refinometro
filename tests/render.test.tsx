@@ -20,6 +20,24 @@ beforeAll(() => {
 });
 
 describe('página', () => {
+  it('abre o simulador de estoque com o que ficou salvo', () => {
+    // Estoque salvo => o painel já vem aberto, com os campos do plano atual.
+    localStorage.setItem(
+      'refinometro:estoque:v1',
+      JSON.stringify({ zeny: 500_000_000, itens: { 984: 300 }, copias: 2 }),
+    );
+    const html = renderToString(<App />);
+    localStorage.removeItem('refinometro:estoque:v1');
+
+    expect(html).toContain('Dá com o que eu tenho?');
+    expect(html).toContain('Chance de chegar ao alvo');
+    expect(html).toContain('Zeny em caixa');
+    expect(html).toContain('preencher com o mínimo');
+    // Os campos são os materiais que se compra, não o minério fabricado.
+    expect(html).toContain('Oridecon');
+    expect(html).not.toContain('mín. 0');
+  });
+
   it('renderiza sem estourar e já mostra um orçamento', () => {
     const html = renderToString(<App />);
     expect(html).toContain('Refin');

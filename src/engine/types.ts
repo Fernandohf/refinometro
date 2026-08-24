@@ -24,6 +24,12 @@ export interface CalcInput {
   usarBencaoFerreiro: boolean;
   /** Permitir minérios de JoyCoins (Enriquecido / Perfeito). */
   usarMineriosEspeciais: boolean;
+  /**
+   * Se dá para perder o equipamento no caminho. Marque `false` quando ele é
+   * insubstituível — com carta, encanto ou de evento: aí o plano só considera
+   * tentativas que não podem destruí-lo, custe o que custar.
+   */
+  perdaAceitavel: boolean;
 }
 
 /** Uma ação possível numa tentativa de refino: um minério, com ou sem Bênção. */

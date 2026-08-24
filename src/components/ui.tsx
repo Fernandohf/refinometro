@@ -94,6 +94,38 @@ export function NumeroZeny({
   );
 }
 
+/**
+ * Campo de quantidade. Mesmo comportamento do de zeny — texto, separador de
+ * milhar, só dígitos — sem o sufixo, porque aqui não se conta dinheiro.
+ */
+export function NumeroQtd({
+  value,
+  onChange,
+  placeholder,
+  rotulo,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  placeholder?: string;
+  /** Nome do campo para leitores de tela, quando não há `<label>` visível. */
+  rotulo?: string;
+}) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      aria-label={rotulo}
+      className={campoBase + ' text-right tabular-nums'}
+      value={value === 0 ? '' : value.toLocaleString('pt-BR')}
+      placeholder={placeholder ?? '0'}
+      onChange={(e) => {
+        const digitos = e.target.value.replace(/\D/g, '');
+        onChange(digitos === '' ? 0 : Number(digitos));
+      }}
+    />
+  );
+}
+
 export function Toggle({
   checked,
   onChange,

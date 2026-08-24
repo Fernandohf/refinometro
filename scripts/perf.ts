@@ -19,6 +19,7 @@ const base: CalcInput = {
   precos: DEFAULT_PRICES,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
+  perdaAceitavel: true,
 };
 
 const casos: [string, Partial<CalcInput>][] = [

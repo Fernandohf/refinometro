@@ -53,6 +53,12 @@ export interface RefineOptions {
   evento: boolean;
   usarBencaoFerreiro: boolean;
   usarMineriosEspeciais: boolean;
+  /**
+   * Se destruir o item é uma opção. `false` para equipamento insubstituível —
+   * com carta, encanto ou de evento —, e aí nenhum preço torna a quebra
+   * aceitável: ela vira restrição, não custo (ver `pisoSeguro`).
+   */
+  perdaAceitavel: boolean;
   /** Preço de reposição do item, cobrado sempre que ele quebra. */
   precoItem: number;
   /** Refino do item de reposição comprado após uma quebra. */
@@ -104,6 +110,51 @@ export function actionsAt(de: number, opts: RefineOptions): RefineAction[] {
   return acoes;
 }
 
+/**
+ * Uma ação é legal quando o plano pode arcar com o que ela faz na falha.
+ *
+ * Aceitando a perda, tudo é legal: quebrar tem preço e o otimizador decide. Sem
+ * aceitar, não basta a tentativa em si não quebrar o item — ela não pode
+ * derrubar o refino para um nível de onde só se sai arriscando o equipamento.
+ * É por isso que a legalidade depende do `piso`, e não só do minério.
+ */
+function acaoLegal(a: RefineAction, piso: number, opts: RefineOptions): boolean {
+  if (opts.perdaAceitavel) return true;
+  return a.falhaVaiPara !== null && a.falhaVaiPara >= piso;
+}
+
+/**
+ * Refino mais baixo a partir do qual existe caminho até `alvo` sem nunca
+ * arriscar o item.
+ *
+ * Um nível é seguro quando tem alguma ação que não destrói o item e cuja falha
+ * cai em outro nível seguro — a Bênção do Ferreiro, que segura o refino no
+ * lugar, sempre serve. Como toda falha desce (ou fica parada), dá para resolver
+ * o ponto fixo de baixo para cima numa passada só.
+ *
+ * O piso é o começo do trecho seguro que encosta no alvo: de nada adiantaria um
+ * nível seguro isolado lá embaixo se, para chegar nele, o item tivesse que
+ * passar por um nível de onde só se sai arriscando a quebra.
+ *
+ * Numa Arma nv4 o piso é +7: do +7 para cima a Bênção segura o item, e abaixo
+ * dele todo minério da categoria pode destruí-lo. Já numa Arma nv5 o piso é +0,
+ * porque o Eteridecon derruba 3 refinos mas nunca quebra.
+ */
+export function pisoSeguro(alvo: number, opts: RefineOptions): number {
+  if (opts.perdaAceitavel) return 0;
+
+  const seguro: boolean[] = [];
+  for (let r = 0; r < alvo; r++) {
+    seguro[r] = actionsAt(r, opts).some(
+      (a) => a.falhaVaiPara !== null && (a.falhaVaiPara === r || seguro[a.falhaVaiPara]!),
+    );
+  }
+
+  let piso = alvo; // `alvo` significa "não há trecho seguro nenhum"
+  for (let r = alvo - 1; r >= 0 && seguro[r]; r--) piso = r;
+  return piso;
+}
+
 /** Para onde o refino cai quando a tentativa falha. `null` = item destruído. */
 function failureTarget(ore: Ore, de: number): number | null {
   switch (ore.penalidade) {
@@ -119,6 +170,11 @@ function failureTarget(ore: Ore, de: number): number | null {
 export interface RefinePlan {
   de: number;
   para: number;
+  /**
+   * Refino mais baixo que o plano admite visitar. É 0 quando a perda do item é
+   * aceitável; sem isso, a política não tem entrada abaixo dele (ver `pisoSeguro`).
+   */
+  piso: number;
   /** Ação ótima para cada nível de refino que pode ser visitado. */
   politica: PolicyEntry[];
   /** Custo esperado total em zeny, saindo de `de` e chegando em `para`. */
@@ -148,22 +204,31 @@ export function solveRefine(de: number, para: number, opts: RefineOptions): Refi
     return {
       de,
       para,
+      piso: de,
       politica: [],
       custoEsperado: 0,
       recursos: { zeny: 0, itens: {}, itensQuebrados: 0, tentativas: 0, taxas: 0 },
     };
   }
 
-  // Estados 0..para-1 exigem tentativa; `para` é absorvente.
-  // A faixa começa em 0 porque uma falha pode derrubar o item abaixo de `de`.
+  // A faixa de estados começa no piso e não no refino atual: uma falha pode
+  // empurrar o item para baixo do ponto de partida, e o custo de voltar de lá
+  // faz parte da conta. Aceitando a perda o piso é o +0; sem aceitar, é o refino
+  // mais baixo de onde ainda se sai sem arriscar o equipamento.
+  const piso = pisoSeguro(para, opts);
+  if (de < piso) throw semCaminhoSeguro(de, para, piso);
+
+  const n = para - piso; // `para` é absorvente e fica fora do sistema
   const acoesPorEstado: RefineAction[][] = [];
-  for (let r = 0; r < para; r++) {
-    const acoes = actionsAt(r, opts);
+  for (let r = piso; r < para; r++) {
+    const acoes = actionsAt(r, opts).filter((a) => acaoLegal(a, piso, opts));
     if (acoes.length === 0) {
-      throw new RefineImpossivel(
-        `Não há minério disponível para levar o item de +${r} para +${r + 1}. ` +
-          `Informe o preço dos minérios dessa faixa ou revise o alvo.`,
-      );
+      throw opts.perdaAceitavel
+        ? new RefineImpossivel(
+            `Não há minério disponível para levar o item de +${r} para +${r + 1}. ` +
+              `Informe o preço dos minérios dessa faixa ou revise o alvo.`,
+          )
+        : semCaminhoSeguro(de, para, piso);
     }
     acoesPorEstado.push(acoes);
   }
@@ -173,71 +238,94 @@ export function solveRefine(de: number, para: number, opts: RefineOptions): Refi
   // valor aqui — nos alvos altos o custo esperado passa de 10^10 zeny e a
   // iteração de valor precisaria de centenas de milhares de passos, entregando
   // números truncados que pareciam plausíveis.
-  const escolha = new Int32Array(para);
+  const escolha = new Int32Array(n);
   // Começa pela ação de menor custo imediato: é um chute válido e barato.
-  for (let r = 0; r < para; r++) {
-    const acoes = acoesPorEstado[r]!;
+  for (let i = 0; i < n; i++) {
+    const acoes = acoesPorEstado[i]!;
     let melhorIdx = 0;
-    for (let i = 1; i < acoes.length; i++) {
-      if (acoes[i]!.custo < acoes[melhorIdx]!.custo) melhorIdx = i;
+    for (let k = 1; k < acoes.length; k++) {
+      if (acoes[k]!.custo < acoes[melhorIdx]!.custo) melhorIdx = k;
     }
-    escolha[r] = melhorIdx;
+    escolha[i] = melhorIdx;
   }
 
-  let avaliacao = avaliarPolitica(escolha, acoesPorEstado, para, opts);
+  let avaliacao = avaliarPolitica(escolha, acoesPorEstado, piso, para, opts);
 
   for (let iter = 0; iter < MAX_ITER; iter++) {
     const E = avaliacao.custo;
     let mudou = false;
 
-    for (let r = 0; r < para; r++) {
-      const acoes = acoesPorEstado[r]!;
+    for (let i = 0; i < n; i++) {
+      const acoes = acoesPorEstado[i]!;
       let melhor = Infinity;
-      let melhorIdx = escolha[r]!;
-      for (let i = 0; i < acoes.length; i++) {
-        const v = valorDaAcao(acoes[i]!, r, E, opts);
+      let melhorIdx = escolha[i]!;
+      for (let k = 0; k < acoes.length; k++) {
+        const v = valorDaAcao(acoes[k]!, piso + i, E, piso, opts);
         if (v < melhor - 1e-6) {
           melhor = v;
-          melhorIdx = i;
+          melhorIdx = k;
         }
       }
-      if (melhorIdx !== escolha[r]) {
-        escolha[r] = melhorIdx;
+      if (melhorIdx !== escolha[i]) {
+        escolha[i] = melhorIdx;
         mudou = true;
       }
     }
 
     if (!mudou) break;
-    avaliacao = avaliarPolitica(escolha, acoesPorEstado, para, opts);
+    avaliacao = avaliarPolitica(escolha, acoesPorEstado, piso, para, opts);
   }
 
   const politica: PolicyEntry[] = [];
-  for (let r = 0; r < para; r++) {
+  for (let i = 0; i < n; i++) {
     politica.push({
-      de: r,
-      acao: acoesPorEstado[r]![escolha[r]!]!,
-      custoEsperado: avaliacao.custo[r]!,
+      de: piso + i,
+      acao: acoesPorEstado[i]![escolha[i]!]!,
+      custoEsperado: avaliacao.custo[i]!,
     });
   }
 
   return {
     de,
     para,
+    piso,
     politica,
-    custoEsperado: avaliacao.custo[de]!,
+    custoEsperado: avaliacao.custo[de - piso]!,
     recursos: avaliacao.recursos(de, politica),
   };
 }
 
 /** Custo esperado de tomar `a` no refino `r`, dados os valores `E` dos estados. */
-function valorDaAcao(a: RefineAction, r: number, E: Float64Array, opts: RefineOptions): number {
+function valorDaAcao(
+  a: RefineAction,
+  r: number,
+  E: Float64Array,
+  piso: number,
+  opts: RefineOptions,
+): number {
   const destinoFalha = a.falhaVaiPara ?? opts.refinoReposicao;
   const penalidade = a.falhaVaiPara === null ? opts.precoItem : 0;
   return (
     a.custo +
     (1 - a.chance) * penalidade +
-    a.chance * E[r + 1]! +
-    (1 - a.chance) * E[destinoFalha]!
+    a.chance * E[r + 1 - piso]! +
+    (1 - a.chance) * E[destinoFalha - piso]!
+  );
+}
+
+/** O alvo é inalcançável sem arriscar o item; a mensagem diz o que fazer. */
+function semCaminhoSeguro(de: number, para: number, piso: number): RefineImpossivel {
+  if (piso >= para) {
+    return new RefineImpossivel(
+      `Não há caminho até o +${para} sem arriscar destruir o item: nesta categoria toda tentativa ` +
+        `da faixa pode quebrá-lo, e a Bênção do Ferreiro não cobre. Marque que a perda é aceitável ` +
+        `para ver o plano com risco.`,
+    );
+  }
+  return new RefineImpossivel(
+    `Sem aceitar a perda do item não há caminho do +${de} até o +${para}: abaixo do +${piso} todo ` +
+      `minério desta categoria pode destruir o equipamento. Comece do +${piso} ou marque que a ` +
+      `perda é aceitável.`,
   );
 }
 
@@ -251,19 +339,22 @@ function valorDaAcao(a: RefineAction, r: number, E: Float64Array, opts: RefineOp
 function avaliarPolitica(
   escolha: Int32Array,
   acoesPorEstado: RefineAction[][],
+  piso: number,
   para: number,
   opts: RefineOptions,
 ): { custo: Float64Array; recursos: (de: number, politica: PolicyEntry[]) => ResourceUsage } {
-  const n = para;
+  // A linha `i` da matriz é o refino `piso + i`. Aceitando a perda do item o
+  // piso é 0 e os dois coincidem; sem aceitar, o sistema é só do piso para cima.
+  const n = para - piso;
   const A = new Float64Array(n * n);
 
-  for (let r = 0; r < n; r++) {
-    const a = acoesPorEstado[r]![escolha[r]!]!;
-    const destinoFalha = a.falhaVaiPara === null ? opts.refinoReposicao : a.falhaVaiPara;
-    A[r * n + r] = (A[r * n + r] ?? 0) + 1;
+  for (let i = 0; i < n; i++) {
+    const a = acoesPorEstado[i]![escolha[i]!]!;
+    const destinoFalha = (a.falhaVaiPara === null ? opts.refinoReposicao : a.falhaVaiPara) - piso;
+    A[i * n + i] = (A[i * n + i] ?? 0) + 1;
     // O estado `para` é absorvente e vale 0, então some da matriz.
-    if (r + 1 < n) A[r * n + (r + 1)] = A[r * n + (r + 1)]! - a.chance;
-    A[r * n + destinoFalha] = A[r * n + destinoFalha]! - (1 - a.chance);
+    if (i + 1 < n) A[i * n + (i + 1)] = A[i * n + (i + 1)]! - a.chance;
+    A[i * n + destinoFalha] = A[i * n + destinoFalha]! - (1 - a.chance);
   }
 
   const lu = fatorarLU(A, n);
@@ -271,7 +362,7 @@ function avaliarPolitica(
   /** Resolve para um vetor de custo imediato por estado. */
   const resolver = (imediato: (a: RefineAction, r: number) => number): Float64Array => {
     const b = new Float64Array(n);
-    for (let r = 0; r < n; r++) b[r] = imediato(acoesPorEstado[r]![escolha[r]!]!, r);
+    for (let i = 0; i < n; i++) b[i] = imediato(acoesPorEstado[i]![escolha[i]!]!, piso + i);
     const x = resolverLU(lu, b);
     // Um estado a mais, valendo 0, para o alvo absorvente.
     const completo = new Float64Array(n + 1);
@@ -302,15 +393,15 @@ function avaliarPolitica(
         if (itemId === BLESSING_ITEM_ID) q += a.bencaos;
         return q;
       });
-      itens[itemId] = v[de]!;
+      itens[itemId] = v[de - piso]!;
     }
 
     return {
-      zeny: custo[de]!,
+      zeny: custo[de - piso]!,
       itens,
-      itensQuebrados: quebras[de]!,
-      tentativas: tentativas[de]!,
-      taxas: taxas[de]!,
+      itensQuebrados: quebras[de - piso]!,
+      tentativas: tentativas[de - piso]!,
+      taxas: taxas[de - piso]!,
     };
   };
 

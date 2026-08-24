@@ -8,7 +8,9 @@ import type { PedidoSimulacao, RespostaSimulacao } from './engine/worker';
 import { maxRefine, safeLimit } from './engine/refine';
 import { suportaGrau } from './engine/grade';
 import type { CalcInput, PriceTable } from './engine/types';
+import type { Estoque } from './engine/estoque';
 import { MARGENS, Resultado, type MargemKey } from './components/Resultado';
+import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { Campo, NumeroZeny, Painel, Select, Toggle } from './components/ui';
 import { zeny } from './format';
@@ -45,6 +47,7 @@ interface Estado {
   evento: boolean;
   usarBencaoFerreiro: boolean;
   usarMineriosEspeciais: boolean;
+  perdaAceitavel: boolean;
   precos: PriceTable;
   margem: MargemKey;
 }
@@ -60,11 +63,20 @@ const INICIAL: Estado = {
   evento: false,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
+  perdaAceitavel: true,
   precos: DEFAULT_PRICES,
   margem: 'p90',
 };
 
 const CHAVE_STORAGE = 'refinometro:v1';
+
+/**
+ * O estoque fica fora de `Estado` de propósito: ele não entra no cálculo, e
+ * misturá-lo faria cada tecla digitada num campo de minério refazer o passe
+ * rápido à toa. O veredito sai das campanhas já simuladas (ver
+ * `engine/estoque.ts`), então basta guardá-lo à parte.
+ */
+const CHAVE_ESTOQUE = 'refinometro:estoque:v1';
 
 function carregar(): Estado {
   try {
@@ -78,13 +90,28 @@ function carregar(): Estado {
   }
 }
 
+function carregarEstoque(): Estoque {
+  try {
+    const bruto = localStorage.getItem(CHAVE_ESTOQUE);
+    if (!bruto) return ESTOQUE_VAZIO;
+    return { ...ESTOQUE_VAZIO, ...(JSON.parse(bruto) as Partial<Estoque>) };
+  } catch {
+    return ESTOQUE_VAZIO;
+  }
+}
+
 export default function App() {
   const [e, setE] = useState<Estado>(carregar);
   const set = <K extends keyof Estado>(k: K, v: Estado[K]) => setE((a) => ({ ...a, [k]: v }));
+  const [estoque, setEstoque] = useState<Estoque>(carregarEstoque);
 
   useEffect(() => {
     localStorage.setItem(CHAVE_STORAGE, JSON.stringify(e));
   }, [e]);
+
+  useEffect(() => {
+    localStorage.setItem(CHAVE_ESTOQUE, JSON.stringify(estoque));
+  }, [estoque]);
 
   const max = maxRefine(e.kind);
   const limite = safeLimit(e.kind);
@@ -120,6 +147,7 @@ export default function App() {
       precos: adiado.precos,
       usarBencaoFerreiro: adiado.usarBencaoFerreiro,
       usarMineriosEspeciais: adiado.usarMineriosEspeciais,
+      perdaAceitavel: adiado.perdaAceitavel,
     };
     try {
       // Passe rápido: orçamento curto, síncrono, só para a tela nunca ficar
@@ -263,6 +291,12 @@ export default function App() {
                 checked={e.usarMineriosEspeciais}
                 onChange={(v) => set('usarMineriosEspeciais', v)}
               />
+              <Toggle
+                label="Posso perder o item"
+                dica="Desmarque para equipamento insubstituível — com carta, encanto ou de evento. O plano passa a usar só tentativas que não podem destruí-lo, e o preço do item deixa de ser o que se arrisca."
+                checked={e.perdaAceitavel}
+                onChange={(v) => set('perdaAceitavel', v)}
+              />
             </div>
 
             <div className="mt-4">
@@ -289,7 +323,19 @@ export default function App() {
           ) : exibido ? (
             <div className={calculando ? 'opacity-60 transition-opacity' : undefined}>
               <Precisao afinando={preciso.afinando} plano={exibido} />
-              <Resultado plano={exibido} margem={e.margem} afinando={preciso.afinando} />
+              <Resultado
+                plano={exibido}
+                margem={e.margem}
+                afinando={preciso.afinando}
+                moduloEstoque={
+                  <SimuladorDeEstoque
+                    plano={exibido}
+                    margem={e.margem}
+                    estoque={estoque}
+                    onChange={setEstoque}
+                  />
+                }
+              />
             </div>
           ) : null}
 

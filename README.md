@@ -13,11 +13,9 @@ nível depende do custo esperado dos níveis vizinhos, inclusive dos que ficam _
 onde você começou. E cada subida de Grau **zera o refino de volta para +0**, o que
 transforma "quero Grau A +11" em cinco subidas de refino, não uma.
 
-O motor trata isso como um processo de decisão de Markov e resolve por **iteração de
-política**: avalia a política atual resolvendo o sistema linear de forma exata (LU, no
-máximo 20 estados), melhora estado a estado e repete. Iteração de valor não serve aqui —
-nos alvos altos o custo esperado passa de 10¹³ zeny, e ela precisaria de centenas de
-milhares de passos para convergir, entregando números truncados que parecem plausíveis.
+O motor trata isso como um processo de decisão de Markov e resolve o custo esperado de forma
+exata, escolhendo o minério ótimo de cada nível em vez de seguir uma receita fixa — os
+detalhes de como estão em [Como o motor funciona](#como-o-motor-funciona).
 
 Em cima disso roda uma simulação de Monte Carlo, que dá os percentis: a distribuição tem
 cauda longa e quem se planeja pela média fica sem recursos no meio do caminho quase metade
@@ -28,33 +26,302 @@ Na faixa de quebra o próprio equipamento vira consumo, então ele entra na cont
 material: a tela mostra quantas cópias separar na margem escolhida (a sua mais uma por
 quebra), e não só quanto zeny levar.
 
-### Dois passes
+E há a pergunta inversa, que é a que a maioria das pessoas tem de fato: *com o que já está
+na minha mochila, qual a chance de eu chegar lá?* Ela tem um painel próprio — ver
+[Dá com o que eu tenho?](#dá-com-o-que-eu-tenho).
 
-Simulação boa custa segundos, e segundos de laço síncrono congelam a aba. Então o cálculo
-roda duas vezes: um **passe rápido** (~80ms, síncrono) para a tela nunca ficar vazia
-enquanto se digita, e um **passe preciso** (até 3s, num Web Worker) que substitui o
-resultado quando fica pronto. O orçamento é de tempo: `calcular(input, { tempoMs })`
-converte tempo em tentativas de refino (ver `TENTATIVAS_POR_MS`, calibrado com
-`npm run perf`) e daí decide quantas campanhas simular.
+## Como o motor funciona
+
+Todo o cálculo vive em `src/engine/` e não depende de React: entra um `CalcInput` (categoria,
+refino e grau atuais, alvos, preços, se pode usar Bênção e minério especial, se dá para perder
+o item) e sai um `Resultado` com plano, custo, materiais, percentis e avisos. A interface só
+desenha o que ele devolve.
+
+### O caminho de um cálculo
+
+`calcular()` (`src/engine/plan.ts`) é o maestro, e faz sempre a mesma sequência:
+
+1. **Valida** o alvo contra a categoria — refino acima do máximo da coluna, grau em item que
+   não tem grau, alvo abaixo do atual.
+2. **Quebra a campanha em fases.** Subir de grau reseta o refino, então "Grau A +11" vira
+   `refinar → grau D → refinar → grau C → … → refinar até +11`. Sem grau, é uma fase só.
+3. **Resolve cada fase de refino** como uma cadeia de Markov (`solveRefine`), e cada degrau de
+   grau por busca exaustiva sobre as três decisões que ele tem (`solveGradeStep`).
+4. **Agrega os recursos** somando os números exatos de cada fase — zeny, minérios, bênçãos,
+   tentativas, taxas, quebras.
+5. **Simula**, se o alvo couber no orçamento de tempo, só para extrair os percentis.
+6. **Gera os avisos**, lendo o plano já pronto: risco de quebra, processo de grau normal,
+   Bradium sem Bênção, grau abaixo do +11, simulação curta ou truncada.
+
+O passo 4 é deliberadamente independente do 5. Todo número de material que a tela mostra como
+média vem da álgebra, não da amostragem — inclusive quando a simulação nem chega a rodar.
+
+### O problema de decisão
+
+Cada fase de refino é um processo de decisão de Markov com no máximo 21 estados: os refinos
+`piso..alvo`, sendo `alvo` absorvente. A faixa começa abaixo do refino atual — normalmente no 0
+— porque uma falha pode empurrar o item para baixo do ponto de partida, e o custo de voltar de
+lá faz parte da conta. Quem é o `piso` está em [Quando perder o item não é uma
+opção](#quando-perder-o-item-não-é-uma-opção).
+
+Uma **ação** é um par (minério, com ou sem Bênção do Ferreiro). `actionsAt()` monta a lista de
+cada nível e descarta o que não dá para usar: minério bloqueado pelas opções, chance nula
+naquele nível, item sem preço nem receita. Cada ação carrega chance, custo (minério + bênçãos
++ taxa do NPC) e para onde a falha leva — `down1`, `down3`, ou `null` para quebra.
+
+O valor de um estado é a equação de Bellman de custo mínimo:
+
+```
+E[r] = min sobre as ações a de:
+       custo(a) + (1−p)·quebra(a)·precoItem + p·E[r+1] + (1−p)·E[destino_da_falha(a)]
+
+E[alvo] = 0
+```
+
+A taxa do refinador entra dentro de `custo(a)`, por ação e não como constante da campanha:
+minério de Cash Shop é isento, e é isso que faz o Enriquecido competir de igual para igual com
+o Oridecon numa arma nv4.
+
+### Iteração de política, e por que não iteração de valor
+
+`solveRefine()` resolve por **iteração de política**:
+
+1. Chuta a política inicial pelo menor custo imediato de cada nível — barato e válido.
+2. **Avalia exatamente**: monta `(I − P)·E = m` com a política fixa e resolve o sistema.
+3. **Melhora**: em cada estado, troca pela ação de menor valor dado o `E` recém-calculado.
+4. Repete até nenhum estado mudar (`MAX_ITER = 200` existe só como trava contra dois empates
+   alternando para sempre).
+
+Iteração de valor não serve aqui. Nos alvos altos o custo esperado passa de 10¹³ zeny, e ela
+precisaria de centenas de milhares de passos para convergir — entregando números truncados que
+parecem plausíveis. Com no máximo 20 estados, resolver o sistema exato sai barato:
+`src/engine/linear.ts` faz decomposição LU com pivotamento parcial, O(n³) sobre n ≤ 20.
+
+**A mesma fatoração conta os materiais.** Trocar o custo pela quantidade de um minério muda só
+o lado direito do sistema — a matriz de transições é a mesma. Então o LU é fatorado uma vez por
+avaliação e reaproveitado para cada contagem: `b = 1` em todo estado devolve o número esperado
+de tentativas; `b = 1` só onde a política usa aquele minério devolve quantas unidades dele;
+`b = (1−p)` nas ações que quebram devolve quantos itens se espera destruir. É daí que sai "380
+Eterium e 2,3 cópias do item" sem sortear nada.
+
+### Quebra e reposição
+
+Quando a falha destrói o item, o modelo cobra `precoItem` e devolve o jogador ao **+0**, não ao
+refino em que ele estava. Isso é escolha de modelagem, e importa: repor no refino atual criaria
+um atalho falso — quebrar sairia barato e ainda adiantaria o caminho — e o otimizador
+aprenderia a quebrar de propósito. Por isso `refinoReposicao: 0` está fixo em `plan.ts`, e
+`precoItem` é o preço do item **sem refino**.
+
+O outro lado disso aparece na tela: na faixa de quebra o equipamento vira consumo, então
+`copiasItem = 1 + itensQuebrados` diz quantas cópias separar — a sua mais uma por quebra
+esperada — e não só quanto zeny levar.
+
+### Quando perder o item não é uma opção
+
+Um equipamento com carta, encanto ou vindo de evento não tem preço de reposição de verdade: se
+quebrar, acabou. Para esse caso `perdaAceitavel: false` muda a natureza do problema — a quebra
+deixa de ser um custo que o otimizador pondera e vira uma **restrição** sobre as ações. Não dá
+para modelar isso com um `precoItem` altíssimo: o número escolhido decidiria a resposta, e
+qualquer valor finito ainda aceita a troca por um caminho suficientemente barato.
+
+A restrição não é só "não use minério que quebra". Uma tentativa que apenas derruba o refino
+também é proibida quando o nível de destino é um beco — um lugar de onde só se sai arriscando o
+item. É por isso que existe o **piso**: o refino mais baixo a partir do qual há caminho até o
+alvo sem nunca arriscar o equipamento.
+
+`pisoSeguro()` resolve isso de baixo para cima, numa passada só. Um nível é seguro quando tem
+alguma ação que não destrói o item e cuja falha cai em outro nível seguro — a Bênção do
+Ferreiro, que segura o refino no lugar, sempre serve. O piso é o começo do trecho seguro que
+encosta no alvo: um nível seguro isolado lá embaixo não adianta se, para chegar até ele, o item
+tiver que atravessar um beco.
+
+O resultado é que o motor **deduz** a estratégia que a comunidade usa em item insubstituível,
+em vez de tê-la escrita em algum lugar. Numa Arma nv4 o piso é o +7: abaixo dele todo minério
+da categoria pode destruir o item, e no próprio +7 o Perfeito derrubaria o equipamento para o
++6 — então a única ação legal ali é Perfeito **com** Bênção. Numa Arma nv5 o piso é o +0,
+porque o Eteridecon derruba 3 refinos mas nunca quebra. Num Sombrio não há piso nenhum: a
+Bênção não funciona e o Perfeito derruba para uma faixa que quebra, então o alvo é recusado com
+essa explicação.
+
+Nos degraus de grau a mesma restrição elimina o processo normal, que destrói o item na falha, e
+deixa só o seguro. E como o plano não arrisca nada, `itensQuebrados` fica em 0 e `copiasItem`
+em 1 — a garantia se paga em minério e Bênção, não em cópias do equipamento.
+
+O que essa garantia custa varia demais para virar regra de bolso — de nada, quando o plano mais
+barato já não arriscava o item, a +36% num alvo baixo com equipamento barato —, então o motor
+resolve o mesmo alvo dos dois jeitos e põe a diferença num aviso.
+
+### Grau: três decisões no mesmo laço
+
+Só Arma nv5 e Equipamento nv2 têm Grau, e cada degrau (`solveGradeStep`) decide três coisas que
+não dá para separar, porque interagem:
+
+- **Em que refino tentar.** A chance sobe em degraus até o +16, mas o sucesso zera o refino —
+  subir além do necessário é dinheiro que evapora. Só vale testar o **menor refino de cada
+  chance distinta** (`refinosCandidatos`): entre dois níveis de mesma chance, o mais baixo vence
+  sempre, porque o preparo custa estritamente mais a cada refino.
+- **Processo seguro ou normal.** O seguro cobra 5× o material (10× no B→A) e não perde nada na
+  falha; o normal cobra 1× e destrói o item com todo o refino investido.
+- **Quantos pontos de Bênção de Éter comprar**, de 0 a 10 pontos percentuais, a
+  `bencaosPorPonto` bênçãos cada (1 no D, 3 no C, 5 no B, 7 no A).
+
+São poucas combinações, então a busca é exaustiva e o valor de cada uma é fechado:
+
+```
+tentativas_esperadas = (custo_da_tentativa + (1−p)·custo_da_falha) / p
+custo_da_falha       = 0 no seguro
+                     = precoItem + custo de refinar a reposição até lá, no normal
+```
+
+O preparo de cada candidato é um `solveRefine` inteiro, e os degraus repetem muito trecho —
+todo degrau depois do primeiro parte do +0, e todos avaliam os mesmos refinos candidatos. Um
+cache `de->para` por campanha (`CacheRefino`) evita resolver a mesma cadeia dezenas de vezes.
 
 ### Comprar ou fabricar
 
-Metade dos minérios ninguém compra pronto: fabrica no NPC. O custo de cada item é o menor
-entre o preço de mercado informado e o da receita, recursivamente — o Eterium Enriquecido
-vale um Elunium Enriquecido mais 2 Pó de Éter mais o balcão, e é assim que ele entra no
-custo final. A lista de compras desmonta a conta seguindo exatamente a mesma decisão, até
-chegar no que se acha no mercado.
+Metade dos minérios ninguém compra pronto: fabrica no NPC. `unitCost()` (`src/engine/pricing.ts`)
+devolve o menor entre o preço de mercado informado e o da receita, recursivamente e com memo —
+o Eterium Enriquecido vale um Elunium Enriquecido mais 2 Pó de Éter mais o balcão, e é assim que
+ele entra no custo final. Um item marcado como "em progresso" com `Infinity` durante a recursão
+impede que uma receita cíclica em dados novos vire laço infinito; sem preço nem receita o custo
+é `Infinity`, e o motor simplesmente descarta toda estratégia que dependeria dele.
+
+A lista de compras (`listaDeCompras`) desmonta a conta seguindo **exatamente** a mesma decisão,
+via `sourcingOf`, até chegar no que se acha no mercado. Precisa ser a mesma: se a lista
+expandisse uma receita que o custo cotou como compra pronta, o total mostrado não fecharia com o
+orçamento.
+
+### A simulação
+
+O cálculo exato dá a média, e a média de um refino engana: a distribuição tem cauda longa à
+direita, e quem se planeja por ela fica sem recursos no meio do caminho quase metade das vezes.
+Os percentis é que respondem "quanto preciso ter em caixa" — `simulateCampaign()`
+(`src/engine/simulate.ts`) existe só para isso.
+
+Ela percorre as mesmas fases, com a política já escolhida, e a cada execução sorteia sucesso ou
+falha tentativa a tentativa. Alguns detalhes que valem saber:
+
+- **A campanha é compilada antes do laço.** Cada trecho de refino vira arrays tipados indexados
+  por nível (chance, custo, taxa, destino da falha, índice do minério) e cada material vira um
+  índice fixo num vetor de contagem. Sem isso, uma consulta de `Map` por tentativa domina o
+  tempo da página.
+- **O gerador é determinístico** (mulberry32, semente fixa): a mesma entrada produz o mesmo
+  resultado na tela, sem números dançando a cada tecla.
+- **Dois cortes de segurança.** O relógio é conferido a cada 256 execuções ou 100 mil
+  tentativas, o que vier primeiro — só contar execuções chegaria tarde numa campanha cara. E
+  cada execução tem teto próprio de tentativas (20× a campanha esperada), para uma execução
+  azarada não travar a aba. Execução cortada falseia o custo para baixo, então o resultado
+  devolve `truncadas` e o plano vira aviso quando esse número é maior que zero.
+- **Só os percentis são aproveitados.** As médias que a simulação também produz servem de
+  conferência contra a álgebra; o que vai para a tela é sempre o número exato.
+
+### Dá com o que eu tenho?
+
+O resto da calculadora responde "quanto vou gastar". O painel de estoque responde o inverso:
+dado o zeny em caixa, os minérios na mochila e as cópias do equipamento, **qual a chance de
+chegar ao alvo com isso**. `src/engine/estoque.ts` é quem faz essa conta.
+
+Ela não é uma simulação nova. Poderia ser — mas seriam três segundos de Worker a cada
+minério digitado, e a resposta é justamente a que a pessoa quer ajustar tentando números.
+Então a simulação de sempre passou a guardar as execuções **cruas** (`AmostrasCampanha`), e o
+veredito relê essas mesmas campanhas.
+
+Reler é preciso porque os percentis não sabem responder: eles são marginais, e faltar Oridecon
+e faltar zeny na *mesma* campanha não é a soma dos dois azares. A pergunta do estoque depende
+da distribuição conjunta, e a distribuição conjunta só existe nas execuções inteiras. São
+guardadas 5 mil delas — como as execuções são independentes e igualmente distribuídas, as
+primeiras são uma amostra tão boa quanto qualquer outra, e 5 mil deixam a chance errar por
+menos de um ponto percentual sem pesar na resposta que atravessa o Worker.
+
+**O abatimento fecha porque o custo é uma soma.** O que a simulação registra como custo de uma
+execução é exatamente
+
+```
+custo = Σ (unidades de cada material × preço unitário)
+      + taxa do refinador + balcão do NPC
+      + quebras × preço do item
+```
+
+então o que já está na mochila é, ao pé da letra, o valor que deixa de sair do bolso: abate-se
+`min(precisa, tem) × preço` de cada material, mais o preço das cópias de reposição que a pessoa
+já tem. Sobra o zeny que ainda precisa existir — e a campanha chega ao alvo quando ele cabe no
+caixa. Com a mochila vazia, a conta devolve o custo da campanha inteira, e a chance vira a
+distribuição de custo lida ao contrário: levar o percentil 90 em caixa cobre 90% das campanhas,
+por definição.
+
+Comparar o **total** basta, e não é atalho: o consumo só cresce ao longo da campanha, então
+quem aguenta o total aguenta cada passo do caminho, e quem não aguenta trava em algum ponto —
+não importa exatamente onde.
+
+Duas coisas o modelo assume, e vale saber quais são:
+
+- **O que faltar pode ser comprado** pelo preço informado, a qualquer momento. É a mesma
+  suposição do resto da página. É por isso que ficar sem minério no meio não derruba a campanha
+  enquanto houver zeny: a chance olha o caixa, e a tabela do painel é que diz em que material
+  ele vai ser gasto.
+- **O plano é o ótimo**, o mesmo que a calculadora recomenda. Uma pilha de Elunium parada não
+  muda a estratégia que o motor escolhe; a resposta é a chance de atravessar *aquele* plano com
+  estes recursos.
+
+Os campos pedem o estoque **no que se compra de verdade**, não em minério pronto: ninguém guarda
+Eterium na mochila, guarda Elunium e Pó de Éter e fabrica na hora. A expansão é a mesma da lista
+de compras, pela mesma razão — se o estoque falasse numa unidade e a conta em outra, o
+abatimento não fecharia. O balcão do NPC continua sendo zeny: quem fabrica Bradium paga os 50
+mil tendo Oridecon ou não.
+
+Ao lado de cada campo aparece um mínimo, que é o consumo da campanha mais sortuda entre as
+simuladas. Serve de piso: abaixo dele não existe caminho que chegue ao alvo sem comprar mais
+material no meio.
+
+### O orçamento é de tempo
+
+`calcular(input, { tempoMs })` não recebe número de execuções — recebe tempo, e converte:
+
+```
+orçamento de tentativas = tempoMs × TENTATIVAS_POR_MS    (40.000, calibrado com npm run perf)
+execuções               = orçamento ÷ tentativas por campanha, preso entre 300 e 200.000
+```
+
+Converter tempo em *trabalho* deixa o resultado determinístico: o mesmo alvo produz o mesmo
+número de execuções em qualquer máquina, e o relógio de dentro da simulação fica só como rede de
+segurança para máquinas mais lentas que a da calibragem.
+
+### Dois passes
+
+Simulação boa custa segundos, e segundos de laço síncrono congelam a aba — o campo de preço para
+de aceitar tecla, o select não abre. Então o cálculo roda duas vezes: um **passe rápido** (80 ms,
+síncrono) para a tela nunca ficar vazia enquanto se digita, e um **passe preciso** (3 s, num Web
+Worker) que substitui o resultado quando fica pronto.
+
+O Worker é recriado a cada entrada nova de propósito: `terminate()` é a única forma de cancelar
+um laço já em andamento. E cada resposta traz de volta o `id` do pedido, para que o resultado de
+uma entrada já superada seja descartado em vez de piscar na tela.
 
 ### Alvos inalcançáveis
 
-Acima do +14 a Bênção do Ferreiro para de funcionar e cada falha derruba 3 refinos, então o
-custo explode. Levar uma arma nível 4 do +0 ao +20 exige da ordem de 10⁸ tentativas de
-refino. Nesses casos a calculadora não simula: percentis truncados subestimariam o custo em
-ordens de grandeza. Ela mostra o custo exato e diz que o alvo está fora de alcance.
+Acima do +14 a Bênção do Ferreiro para de funcionar e cada falha derruba 3 refinos, então o custo
+explode. Levar uma arma nível 4 do +0 ao +20 exige da ordem de 10⁸ tentativas de refino. Nesses
+casos a calculadora não simula: percentis truncados subestimariam o custo em ordens de grandeza.
+Ela mostra o custo exato e diz que o alvo está fora de alcance.
 
-Onde fica esse corte depende do orçamento de tempo — o passe preciso alcança alvos que o
-passe rápido declara fora de alcance —, mas ele nunca é uma escolha à parte: é o orçamento
-dividido pelo número mínimo de campanhas simuladas.
+Onde fica esse corte depende do orçamento de tempo — o passe preciso alcança alvos que o passe
+rápido declara fora de alcance —, mas ele nunca é uma escolha à parte: é o orçamento dividido
+pelo número mínimo de campanhas simuladas (`limiteSimulavel`). Um teto escolhido à mão deixaria o
+pior caso estourar o orçamento em silêncio.
+
+### Mapa do motor
+
+| Arquivo | O que faz |
+| --- | --- |
+| `plan.ts` | Orquestra tudo: valida, monta as fases, agrega recursos, chama a simulação, gera os avisos |
+| `refine.ts` | O MDP de refino: ações disponíveis, piso seguro, iteração de política, avaliação exata, contagem de recursos |
+| `grade.ts` | Os degraus de Grau: escolhe refino, processo e Bênção de Éter; encadeia a campanha |
+| `linear.ts` | LU com pivotamento parcial — o solucionador que avalia cada política |
+| `pricing.ts` | Comprar × fabricar, custo unitário recursivo e lista de compras |
+| `simulate.ts` | Monte Carlo da campanha compilada, de onde saem os percentis |
+| `estoque.ts` | Relê as campanhas simuladas do outro lado: a chance de chegar ao alvo com o que já se tem |
+| `worker.ts` | O passe preciso, fora da thread da página |
+| `types.ts` | `CalcInput`, `ResourceUsage`, `Percentis` e companhia |
 
 ## Rodando
 

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { nomeDoItem } from '../data/nomes';
 import { listaDeCompras, sourcingOf } from '../engine/pricing';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
@@ -32,11 +34,18 @@ export function Resultado({
   plano,
   margem,
   afinando = false,
+  moduloEstoque,
 }: {
   plano: ResultadoPlano;
   margem: MargemKey;
   /** O passe preciso ainda está rodando: este resultado é o do passe rápido. */
   afinando?: boolean;
+  /**
+   * Simulador de estoque, encaixado logo depois da lista de compras: "dá com o
+   * que eu tenho?" é a pergunta que vem depois de "o que comprar", e ela lê as
+   * mesmas quantidades.
+   */
+  moduloEstoque?: ReactNode;
 }) {
   const sim = plano.simulacao;
   const margemInfo = MARGENS.find((m) => m.key === margem)!;
@@ -105,6 +114,8 @@ export function Resultado({
           <Compras plano={plano} margem={margem} />
         </Painel>
       )}
+
+      {moduloEstoque}
 
       <Painel titulo="Melhor estratégia">
         <ol className="space-y-3">

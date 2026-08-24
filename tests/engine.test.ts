@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_PRICES } from '../src/data/defaultPrices';
 import {
   blessingCost,
+  BLESSING_ITEM_ID,
   ORE_BY_ID,
   oresFor,
   TAXA_REFINO,
@@ -15,11 +16,14 @@ import {
   actionsAt,
   chanceOf,
   maxRefine,
+  pisoSeguro,
+  RefineImpossivel,
   safeLimit,
   solveRefine,
   type RefineOptions,
 } from '../src/engine/refine';
-import { simulateCampaign } from '../src/engine/simulate';
+import { percentis, simulateCampaign } from '../src/engine/simulate';
+import { avaliarEstoque, emMateriais } from '../src/engine/estoque';
 import { calcular, orcamentoDe } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -29,6 +33,7 @@ const opts = (over: Partial<RefineOptions> = {}): RefineOptions => ({
   evento: false,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
+  perdaAceitavel: true,
   precoItem: 10_000_000,
   refinoReposicao: 0,
   ...over,
@@ -45,6 +50,7 @@ const input = (over: Partial<CalcInput> = {}): CalcInput => ({
   precos: DEFAULT_PRICES,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
+  perdaAceitavel: true,
   ...over,
 });
 
@@ -299,6 +305,64 @@ describe('cálculo exato x simulação', () => {
   }
 });
 
+describe('Bênção do Ferreiro na simulação', () => {
+  // A Bênção é uma DECISÃO tomada nível a nível, não um item que a campanha
+  // liga de uma vez: a simulação percorre a mesma política do cálculo exato e
+  // só gasta Bênção onde ela foi escolhida. Se um dia a simulação passar a
+  // proteger toda tentativa da faixa +7..+13, o custo cai calado e os percentis
+  // saem otimistas — é esse regresso que estes testes pegam.
+  const simular = (over: Partial<CalcInput>) =>
+    calcular(input({ refinoAlvo: 12, ...over }), { execucoes: 20_000, tempoMs: 3_000 });
+
+  const trechosDe = (r: ReturnType<typeof simular>) => r.fases.flatMap((f) => f.trechos);
+
+  it('deixa níveis da faixa sem Bênção quando ela não compensa neles', () => {
+    // Bênção cara o bastante para só valer no topo, onde a falha custa mais.
+    const r = simular({ precos: { ...DEFAULT_PRICES, [BLESSING_ITEM_ID]: 100_000_000 } });
+    const naFaixa = trechosDe(r).filter((t) => t.de >= 7 && t.de <= 13);
+    expect(naFaixa.some((t) => t.bencaos > 0)).toBe(true);
+    expect(naFaixa.some((t) => t.bencaos === 0)).toBe(true);
+  });
+
+  it('consome na amostragem a mesma quantidade que a política prevê', () => {
+    const r = simular({ precos: { ...DEFAULT_PRICES, [BLESSING_ITEM_ID]: 100_000_000 } });
+    const exato = r.recursos.itens[BLESSING_ITEM_ID]!;
+    expect(exato).toBeGreaterThan(0);
+    // Proteger toda a faixa custaria muito mais Bênção do que a política pede;
+    // a folga de 10% é erro de Monte Carlo, não espaço para outra estratégia.
+    expect(r.simulacao!.mediaItens[BLESSING_ITEM_ID]).toBeGreaterThan(exato * 0.9);
+    expect(r.simulacao!.mediaItens[BLESSING_ITEM_ID]).toBeLessThan(exato * 1.1);
+  });
+
+  it('não gasta Bênção nenhuma quando a opção está desmarcada', () => {
+    const r = simular({ usarBencaoFerreiro: false });
+    expect(trechosDe(r).every((t) => t.bencaos === 0)).toBe(true);
+    expect(r.recursos.itens[BLESSING_ITEM_ID]).toBeUndefined();
+    expect(r.simulacao!.mediaItens[BLESSING_ITEM_ID]).toBeUndefined();
+  });
+
+  it('não gasta Bênção em Equipamento Sombrio, onde ela não funciona', () => {
+    const r = simular({ kind: 'shadowW', refinoAlvo: 10 });
+    expect(trechosDe(r).every((t) => t.bencaos === 0)).toBe(true);
+    expect(r.simulacao!.mediaItens[BLESSING_ITEM_ID]).toBeUndefined();
+  });
+
+  it('bate material a material com o cálculo exato, inclusive nas fases de grau', () => {
+    // A campanha de grau reconquista o refino a cada degrau, então é aqui que um
+    // desencontro entre a política e o laço da simulação apareceria maior.
+    const r = calcular(input({ kind: 'w5', refinoAlvo: 11, grauAlvo: 'A' }), {
+      execucoes: 20_000,
+      tempoMs: 3_000,
+    });
+    expect(r.recursos.itens[BLESSING_ITEM_ID]).toBeGreaterThan(0);
+    for (const [id, exato] of Object.entries(r.recursos.itens)) {
+      const amostrado = r.simulacao!.mediaItens[Number(id)] ?? 0;
+      expect(amostrado, `item ${id}`).toBeGreaterThan(exato * 0.9);
+      expect(amostrado, `item ${id}`).toBeLessThan(exato * 1.1);
+    }
+  });
+});
+
 describe('escolha de estratégia', () => {
   it('protege com Bênção do Ferreiro quando o item é caro', () => {
     const plan = solveRefine(7, 10, opts({ kind: 'w4', precoItem: 5_000_000_000 }));
@@ -536,5 +600,259 @@ describe('resultado completo', () => {
     const r = calcular(input({ refinoAtual: 5, refinoAlvo: 5 }), { execucoes: 100 });
     expect(r.custoEsperado).toBe(0);
     expect(r.fases).toHaveLength(0);
+  });
+});
+
+describe('simular com o que já se tem', () => {
+  // Poucas execuções de propósito: abaixo do teto de amostras guardadas, o que
+  // a tela recebe é a simulação INTEIRA, e os dois lados têm de bater na casa
+  // decimal — é o que garante que o veredito do estoque não seja outra conta.
+  const planoEstoque = () => calcular(input({ refinoAlvo: 11 }), { tempoMs: 300, execucoes: 1_000 });
+
+  it('guarda as execuções cruas para a pergunta do estoque', () => {
+    const r = planoEstoque();
+    const sim = r.simulacao!;
+    expect(sim.amostras.execucoes).toBe(sim.execucoes);
+    expect([...sim.amostras.itemIds].sort()).toEqual(Object.keys(sim.itens).map(Number).sort());
+    expect(percentis(sim.amostras.custo)).toEqual(sim.custo);
+  });
+
+  it('com a mochila vazia, o zeny necessário é o custo da campanha', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+    const v = avaliarEstoque(c, { zeny: 0, itens: {}, copias: 1 });
+    expect(v.zenyNecessario).toEqual(r.simulacao!.custo);
+    expect(v.chance).toBe(0);
+  });
+
+  it('responde a chance pela distribuição do custo quando só há zeny', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+
+    // Levar o percentil 90 em caixa cobre, por definição, 90% das campanhas.
+    const v = avaliarEstoque(c, { zeny: r.simulacao!.custo.p90, itens: {}, copias: 1 });
+    expect(v.chance).toBeGreaterThanOrEqual(0.9);
+    expect(v.chance).toBeLessThan(0.93);
+
+    const mediana = avaliarEstoque(c, { zeny: r.simulacao!.custo.p50, itens: {}, copias: 1 });
+    expect(mediana.chance).toBeGreaterThanOrEqual(0.5);
+    expect(mediana.chance).toBeLessThan(0.55);
+  });
+
+  it('nunca piora a chance quando o estoque cresce', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+    const base = { itens: {}, copias: 1 };
+
+    let anterior = -1;
+    for (const zeny of [0, 1e8, 5e8, 1e9, 5e9, 1e12]) {
+      const chance = avaliarEstoque(c, { ...base, zeny }).chance;
+      expect(chance).toBeGreaterThanOrEqual(anterior);
+      anterior = chance;
+    }
+    expect(anterior).toBe(1);
+
+    const zeny = r.simulacao!.custo.p50;
+    const semMaterial = avaliarEstoque(c, { zeny, itens: {}, copias: 1 }).chance;
+    const comMaterial = avaliarEstoque(c, {
+      zeny,
+      itens: Object.fromEntries(c.materiais.map((m) => [m.itemId, Math.ceil(m.media)])),
+      copias: 1,
+    }).chance;
+    expect(comMaterial).toBeGreaterThan(semMaterial);
+  });
+
+  it('abate do custo exatamente o preço do que já está na mochila', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+    const material = c.materiais[0]!;
+
+    // Uma quantidade que toda campanha simulada consome inteira: o abatimento é
+    // o preço dela, sem sobra nem falta.
+    const tem = Math.max(0, Math.floor(material.minimo) - 1);
+    const v = avaliarEstoque(c, { zeny: 0, itens: { [material.itemId]: tem }, copias: 1 });
+    expect(v.zenyNecessario.p50).toBeCloseTo(r.simulacao!.custo.p50 - tem * material.preco, 3);
+    expect(v.materiais[0]!.fracaoFaltou).toBe(1);
+  });
+
+  it('só cobra zeny do que o estoque não cobre', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+
+    // Material e cópias de sobra: o que resta é taxa do refinador e balcão do
+    // NPC, que se paga em zeny mesmo tendo a mochila cheia.
+    const v = avaliarEstoque(c, {
+      zeny: 0,
+      itens: Object.fromEntries(c.materiais.map((m) => [m.itemId, 1e9])),
+      copias: 1_000,
+    });
+    expect(v.chance).toBe(0);
+    expect(v.zenyNecessario.p50).toBeGreaterThan(0);
+    expect(v.zenyNecessario.p50).toBeLessThan(r.simulacao!.custo.p50 * 0.1);
+    expect(v.zenyNecessario.p50).toBeGreaterThanOrEqual(r.simulacao!.taxas.p50);
+    expect(v.materiais.every((m) => m.fracaoFaltou === 0)).toBe(true);
+    expect(v.fracaoSemCopias).toBe(0);
+  });
+
+  it('pede o estoque no que se compra, não em minério fabricado', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+    const ids = c.materiais.map((m) => m.itemId);
+
+    // O plano de uma arma nv4 usa Bradium, que ninguém compra pronto: fabrica a
+    // partir de Oridecon. Quem tem Oridecon na mochila tem o que a conta pede.
+    expect(r.simulacao!.itens[6224]).toBeDefined();
+    expect(ids).toContain(984);
+    expect(ids).not.toContain(6224);
+
+    // A conversão fecha com a lista de compras da mesma campanha média.
+    const lista = listaDeCompras(r.simulacao!.mediaItens, r.input.precos);
+    for (const linha of lista.compras) {
+      const material = c.materiais.find((m) => m.itemId === linha.itemId)!;
+      expect(material).toBeDefined();
+      expect(material.media).toBeCloseTo(linha.qtd, 6);
+    }
+  });
+
+  it('trata o mínimo como o piso da campanha mais sortuda', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+
+    for (const m of c.materiais) {
+      expect(m.minimo).toBeGreaterThan(0);
+      expect(m.minimo).toBeLessThanOrEqual(m.media);
+      // Abaixo do mínimo não existe campanha que não precise comprar mais.
+      const v = avaliarEstoque(c, { zeny: 0, itens: { [m.itemId]: m.minimo - 1 }, copias: 1 });
+      expect(v.materiais.find((x) => x.itemId === m.itemId)!.fracaoFaltou).toBe(1);
+    }
+  });
+
+  it('fecha a conta em zero quando o estoque cobre tudo', () => {
+    // Equipamento Sombrio não paga taxa de refino e usa minério que se compra
+    // pronto, sem balcão de NPC no meio. Com material e cópias de sobra não
+    // resta zeny nenhum a pagar — é o teste mais duro do abatimento: qualquer
+    // parcela do custo que o estoque não soubesse explicar apareceria aqui.
+    const r = calcular(input({ kind: 'shadowA', refinoAlvo: 9, precoItem: 5_000_000 }), {
+      tempoMs: 300,
+      execucoes: 1_000,
+    });
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+    const v = avaliarEstoque(c, {
+      zeny: 0,
+      itens: Object.fromEntries(c.materiais.map((m) => [m.itemId, 1e9])),
+      copias: 1_000,
+    });
+    expect(v.zenyNecessario.p99).toBe(0);
+    expect(v.chance).toBe(1);
+  });
+
+  it('conta as cópias do item que ainda faltam comprar', () => {
+    const r = calcular(input({ refinoAlvo: 12, precoItem: 1_000_000 }), {
+      tempoMs: 300,
+      execucoes: 1_000,
+    });
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+
+    const sozinha = avaliarEstoque(c, { zeny: 0, itens: {}, copias: 1 });
+    expect(sozinha.fracaoSemCopias).toBeCloseTo(1 - r.simulacao!.chanceSemQuebra, 6);
+    expect(sozinha.copiasFaltantes.p90).toBeCloseTo(r.simulacao!.quebras.p90, 6);
+
+    const caixa = avaliarEstoque(c, { zeny: 0, itens: {}, copias: 6 });
+    expect(caixa.copiasFaltantes.p50).toBeLessThanOrEqual(sozinha.copiasFaltantes.p50);
+    expect(caixa.zenyNecessario.p50).toBeLessThan(sozinha.zenyNecessario.p50);
+  });
+});
+
+describe('equipamento que não pode ser perdido', () => {
+  // Com carta e encanto dentro, quebrar não é um custo alto — é inaceitável.
+  // A opção vira restrição no espaço de ações: o plano só anda por tentativas
+  // que não destroem o item, mesmo que o caminho arriscado saia mais barato.
+  const seguro = (over: Partial<CalcInput> = {}) =>
+    calcular(input({ kind: 'w4', refinoAtual: 7, refinoAlvo: 12, perdaAceitavel: false, ...over }), {
+      execucoes: 5_000,
+      tempoMs: 1_000,
+    });
+
+  it('acha o piso de cada categoria', () => {
+    // Arma nv4: abaixo do +7 todo minério quebra, e a Bênção só cobre do +7.
+    expect(pisoSeguro(12, opts({ kind: 'w4', perdaAceitavel: false }))).toBe(7);
+    // Arma nv5: o Eteridecon derruba 3 refinos, mas nunca destrói o item.
+    expect(pisoSeguro(12, opts({ kind: 'w5', perdaAceitavel: false }))).toBe(0);
+    // Sombrio não aceita Bênção, e o Perfeito derruba para uma faixa que quebra.
+    expect(pisoSeguro(10, opts({ kind: 'shadowW', perdaAceitavel: false }))).toBe(10);
+    // Aceitando a perda o piso é sempre o +0: nada está fora do alcance.
+    expect(pisoSeguro(12, opts({ kind: 'w4', perdaAceitavel: true }))).toBe(0);
+  });
+
+  it('não escolhe nenhuma tentativa que possa destruir o item', () => {
+    const r = seguro();
+    expect(r.fases.flatMap((f) => f.trechos).every((t) => !t.arriscaQuebrar)).toBe(true);
+    expect(r.itensQuebrados).toBe(0);
+    expect(r.copiasItem).toBe(1);
+    expect(r.simulacao!.chanceSemQuebra).toBe(1);
+    expect(r.simulacao!.quebras.p99).toBe(0);
+  });
+
+  it('obriga a Bênção no piso, que é a única saída segura de lá', () => {
+    // No +7 o Perfeito derrubaria o item para o +6, onde só há minério que
+    // quebra — então a Bênção deixa de ser escolha e vira a única ação legal.
+    const trecho = seguro().fases.flatMap((f) => f.trechos).find((t) => t.de === 7);
+    expect(trecho!.bencaos).toBeGreaterThan(0);
+  });
+
+  it('recusa o alvo, explicando o piso, quando o item começa abaixo dele', () => {
+    expect(() => seguro({ refinoAtual: 0 })).toThrow(RefineImpossivel);
+    expect(() => seguro({ refinoAtual: 0 })).toThrow(/\+7/);
+  });
+
+  it('recusa a categoria em que não existe caminho seguro nenhum', () => {
+    expect(() => seguro({ kind: 'shadowW', refinoAtual: 7, refinoAlvo: 10 })).toThrow(
+      RefineImpossivel,
+    );
+    // Sem Bênção a Arma nv4 também não tem como segurar o item.
+    expect(() => seguro({ usarBencaoFerreiro: false })).toThrow(RefineImpossivel);
+  });
+
+  it('nunca sai mais barato que o plano que aceita o risco', () => {
+    // A restrição só tira opções da mesa, então o custo ótimo não pode cair.
+    for (const alvo of [9, 10, 11, 12]) {
+      for (const precoItem of [500_000, 30_000_000]) {
+        const livre = calcular(
+          input({ kind: 'w4', refinoAtual: 7, refinoAlvo: alvo, precoItem }),
+          { execucoes: 500, tempoMs: 200 },
+        );
+        const protegido = seguro({ refinoAlvo: alvo, precoItem });
+        expect(protegido.custoEsperado, `+${alvo} @ ${precoItem}`).toBeGreaterThanOrEqual(
+          livre.custoEsperado - 1e-6,
+        );
+      }
+    }
+  });
+
+  it('põe preço na garantia, comparando com o plano que aceita o risco', () => {
+    const aviso = seguro({ refinoAlvo: 9, precoItem: 500_000 }).avisos.find((a) =>
+      a.texto.startsWith('Nenhuma tentativa'),
+    );
+    expect(aviso).toBeDefined();
+    expect(aviso!.texto).toMatch(/a garantia custa/);
+  });
+
+  it('só usa o processo seguro nos degraus de grau', () => {
+    const r = calcular(
+      input({ kind: 'w5', refinoAtual: 0, refinoAlvo: 11, grauAlvo: 'D', perdaAceitavel: false }),
+      { execucoes: 2_000, tempoMs: 500 },
+    );
+    const graus = r.fases.filter((f) => f.grau);
+    expect(graus.length).toBeGreaterThan(0);
+    expect(graus.every((f) => f.grau!.seguro)).toBe(true);
+    expect(graus.every((f) => f.grau!.refinoReposicao === null)).toBe(true);
+    expect(r.itensQuebrados).toBe(0);
+  });
+
+  it('não muda nada quando a perda é aceitável', () => {
+    // A opção ligada tem que devolver exatamente o plano de sempre.
+    const antes = calcular(input({ refinoAlvo: 12 }), { execucoes: 2_000, tempoMs: 500 });
+    expect(antes.custoEsperado).toBeGreaterThan(0);
+    expect(solveRefine(0, 12, opts()).piso).toBe(0);
   });
 });

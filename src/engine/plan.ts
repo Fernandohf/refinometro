@@ -66,6 +66,8 @@ export interface Resultado {
 
 const MAX_REFINO_ALVO = 20;
 
+const zeny = (n: number) => `${Math.round(n).toLocaleString('pt-BR')}z`;
+
 /**
  * Tentativas de refino que a simulação vence por milissegundo, medida com
  * `npm run perf` no pior caso (alvos baratos, em que o custo por execução pesa
@@ -128,6 +130,7 @@ export function calcular(input: CalcInput, opcoes: CalcOptions = {}): Resultado 
     evento: input.evento,
     usarBencaoFerreiro: input.usarBencaoFerreiro,
     usarMineriosEspeciais: input.usarMineriosEspeciais,
+    perdaAceitavel: input.perdaAceitavel,
     precoItem: input.precoItem,
     // `precoItem` é o preço do item SEM refino, e a reposição sempre vem no +0.
     // Modelar a reposição no refino atual criaria um atalho falso: quebrar sairia
@@ -249,9 +252,28 @@ export function calcular(input: CalcInput, opcoes: CalcOptions = {}): Resultado 
     simulacao,
     tentativasEsperadas: recursos.tentativas,
     valorJusto: input.precoItem + custoEsperado,
-    avisos: gerarAvisos(input, planos, simulacao, recursos),
+    // Sem aceitar a perda, o aviso põe preço na garantia — e para isso precisa
+    // do mesmo alvo resolvido com o risco liberado.
+    avisos: gerarAvisos(input, planos, simulacao, recursos, custoAceitandoPerda(input)),
     recursos,
   };
+}
+
+/**
+ * Custo do mesmo alvo quando o otimizador pode arriscar o equipamento.
+ *
+ * Existe só para o aviso que compara os dois mundos, então roda sem orçamento
+ * de simulação: o que interessa é a média exata. Devolve `null` quando não há
+ * nada a comparar — ou porque a perda já era aceitável, ou porque nem o plano
+ * com risco existe.
+ */
+function custoAceitandoPerda(input: CalcInput): number | null {
+  if (input.perdaAceitavel) return null;
+  try {
+    return calcular({ ...input, perdaAceitavel: true }, { tempoMs: 0 }).custoEsperado;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -289,7 +311,7 @@ function agregarRecursos(fases: Fase[], zeny: number): ResourceUsage {
     if (!p.seguro) {
       const falhas = p.tentativasEsperadas - 1;
       itensQuebrados += falhas;
-      const rep = p.refinoReposicao.recursos;
+      const rep = p.refinoReposicao!.recursos;
       tentativas += falhas * rep.tentativas;
       taxas += falhas * rep.taxas;
       itensQuebrados += falhas * rep.itensQuebrados;
@@ -323,9 +345,12 @@ function validar(input: CalcInput) {
 /** Junta níveis consecutivos que usam a mesma ação num único trecho legível. */
 function agruparTrechos(politica: PolicyEntry[], de: number, para: number): StrategyRange[] {
   const trechos: StrategyRange[] = [];
+  // A política é indexada pelo refino em `de`, não pela posição: sem aceitar a
+  // perda do item ela começa no piso, e não no +0.
+  const porNivel = new Map(politica.map((p) => [p.de, p.acao]));
 
   for (let r = de; r < para; r++) {
-    const a = politica[r]!.acao;
+    const a = porNivel.get(r)!;
     const naFalha = descreverFalha(a.ore.penalidade, a.bencaos > 0);
     const ultimo = trechos[trechos.length - 1];
     const mesmaAcao =
@@ -371,9 +396,26 @@ function gerarAvisos(
   fases: PlanoDeFase[],
   sim: SimulationResult | null,
   recursos: ResourceUsage,
+  custoAceitandoPerda: number | null,
 ): Aviso[] {
   const avisos: Aviso[] = [];
   const limite = safeLimit(input.kind);
+
+  if (!input.perdaAceitavel) {
+    const custo = fases.reduce((s, f) => s + f.custoEsperado, 0);
+    // A comparação é a parte útil: proteger um item insubstituível é caro, e o
+    // quanto varia demais entre alvos para caber numa regra de bolso.
+    const comparacao =
+      custoAceitandoPerda !== null && custoAceitandoPerda > 0 && custo > custoAceitandoPerda * 1.001
+        ? ` Aceitando o risco, o mesmo alvo sairia por ${zeny(custoAceitandoPerda)} — a garantia custa ${zeny(custo - custoAceitandoPerda)} a mais (+${(((custo - custoAceitandoPerda) / custoAceitandoPerda) * 100).toFixed(0)}%).`
+        : ' Aqui ela não custa nada: mesmo aceitando o risco, o plano mais barato já não arriscava o item.';
+    avisos.push({
+      nivel: 'info',
+      texto:
+        `Nenhuma tentativa deste plano pode destruir o equipamento — é o que a opção "posso perder ` +
+        `o item" desmarcada exige, e por isso o preço do item não entra no custo.${comparacao}`,
+    });
+  }
 
   const trechosArriscados = fases.flatMap((f) => f.trechos).filter((t) => t.arriscaQuebrar);
   if (trechosArriscados.length > 0) {

@@ -1,0 +1,20 @@
+# TODO
+- [x] Conferir se o BSB (Bênção do Ferreiro) não está sempre sendo usada nas simulações
+  - Conferido: não está. A Bênção é uma ação por nível dentro da política de Markov, e a
+    simulação percorre exatamente essa política — o consumo amostrado bate com o exato
+    (< 1% de diferença). Ela some quando a opção é desmarcada, quando o preço não compensa
+    e em Equipamento Sombrio. Que ela apareça em toda a faixa +7..+13 nos preços padrão é
+    resultado, não atalho: sem ela o mesmo alvo custa ~40x mais. Travado por testes em
+    `tests/engine.test.ts` (describe 'Bênção do Ferreiro na simulação').
+- [x] Permitir simular outro módulo:
+  - Usuário coloca a quantidade que possui de cada minérios necessário ou o zeny, ver suas chances de chegar no refino/grau desejado
+  - Feito: painel "Dá com o que eu tenho?" (`src/components/Estoque.tsx`), com a conta em
+    `src/engine/estoque.ts`. Não é uma simulação nova — a de sempre passou a guardar 5 mil
+    execuções cruas (`AmostrasCampanha`) e o veredito relê essas campanhas, abatendo do custo o que o estoque cobre; por isso a chance responde a cada tecla sem o Worker rodar de novo. Os percentis não serviriam: são marginais, e faltar minério e faltar zeny na mesma campanha não é a soma dos dois azares. Os campos listam só os materiais que o plano usa, já
+    desmontados até o que se compra (Oridecon, não Bradium), com o mínimo da campanha mais
+    sortuda ao lado. Travado por testes em `tests/engine.test.ts` (describe 'simular com o que já se tem') e `tests/render.test.tsx`.
+- [ ] Remover o banco de base dos itens e, ao vivo, pesquisar usando o parser os resultados do divine pride dados a entrada do usuário.
+- [ ] Melhorar a interface:
+   - [ ] Mostrando a imagem e descrição do item (retirando do divine pride), assim como as mudanças no nome e cores (dos refinos/grau)
+   - [ ] Deixar a interface mais inspirada no jogo
+   - [ ] Adicionar um modo de visualização que mostra de forma iterative as chances de cada desição na cadeira de markov das simulações

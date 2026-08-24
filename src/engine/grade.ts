@@ -51,8 +51,11 @@ export interface GradeAttemptPlan {
   tentativasEsperadas: number;
   /** Plano de refino para levar o item até `refino` antes da primeira tentativa. */
   refinoPreparo: RefinePlan;
-  /** Plano de refino de um item de reposição, usado quando o processo normal falha. */
-  refinoReposicao: RefinePlan;
+  /**
+   * Plano de refino de um item de reposição, usado quando o processo normal
+   * falha e destrói o item. `null` no processo seguro, que não destrói nada.
+   */
+  refinoReposicao: RefinePlan | null;
   /** Custo esperado só do preparo (igual a `refinoPreparo.custoEsperado`). */
   custoPreparo: number;
   /** Custo esperado das tentativas de grau, já incluindo reposições de item. */
@@ -151,10 +154,13 @@ export function solveGradeStep(
     // Preparo: levar o item até este refino, e o custo de repetir isso se o
     // processo normal falhar e destruir o item.
     let preparo: RefinePlan;
-    let reposicao: RefinePlan;
+    let reposicao: RefinePlan | null = null;
     try {
       preparo = refinoCacheado(refinoInicial, refino, opts, cache);
-      reposicao = refinoCacheado(opts.refinoReposicao, refino, opts, cache);
+      // Só o processo normal precisa de reposição — e quando a perda do item não
+      // é aceitável ele nem é uma opção, então nem tentamos resolver o refino de
+      // um item que nunca será comprado (que poderia até ser impossível).
+      if (opts.perdaAceitavel) reposicao = refinoCacheado(opts.refinoReposicao, refino, opts, cache);
     } catch {
       continue;
     }
@@ -166,14 +172,16 @@ export function solveGradeStep(
       const chance = Math.min(1, base + pontos / 100);
       const custoBencoes = qtdBencaos * (Number.isFinite(custoBencao) ? custoBencao : 0);
 
-      for (const seguro of [false, true]) {
+      // Sem aceitar a perda, o processo normal está fora: ele destrói o item na
+      // falha, e é isso que a restrição proíbe — não é caro, é inaceitável.
+      for (const seguro of opts.perdaAceitavel ? [false, true] : [true]) {
         const modo = seguro ? step.seguro : step.normal;
         const custoPorTentativa = modo.zeny + modo.material.qtd * custoMaterial + custoBencoes;
 
         // Seguro: o item sobrevive à falha e continua no mesmo refino, então
         // basta repetir a tentativa. Normal: a falha destrói o item, e é preciso
         // comprar outro e refiná-lo de novo até aqui.
-        const custoFalha = seguro ? 0 : opts.precoItem + reposicao.custoEsperado;
+        const custoFalha = seguro ? 0 : opts.precoItem + reposicao!.custoEsperado;
         const esperadoTentativas = (custoPorTentativa + (1 - chance) * custoFalha) / chance;
         const total = preparo.custoEsperado + esperadoTentativas;
 
@@ -181,7 +189,7 @@ export function solveGradeStep(
         const quebrasGrau = seguro ? 0 : tentativasEsperadas - 1;
         const itensQuebrados =
           preparo.recursos.itensQuebrados +
-          quebrasGrau * (1 + reposicao.recursos.itensQuebrados);
+          quebrasGrau * (1 + (reposicao?.recursos.itensQuebrados ?? 0));
 
         if (melhor === null || total < melhor.custoEsperado) {
           melhor = {

@@ -23,6 +23,33 @@ export type Fase =
     }
   | { tipo: 'grau'; rotulo: string; plano: GradeAttemptPlan };
 
+/**
+ * Amostras cruas de um pedaço das execuções: quanto cada campanha simulada
+ * consumiu, material a material.
+ *
+ * Os percentis são marginais e não sabem responder "dá com o que eu tenho?":
+ * faltar Oridecon e faltar zeny na MESMA campanha não é a soma dos dois azares,
+ * e a pergunta do estoque depende dessa distribuição conjunta. Guardar as
+ * execuções cruas deixa a resposta ser recalculada a cada tecla digitada, sem
+ * simular de novo — ver `src/engine/estoque.ts`.
+ *
+ * Como as execuções são independentes e igualmente distribuídas, guardar as
+ * primeiras é uma amostra tão válida quanto qualquer outra, e mantém leve a
+ * resposta que atravessa o Worker.
+ */
+export interface AmostrasCampanha {
+  /** Materiais, na ordem das colunas de `consumo`. */
+  itemIds: number[];
+  /** Zeny total de cada execução, com tudo cotado a preço de mercado. */
+  custo: Float64Array;
+  /** Itens-base destruídos em cada execução. */
+  quebras: Float64Array;
+  /** Achatado: `consumo[i * execucoes + n]` unidades do material `i`. */
+  consumo: Float64Array;
+  /** Quantas execuções estão guardadas aqui — nem sempre todas as simuladas. */
+  execucoes: number;
+}
+
 /** Gerador determinístico (mulberry32) — mesma entrada, mesmo resultado na tela. */
 function rng(seed: number): () => number {
   let a = seed >>> 0;
@@ -62,6 +89,8 @@ export interface SimulationResult {
   limitadoPorTempo: boolean;
   /** Tempo gasto na amostragem, em ms. */
   duracaoMs: number;
+  /** Execuções cruas guardadas para a pergunta do estoque. */
+  amostras: AmostrasCampanha;
 }
 
 /**
@@ -72,6 +101,15 @@ export interface SimulationResult {
  * confere `truncadas` no resultado.
  */
 const MAX_TENTATIVAS_PADRAO = 4_000_000;
+
+/**
+ * Execuções cruas guardadas no resultado (ver `AmostrasCampanha`).
+ *
+ * 5 mil bastam: a chance que elas sustentam tem margem de erro de menos de um
+ * ponto percentual, e a resposta continua leve o bastante para atravessar o
+ * Worker a cada cálculo.
+ */
+const MAX_AMOSTRAS_GUARDADAS = 5_000;
 
 /**
  * Execuções entre duas checagens do relógio, e teto de tentativas entre elas.
@@ -128,8 +166,12 @@ type FaseCompilada =
       slotMaterial: number;
       qtdMaterial: number;
       qtdBencao: number;
-      /** Refino a reconquistar quando o processo normal destrói o item. */
-      reposicao: Trilha;
+      /**
+       * Refino a reconquistar quando o processo normal destrói o item. `null` no
+       * processo seguro, que não destrói nada — e é o único permitido quando a
+       * perda do item não é aceitável.
+       */
+      reposicao: Trilha | null;
     };
 
 function compilarTrilha(
@@ -145,14 +187,18 @@ function compilarTrilha(
   const slotMinerio = new Int32Array(para);
   const qtdBencao = new Float64Array(para);
 
-  for (let r = 0; r < para; r++) {
-    const a = politica[r]!.acao;
-    chance[r] = a.chance;
-    custo[r] = a.custo;
-    taxa[r] = a.taxa;
-    falha[r] = a.falhaVaiPara ?? -1;
-    slotMinerio[r] = slot(a.ore.itemId);
-    qtdBencao[r] = a.bencaos;
+  // Os vetores são indexados pelo nível de refino, mas a política pode não
+  // começar no +0: sem aceitar a perda do item ela só existe do piso para cima.
+  // Os níveis abaixo dele ficam zerados e nunca são lidos — nenhuma falha da
+  // política leva para lá.
+  for (const p of politica) {
+    const a = p.acao;
+    chance[p.de] = a.chance;
+    custo[p.de] = a.custo;
+    taxa[p.de] = a.taxa;
+    falha[p.de] = a.falhaVaiPara ?? -1;
+    slotMinerio[p.de] = slot(a.ore.itemId);
+    qtdBencao[p.de] = a.bencaos;
   }
 
   return { de, para, chance, custo, taxa, falha, slotMinerio, qtdBencao };
@@ -206,12 +252,14 @@ export function simulateCampaign(
           qtdMaterial: (fase.plano.seguro ? fase.plano.step.seguro : fase.plano.step.normal).material
             .qtd,
           qtdBencao: fase.plano.qtdBencaos,
-          reposicao: compilarTrilha(
-            opts.refinoReposicao,
-            fase.plano.refino,
-            fase.plano.refinoReposicao.politica,
-            slot,
-          ),
+          reposicao: fase.plano.refinoReposicao
+            ? compilarTrilha(
+                opts.refinoReposicao,
+                fase.plano.refino,
+                fase.plano.refinoReposicao.politica,
+                slot,
+              )
+            : null,
         },
   );
 
@@ -219,8 +267,8 @@ export function simulateCampaign(
   const custos = new Float64Array(execucoes);
   const quebras = new Float64Array(execucoes);
   const taxas = new Float64Array(execucoes);
-  // Uma matriz achatada: amostras[item * execucoes + n].
-  const amostras = new Float64Array(nItens * execucoes);
+  // Uma matriz achatada: consumo[item * execucoes + n].
+  const consumo = new Float64Array(nItens * execucoes);
   const contagem = new Float64Array(nItens);
 
   const precoItem = opts.precoItem;
@@ -297,7 +345,7 @@ export function simulateCampaign(
           // O processo normal destrói o item: comprar outro e refiná-lo de novo.
           quebrou++;
           zeny += precoItem;
-          rodar(fase.reposicao, refinoReposicao);
+          rodar(fase.reposicao!, refinoReposicao);
         }
       }
     }
@@ -309,7 +357,7 @@ export function simulateCampaign(
     if (tentativas >= maxTentativas) truncadas++;
     somaTentativas += tentativas;
     desdeChecagem += tentativas;
-    for (let i = 0; i < nItens; i++) amostras[i * execucoes + n] = contagem[i]!;
+    for (let i = 0; i < nItens; i++) consumo[i * execucoes + n] = contagem[i]!;
   }
 
   // `n` é quanto de fato rodou: as fatias param aí, senão as execuções que
@@ -321,14 +369,30 @@ export function simulateCampaign(
 
   const itens: Record<number, Percentis> = {};
   const mediaItens: Record<number, number> = {};
+  const usados: number[] = [];
   for (let i = 0; i < nItens; i++) {
-    const fatia = amostras.subarray(i * execucoes, i * execucoes + rodadas);
+    const fatia = consumo.subarray(i * execucoes, i * execucoes + rodadas);
     const m = media(fatia);
     // Materiais que a estratégia escolhida nunca usa não entram no resultado.
     if (m === 0) continue;
+    usados.push(i);
     itens[itemIds[i]!] = percentis(fatia);
     mediaItens[itemIds[i]!] = m;
   }
+
+  const guardadas = Math.min(rodadas, MAX_AMOSTRAS_GUARDADAS);
+  const consumoGuardado = new Float64Array(usados.length * guardadas);
+  for (let c = 0; c < usados.length; c++) {
+    const i = usados[c]!;
+    for (let n2 = 0; n2 < guardadas; n2++) consumoGuardado[c * guardadas + n2] = consumo[i * execucoes + n2]!;
+  }
+  const amostras: AmostrasCampanha = {
+    itemIds: usados.map((i) => itemIds[i]!),
+    custo: custosFeitos.slice(0, guardadas),
+    quebras: quebrasFeitas.slice(0, guardadas),
+    consumo: consumoGuardado,
+    execucoes: guardadas,
+  };
 
   let soma = 0;
   for (const c of custosFeitos) soma += c;
@@ -347,6 +411,7 @@ export function simulateCampaign(
     truncadas,
     limitadoPorTempo,
     duracaoMs: agora() - inicio,
+    amostras,
   };
 }
 
@@ -361,7 +426,11 @@ function media(amostras: Float64Array): number {
   return soma / amostras.length;
 }
 
-function percentis(amostras: Float64Array): Percentis {
+/**
+ * Percentis de uma amostra. Exportado porque o veredito do estoque roda fora
+ * daqui e precisa cortar a distribuição do mesmo jeito.
+ */
+export function percentis(amostras: Float64Array): Percentis {
   const ordenado = Float64Array.from(amostras).sort();
   const at = (q: number) => {
     const i = Math.min(ordenado.length - 1, Math.max(0, Math.ceil(q * ordenado.length) - 1));
