@@ -432,9 +432,27 @@ function media(amostras: Float64Array): number {
  */
 export function percentis(amostras: Float64Array): Percentis {
   const ordenado = Float64Array.from(amostras).sort();
-  const at = (q: number) => {
-    const i = Math.min(ordenado.length - 1, Math.max(0, Math.ceil(q * ordenado.length) - 1));
-    return ordenado[i]!;
-  };
+  const at = (q: number) => corte(ordenado, q);
   return { p50: at(0.5), p75: at(0.75), p90: at(0.9), p95: at(0.95), p99: at(0.99) };
+}
+
+/**
+ * Um quantil qualquer da amostra, pelo mesmo corte dos percentis.
+ *
+ * Os cinco percentis fixos são as margens que a tela oferece; o painel de
+ * estoque pergunta o inverso ("quanto preciso para 10% de chance?"), e aí o
+ * corte é onde a pessoa apontar.
+ */
+export function quantil(amostras: Float64Array, q: number): number {
+  return corte(Float64Array.from(amostras).sort(), q);
+}
+
+/**
+ * O menor valor que deixa pelo menos a fração `q` da amostra abaixo dele — daí
+ * o `ceil`: cortar em 0,9 devolve um número que cobre 90% das campanhas, nunca
+ * 89,98%.
+ */
+function corte(ordenado: Float64Array, q: number): number {
+  const i = Math.min(ordenado.length - 1, Math.max(0, Math.ceil(q * ordenado.length) - 1));
+  return ordenado[i]!;
 }

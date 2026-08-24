@@ -273,6 +273,33 @@ Ao lado de cada campo aparece um mínimo, que é o consumo da campanha mais sort
 simuladas. Serve de piso: abaixo dele não existe caminho que chegue ao alvo sem comprar mais
 material no meio.
 
+#### Os dois preenchimentos
+
+O painel tem um alvo próprio — *quero chegar com 10%, 25%, 50%, 75%, 90% ou 99%* — que não é a
+margem do painel de custo. Lá a pergunta é quanto levar para não estourar, e ninguém orça uma
+campanha para dar errado; aqui a pergunta é o que já está em mãos, e "e se eu topar 10%?" é
+legítima. Dele saem dois botões, que são a mesma equação resolvida para lados opostos:
+
+- **preencher mochila e caixa** (`estoqueMinimo`) põe o piso de material e calcula o zeny que esse
+  piso ainda exige. Os dois números são um só: material no chão é orçamento no alto, porque tudo
+  que faltar no meio vira compra — preencher só a mochila devolveria 0%, que é verdade e não ajuda
+  ninguém. O zeny sai do veredito *desse* estoque, com o material já abatido, então clicar e ler a
+  chance devolve exatamente o alvo pedido.
+- **só o material, com o meu zeny** (`materialParaChance`) mantém o caixa informado e resolve o
+  material. Material é um vetor e a chance é um número só, então há infinitas mochilas que dão 10%:
+  a escolhida segue a proporção do consumo médio da campanha, multiplicada por um fator `k`. Como
+  mais material nunca piora a chance, `k` é monótono e o menor que atinge o alvo sai por bisseção
+  sobre as mesmas campanhas guardadas (~7 ms, um clique, não uma tecla).
+
+As cópias do item ficam como estão nos dois casos: quantas você tem é um fato, não uma escolha de
+orçamento.
+
+O segundo botão tem um teto, e ele é a resposta honesta ao caso que mais confunde: **taxa do
+refinador, balcão do NPC e cópia de reposição se pagam em zeny**, e nenhum minério da mochila os
+cobre. Quando o caixa informado não alcança o alvo nem com material de sobra, a mochila não é
+tocada e o painel diz de quanto é o teto e quanto zeny o alvo exigiria — em vez de encher a tela
+de minério e continuar devolvendo 0%.
+
 ### O orçamento é de tempo
 
 `calcular(input, { tempoMs })` não recebe número de execuções — recebe tempo, e converte:

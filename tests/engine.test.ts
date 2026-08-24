@@ -23,7 +23,13 @@ import {
   type RefineOptions,
 } from '../src/engine/refine';
 import { percentis, simulateCampaign } from '../src/engine/simulate';
-import { avaliarEstoque, emMateriais } from '../src/engine/estoque';
+import {
+  avaliarEstoque,
+  emMateriais,
+  estoqueMinimo,
+  materialParaChance,
+  zenyParaChance,
+} from '../src/engine/estoque';
 import { calcular, orcamentoDe } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -725,6 +731,88 @@ describe('simular com o que já se tem', () => {
       const v = avaliarEstoque(c, { zeny: 0, itens: { [m.itemId]: m.minimo - 1 }, copias: 1 });
       expect(v.materiais.find((x) => x.itemId === m.itemId)!.fracaoFaltou).toBe(1);
     }
+  });
+
+  it('preenche o piso de material junto com o caixa que ele exige', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+    const piso = Object.fromEntries(c.materiais.map((m) => [m.itemId, Math.ceil(m.minimo)]));
+
+    // Só o piso, sem caixa: a resposta seria ~0% — verdade, e inútil. É por isso
+    // que o botão da tela preenche os dois campos, e não só a mochila.
+    expect(avaliarEstoque(c, { zeny: 0, itens: piso, copias: 1 }).chance).toBeLessThan(0.05);
+
+    for (const alvo of [0.1, 0.5, 0.9, 0.99]) {
+      const e = estoqueMinimo(c, { zeny: 0, itens: {}, copias: 3 }, alvo);
+      expect(e.itens).toEqual(piso);
+      // As cópias em mãos são um fato, não um orçamento: o botão não as mexe.
+      expect(e.copias).toBe(3);
+      // O caixa é o que ESTE estoque ainda pede, então a chance sai no alvo.
+      const chance = avaliarEstoque(c, e).chance;
+      expect(chance).toBeGreaterThanOrEqual(alvo);
+      expect(chance).toBeLessThan(alvo + 0.05);
+    }
+  });
+
+  it('resolve o material quando o caixa é que está travado', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+    // Metade do que a campanha mediana pede em caixa: sem material, não passa
+    // nem perto — o que falta tem de sair da mochila.
+    const caixa = Math.round(r.simulacao!.custo.p50 / 2);
+
+    let anterior = 0;
+    for (const alvo of [0.1, 0.25, 0.5, 0.75]) {
+      const cesta = materialParaChance(c, { zeny: caixa, itens: {}, copias: 1 }, alvo);
+      if (cesta.teto < alvo) continue; // caixa insuficiente: é recado, não cesta
+
+      const chance = avaliarEstoque(c, { zeny: caixa, itens: cesta.itens, copias: 1 }).chance;
+      expect(chance).toBeCloseTo(cesta.chance, 10);
+      expect(chance).toBeGreaterThanOrEqual(alvo);
+
+      // Mirar mais alto nunca pede menos material — é o que torna a bisseção
+      // legítima —, e uma unidade a menos no material mais caro já não chega.
+      const total = Object.values(cesta.itens).reduce((s, q) => s + q, 0);
+      expect(total).toBeGreaterThanOrEqual(anterior);
+      anterior = total;
+
+      const caro = [...c.materiais].sort((a, b) => b.preco - a.preco)[0]!;
+      const magro = { ...cesta.itens, [caro.itemId]: Math.max(0, cesta.itens[caro.itemId]! - 1) };
+      expect(avaliarEstoque(c, { zeny: caixa, itens: magro, copias: 1 }).chance).toBeLessThanOrEqual(
+        chance,
+      );
+    }
+  });
+
+  it('diz quando material nenhum resolve, porque o que falta é caixa', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+
+    // Sem zeny e com uma cópia só, a taxa do refinador e a reposição do item
+    // continuam de pé por mais minério que se tenha.
+    const cesta = materialParaChance(c, { zeny: 0, itens: {}, copias: 1 }, 0.9);
+    expect(cesta.teto).toBeLessThan(0.9);
+    expect(cesta.chance).toBe(cesta.teto);
+    // E o recado sabe dizer quanto caixa o alvo exigiria de mochila cheia.
+    expect(cesta.zenyDoTeto).toBeGreaterThan(0);
+    const comTudo = { zeny: cesta.zenyDoTeto, itens: cesta.itens, copias: 1 };
+    expect(avaliarEstoque(c, comTudo).chance).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it('corta a distribuição do que falta em qualquer quantil', () => {
+    const r = planoEstoque();
+    const c = emMateriais(r.simulacao!.amostras, r.input.precos, r.input.precoItem);
+    const vazio = { zeny: 0, itens: {}, copias: 1 };
+
+    // Mochila vazia: o que falta é o custo da campanha, e o corte de 10% é a
+    // campanha que só 10% das simuladas conseguiram bater.
+    expect(zenyParaChance(c, vazio, 0.5)).toBe(Math.ceil(r.simulacao!.custo.p50));
+    expect(zenyParaChance(c, vazio, 0.9)).toBe(Math.ceil(r.simulacao!.custo.p90));
+    expect(zenyParaChance(c, vazio, 0.1)).toBeLessThan(zenyParaChance(c, vazio, 0.5));
+    expect(avaliarEstoque(c, { ...vazio, zeny: zenyParaChance(c, vazio, 0.1) }).chance).toBeCloseTo(
+      0.1,
+      2,
+    );
   });
 
   it('fecha a conta em zero quando o estoque cobre tudo', () => {

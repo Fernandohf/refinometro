@@ -1,5 +1,5 @@
 import { listaDeCompras } from './pricing';
-import { percentis, type AmostrasCampanha } from './simulate';
+import { percentis, quantil, type AmostrasCampanha } from './simulate';
 import type { Percentis, PriceTable } from './types';
 
 /**
@@ -70,6 +70,14 @@ export interface VereditoEstoque {
   execucoes: number;
   /** Zeny que precisa estar em caixa além do que o estoque já cobre. */
   zenyNecessario: Percentis;
+  /**
+   * O que faltou em CADA campanha, cru e fora de ordem.
+   *
+   * Os percentis acima são cinco cortes desta amostra. A pergunta inversa —
+   * "quanto ter em caixa para 10% de chance?" — é outro corte dela, num quantil
+   * que a tela escolhe, e por isso a amostra sai junto em vez de ser refeita.
+   */
+  zenyPorCampanha: Float64Array;
   materiais: FaltaDeMaterial[];
   /** Fração das campanhas em que as cópias do item não bastam. */
   fracaoSemCopias: number;
@@ -164,6 +172,140 @@ export function emMateriais(
 }
 
 /**
+ * Zeny que este estoque ainda exigiria para chegar ao alvo com a chance pedida.
+ *
+ * É a distribuição do que falta, lida ao contrário: levar o corte de 10% em
+ * caixa fecha 10% das campanhas, o de 90% fecha 90%. O material informado já
+ * está abatido, então o número é sempre "além do que você tem" — nunca o custo
+ * cheio da campanha.
+ */
+export function zenyParaChance(
+  c: CampanhaEmMateriais,
+  estoque: Estoque,
+  chanceAlvo: number,
+): number {
+  return Math.ceil(quantil(avaliarEstoque(c, estoque).zenyPorCampanha, chanceAlvo));
+}
+
+/**
+ * O estoque mínimo que chega ao alvo com a chance pedida: o piso de material de
+ * cada campanha e o zeny que esse piso ainda exige.
+ *
+ * Os dois números são um só. Material no chão é orçamento no alto — o que
+ * faltar no meio do caminho vira compra —, então preencher o piso sem o caixa
+ * que ele implica devolveria 0%: verdade, e inútil. Por isso o zeny sai do
+ * veredito DESTE estoque, com o material já abatido, e não do custo cheio da
+ * campanha, que cobraria duas vezes pelo mesmo minério.
+ *
+ * As cópias do item ficam como estão: quantas você tem é um fato, não uma
+ * escolha de orçamento — e o zeny devolvido já paga as que faltarem.
+ */
+export function estoqueMinimo(
+  c: CampanhaEmMateriais,
+  atual: Estoque,
+  chanceAlvo: number,
+): Estoque {
+  const itens = Object.fromEntries(c.materiais.map((m) => [m.itemId, Math.ceil(m.minimo)]));
+  const semCaixa: Estoque = { ...atual, itens, zeny: 0 };
+  return { ...semCaixa, zeny: zenyParaChance(c, semCaixa, chanceAlvo) };
+}
+
+/** O que ter na mochila para uma dada chance, sem pôr mais zeny no caixa. */
+export interface CestaDeMaterial {
+  /** Quanto ter de cada material, por id de item. */
+  itens: Record<number, number>;
+  /** Chance que esta cesta alcança com o zeny que já está no caixa. */
+  chance: number;
+  /**
+   * Chance máxima que esse caixa permite, com material de sobra. Abaixo do alvo
+   * pedido, material nenhum resolve: o que falta é zeny de taxa, balcão do NPC
+   * ou cópia de reposição, que não se paga com minério.
+   */
+  teto: number;
+  /** Zeny que o alvo exigiria em caixa, já com material de sobra na mochila. */
+  zenyDoTeto: number;
+}
+
+/**
+ * A pergunta invertida: com o zeny que eu já tenho, **quanto material** preciso
+ * ter para chegar ao alvo com esta chance?
+ *
+ * Material é um vetor, e a chance é um número só — há infinitas mochilas que
+ * dão 10%. A escolhida é a que segue a proporção do consumo médio da campanha,
+ * multiplicada por um fator `k`: é a única forma equilibrada, e deixa a busca
+ * ser por um botão só. Como mais material nunca piora a chance, `k` é monótono
+ * e o menor que atinge o alvo sai por bisseção.
+ *
+ * Acima de `kTeto` a cesta já cobre a campanha mais gastadora de todas, e mais
+ * minério deixa de mudar qualquer coisa — daí sair de lá o teto do que o caixa
+ * permite.
+ */
+export function materialParaChance(
+  c: CampanhaEmMateriais,
+  atual: Estoque,
+  chanceAlvo: number,
+): CestaDeMaterial {
+  const n = c.execucoes;
+  const extras = Math.max(0, Math.floor(atual.copias) - 1);
+  const zeny = Math.max(0, atual.zeny);
+
+  const cesta = (k: number) => c.materiais.map((m) => Math.ceil(k * m.media));
+  const comIds = (tem: number[]) =>
+    Object.fromEntries(c.materiais.map((m, col) => [m.itemId, tem[col]!]));
+
+  let kTeto = 0;
+  for (let col = 0; col < c.materiais.length; col++) {
+    let maior = 0;
+    for (let i = 0; i < n; i++) maior = Math.max(maior, c.consumo[col * n + i]!);
+    kTeto = Math.max(kTeto, maior / c.materiais[col]!.media);
+  }
+
+  const noTeto = cesta(kTeto);
+  const teto = chanceDe(c, noTeto, extras, zeny);
+  const zenyDoTeto = zenyParaChance(c, { ...atual, itens: comIds(noTeto) }, chanceAlvo);
+
+  if (teto < chanceAlvo) {
+    return { itens: comIds(noTeto), chance: teto, teto, zenyDoTeto };
+  }
+
+  // Bisseção no fator da cesta. 40 passos deixam o intervalo menor que qualquer
+  // unidade de material, e cada passo é uma varredura das campanhas guardadas —
+  // barato porque é um clique, não uma tecla digitada.
+  let baixo = 0;
+  let alto = kTeto;
+  for (let passo = 0; passo < 40; passo++) {
+    const meio = (baixo + alto) / 2;
+    if (chanceDe(c, cesta(meio), extras, zeny) >= chanceAlvo) alto = meio;
+    else baixo = meio;
+  }
+
+  const itens = cesta(alto);
+  return { itens: comIds(itens), chance: chanceDe(c, itens, extras, zeny), teto, zenyDoTeto };
+}
+
+/**
+ * Só a chance, sem os percentis e as tabelas que `avaliarEstoque` monta.
+ *
+ * Existe para a bisseção acima, que a chama dezenas de vezes e joga fora tudo o
+ * mais: ordenar seis distribuições a cada passo custaria mais que a busca
+ * inteira.
+ */
+function chanceDe(c: CampanhaEmMateriais, tem: number[], extras: number, zeny: number): number {
+  const n = c.execucoes;
+  let sucessos = 0;
+
+  for (let i = 0; i < n; i++) {
+    let coberto = Math.min(c.quebras[i]!, extras) * c.precoItem;
+    for (let col = 0; col < c.materiais.length; col++) {
+      coberto += Math.min(c.consumo[col * n + i]!, tem[col]!) * c.materiais[col]!.preco;
+    }
+    if (c.custo[i]! - coberto <= zeny) sucessos++;
+  }
+
+  return sucessos / n;
+}
+
+/**
  * Chance de chegar ao alvo com o estoque informado.
  *
  * O que o estoque cobre é abatido do custo da campanha: o motor cotou cada
@@ -226,6 +368,7 @@ export function avaliarEstoque(c: CampanhaEmMateriais, estoque: Estoque): Veredi
     chance: sucessos / n,
     execucoes: n,
     zenyNecessario: percentis(zenyNecessario),
+    zenyPorCampanha: zenyNecessario,
     materiais: c.materiais.map((m, col) => ({
       ...m,
       tem: tem[col]!,

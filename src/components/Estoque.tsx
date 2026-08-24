@@ -1,13 +1,38 @@
 import { useMemo, useState } from 'react';
 
 import { nomeDoItem } from '../data/nomes';
-import { avaliarEstoque, emMateriais, type Estoque, type VereditoEstoque } from '../engine/estoque';
+import {
+  avaliarEstoque,
+  emMateriais,
+  estoqueMinimo,
+  materialParaChance,
+  type Estoque,
+  type VereditoEstoque,
+} from '../engine/estoque';
 import type { Resultado as ResultadoPlano } from '../engine/plan';
 import { porcento, zeny, zenyExato } from '../format';
 import { MARGENS, type MargemKey } from './Resultado';
-import { BotaoDoPainel, Campo, NumeroQtd, NumeroZeny, Painel } from './ui';
+import { BotaoDoPainel, Campo, NumeroQtd, NumeroZeny, Painel, Segmentado } from './ui';
 
 export const ESTOQUE_VAZIO: Estoque = { zeny: 0, itens: {}, copias: 1 };
+
+/**
+ * Chances que o preenchimento sabe mirar.
+ *
+ * Não são as margens do painel de custo, e por um motivo: lá a pergunta é
+ * "quanto levar para não estourar", e ninguém orça uma campanha para dar
+ * errado. Aqui a pergunta é o que a pessoa já tem, e "e se eu topar 10%?" é
+ * legítima — é o jogador que aceita apostar barato, sabendo que provavelmente
+ * volta ao mercado no meio do caminho.
+ */
+const CHANCES_ALVO = [
+  { key: '0.1', rotulo: '10%', dica: 'aposta barata: 1 em 10 campanhas fecha com isso' },
+  { key: '0.25', rotulo: '25%', dica: '1 em 4 campanhas fecha com isso' },
+  { key: '0.5', rotulo: '50%', dica: 'metade das campanhas fecha com isso' },
+  { key: '0.75', rotulo: '75%', dica: '3 de cada 4 campanhas' },
+  { key: '0.9', rotulo: '90%', dica: '9 de cada 10 campanhas' },
+  { key: '0.99', rotulo: '99%', dica: 'só 1 em 100 fica pelo caminho' },
+] as const;
 
 /**
  * Contagem inteira. Aqui nada é média: o que a pessoa tem na mochila e o que
@@ -51,6 +76,74 @@ export function SimuladorDeEstoque({
     () => (campanha ? avaliarEstoque(campanha, estoque) : null),
     [campanha, estoque],
   );
+
+  // Chance que os botões de preenchimento miram. Fica aqui, e não junto da
+  // margem do painel de custo, porque é outra pergunta: a margem orça o pior
+  // caso, esta escolhe o quanto se aceita apostar com o que já está em mãos.
+  const [alvo, setAlvo] = useState(0.9);
+  // O recado vale para o estoque que o produziu, e some sozinho quando a pessoa
+  // mexe em qualquer campo: "material nenhum passa de 0%" seria mentira dois
+  // segundos depois de ela digitar o zeny que faltava.
+  const [recado, setRecado] = useState<{ texto: string; sobre: Estoque } | null>(null);
+
+  /** Piso de material e o caixa que ele exige para a chance escolhida. */
+  const preencherTudo = () => {
+    if (!campanha) return;
+    setRecado(null);
+    onChange(estoqueMinimo(campanha, estoque, alvo));
+  };
+
+
+  /**
+   * O inverso: mantém o zeny informado e resolve o material.
+   *
+   * Duas respostas não são um estoque e sim um recado, então não mexem na
+   * mochila: quando o caixa não dá conta nem com material de sobra, e quando ele
+   * já basta sozinho. Sobrescrever o que a pessoa digitou com uma cesta de zeros
+   * seria trocar uma resposta por um apagamento.
+   */
+  const resolverMaterial = () => {
+    if (!campanha) return;
+    const cesta = materialParaChance(campanha, estoque, alvo);
+
+    if (cesta.teto < alvo) {
+      setRecado({
+        sobre: estoque,
+        texto:
+          `Com ${zeny(estoque.zeny)} em caixa, material nenhum passa de ${porcento(cesta.teto)}: ` +
+          `taxa do refinador, balcão do NPC e cópias de reposição se pagam em zeny. Para ${porcento(alvo)} ` +
+          `seriam ${zeny(cesta.zenyDoTeto)} em caixa, já com a mochila cheia.`,
+      });
+      return;
+    }
+
+    if (Object.values(cesta.itens).every((q) => q === 0)) {
+      setRecado({
+        sobre: estoque,
+        texto:
+          `Esse caixa já chega a ${porcento(alvo)} sem material nenhum na mochila — o que você ` +
+          `tiver é economia, não necessidade.`,
+      });
+      return;
+    }
+
+    // Material vem em unidades inteiras, e nos alvos baixos a menor cesta que
+    // passa do alvo já passa longe dele. Dizer isso evita que os dois números
+    // (o pedido e o do veredito logo abaixo) pareçam brigar.
+    const novo = { ...estoque, itens: cesta.itens };
+    setRecado(
+      cesta.chance > alvo + 0.02
+        ? {
+            sobre: novo,
+            texto:
+              `A menor mochila equilibrada que passa de ${porcento(alvo)} já chega a ` +
+              `${porcento(cesta.chance)}: minério não se compra pela metade, e uma cesta menor que ` +
+              `essa não alcança o alvo.`,
+          }
+        : null,
+    );
+    onChange(novo);
+  };
 
   return (
     <Painel
@@ -99,26 +192,50 @@ export function SimuladorDeEstoque({
             </Campo>
           </div>
 
+          {/* A pergunta do painel tem duas saídas, e as duas cabem aqui: com o
+              material no piso, quanto zeny falta para a chance que eu topo — e,
+              com o zeny que eu já tenho, quanto material ela exige. */}
+          <div className="rounded-lg border border-borda bg-fundo/40 p-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="text-xs font-semibold tracking-wide text-suave uppercase">
+                Quero chegar com
+              </span>
+              <Segmentado
+                rotulo="Chance que quero ter"
+                value={String(alvo)}
+                onChange={(v) => {
+                  setAlvo(Number(v));
+                  setRecado(null);
+                }}
+                opcoes={CHANCES_ALVO.map((c) => ({ key: c.key, rotulo: c.rotulo, dica: c.dica }))}
+              />
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">
+              <BotaoDoPainel onClick={preencherTudo}>preencher mochila e caixa</BotaoDoPainel>
+              <BotaoDoPainel onClick={resolverMaterial}>
+                só o material, com o meu zeny
+              </BotaoDoPainel>
+            </div>
+
+            {recado?.sobre === estoque && (
+              <p className="mt-2 text-xs leading-relaxed text-atencao">{recado.texto}</p>
+            )}
+
+            <p className="mt-2 text-xs leading-relaxed text-suave">
+              O primeiro põe o piso de material na mochila e calcula o zeny que ele ainda exige; o
+              segundo mantém o zeny que você informou e calcula o material, na proporção em que a
+              campanha gasta. Os dois miram a mesma chance — material no chão é orçamento no alto, e
+              é sempre um ou o outro que sobe.
+            </p>
+          </div>
+
           <div>
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
               <h3 className="text-xs font-semibold tracking-wide text-suave uppercase">O que você já tem</h3>
-              <div className="flex gap-3 text-xs">
-                <BotaoDoPainel
-                  onClick={() =>
-                    onChange({
-                      ...estoque,
-                      itens: Object.fromEntries(
-                        campanha.materiais.map((m) => [m.itemId, Math.ceil(m.minimo)]),
-                      ),
-                    })
-                  }
-                >
-                  preencher com o mínimo
-                </BotaoDoPainel>
-                <BotaoDoPainel discreto onClick={() => onChange({ ...estoque, itens: {} })}>
-                  zerar
-                </BotaoDoPainel>
-              </div>
+              <BotaoDoPainel discreto onClick={() => onChange({ ...estoque, itens: {} })}>
+                zerar
+              </BotaoDoPainel>
             </div>
 
             <div className="space-y-2">
@@ -144,7 +261,7 @@ export function SimuladorDeEstoque({
               Só aparecem os materiais que o plano usa, já desmontados até o que se compra de
               verdade — quem fabrica Bradium tem <strong className="text-texto">Oridecon</strong> na
               mochila, não Bradium. O mínimo é o que a campanha mais sortuda consumiu: abaixo dele
-              não existe caminho que não precise comprar mais.
+              não existe caminho que não precise comprar mais no meio.
             </p>
           </div>
 

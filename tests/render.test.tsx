@@ -32,7 +32,9 @@ describe('página', () => {
     expect(html).toContain('Dá com o que eu tenho?');
     expect(html).toContain('Chance de chegar ao alvo');
     expect(html).toContain('Zeny em caixa');
-    expect(html).toContain('preencher com o mínimo');
+    expect(html).toContain('Quero chegar com');
+    expect(html).toContain('preencher mochila e caixa');
+    expect(html).toContain('só o material, com o meu zeny');
     // Os campos são os materiais que se compra, não o minério fabricado.
     expect(html).toContain('Oridecon');
     expect(html).not.toContain('mín. 0');
