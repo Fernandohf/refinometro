@@ -1,5 +1,15 @@
 // Catálogo de minérios de refino.
-// Fonte: https://browiki.org/wiki/Refinamento (seção "Minérios")
+//
+// Faixas, penalidades e receitas: https://browiki.org/wiki/Refinamento (seção "Minérios"), que
+// é a fonte preferida do projeto por ser o wiki do próprio LATAM.
+//
+// A exceção é o EFEITO de cada minério (aumenta a chance? protege da quebra?), conferido um a um
+// na descrição LATAM do item no Divine Pride — https://www.divine-pride.net/database/item/<id>.
+// O Browiki agrupa todos os "especiais" numa tabela de chances só, e isso esconde que nem todo
+// especial aumenta a chance; a ficha do Divine Pride é datamine do cliente, então sobre "o que
+// este item faz" ela ganha de um agrupamento feito à mão. Ver o campo `chanceAumentada`.
+//
+// `npm run descricoes` imprime as descrições lado a lado para reconferir.
 //
 // `refinaDe` é a faixa de refino ATUAL do item em que o minério pode ser usado.
 // Ex.: "0 ao +9" => refinaDe: [0, 9], ou seja, tentativas que produzem +1 a +10.
@@ -37,8 +47,30 @@ export interface Ore {
   kinds: ItemKind[];
   /** Faixa de refino atual [min, max] em que o minério é aceito. */
   refinaDe: [number, number];
-  /** Usa a tabela de chances "especiais" (Enriquecido / Perfeito). */
+  /**
+   * É um minério "especial" (Enriquecido / Perfeito), e por isso só entra no
+   * plano quando o jogador marca que aceita usá-los. É uma questão de acesso —
+   * eles vêm de JoyCoins ou de receita cara —, não de efeito.
+   */
   especial: boolean;
+  /**
+   * Usa a tabela de chances aumentadas em vez da comum.
+   *
+   * NÃO é sinônimo de `especial`, e o critério é a descrição LATAM do item: os
+   * minérios que aumentam a chance dizem isso com todas as letras — "Aumenta as
+   * chances de sucesso ao refinar uma arma", "Refina armas de nível 5, do +1 até
+   * +10, **com maior chance**". Os que só protegem descrevem apenas a proteção:
+   * "garante a segurança no refinamento", "a arma não será perdida, mas reduz 1
+   * nível de refino". A distinção é sistemática nos 22 minérios, em português e
+   * em inglês, então a ausência da frase é informação, não descuido.
+   *
+   * Daí saem três grupos, e o nome do minério não diz a qual ele pertence:
+   *
+   * - só chance: Oridecon e Elunium Enriquecido — que continuam DESTRUINDO o item;
+   * - só proteção: Oridecon, Elunium, Bradium e Carnium Perfeito;
+   * - as duas: todos os de Éter marcados "com maior chance".
+   */
+  chanceAumentada: boolean;
   penalidade: FailureMode;
   /** Custo no NPC da refinaria, quando existe. `null` = só via JoyCoins/mercado. */
   npc: { zeny: number; materiais: MaterialCost[] } | null;
@@ -60,6 +92,7 @@ export const ORES: Ore[] = [
     kinds: ['w1'],
     refinaDe: [0, 9],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'break',
     npc: { zeny: 200, materiais: [] },
   },
@@ -70,6 +103,7 @@ export const ORES: Ore[] = [
     kinds: ['w2'],
     refinaDe: [0, 9],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'break',
     npc: { zeny: 1_000, materiais: [] },
   },
@@ -80,6 +114,7 @@ export const ORES: Ore[] = [
     kinds: ['w3', 'w4', 'shadowW'],
     refinaDe: [0, 9],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'break',
     npc: { zeny: 0, materiais: [{ itemId: 756, nome: 'Minério de Oridecon', qtd: 5 }] },
   },
@@ -90,6 +125,7 @@ export const ORES: Ore[] = [
     kinds: ['w1', 'w2', 'w3', 'w4'],
     refinaDe: [10, 19],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'down3',
     npc: { zeny: 50_000, materiais: [m(ORIDECON, 3)] },
   },
@@ -100,6 +136,7 @@ export const ORES: Ore[] = [
     kinds: ['w5'],
     refinaDe: [0, 9],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'down3',
     npc: { zeny: 10_000, materiais: [m(ORIDECON, 1), m(PO_ETER, 1)] },
   },
@@ -110,6 +147,7 @@ export const ORES: Ore[] = [
     kinds: ['w5'],
     refinaDe: [10, 19],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'break',
     npc: {
       zeny: 30_000,
@@ -125,6 +163,7 @@ export const ORES: Ore[] = [
     kinds: ['w3', 'w4', 'shadowW'],
     refinaDe: [0, 9],
     especial: true,
+    chanceAumentada: true,
     penalidade: 'break',
     npc: null,
     joyCoins: true,
@@ -136,6 +175,10 @@ export const ORES: Ore[] = [
     kinds: ['w3', 'w4', 'shadowW'],
     refinaDe: [7, 9],
     especial: true,
+    // "Um Oridecon perfeito, que garante a segurança no refinamento do seu
+    // equipamento. Em casos de falha ao refinar itens +7, +8 ou +9, a arma não
+    // será perdida, mas reduz 1 nível de refino." — nem uma palavra sobre chance.
+    chanceAumentada: false,
     penalidade: 'down1',
     npc: null,
     joyCoins: true,
@@ -147,6 +190,7 @@ export const ORES: Ore[] = [
     kinds: ['w1', 'w2', 'w3', 'w4'],
     refinaDe: [10, 19],
     especial: true,
+    chanceAumentada: false,
     penalidade: 'down1',
     npc: null,
     joyCoins: true,
@@ -158,6 +202,7 @@ export const ORES: Ore[] = [
     kinds: ['w5'],
     refinaDe: [0, 9],
     especial: true,
+    chanceAumentada: true,
     penalidade: 'down1',
     npc: {
       zeny: 20_000,
@@ -171,6 +216,7 @@ export const ORES: Ore[] = [
     kinds: ['w5'],
     refinaDe: [10, 14],
     especial: true,
+    chanceAumentada: true,
     penalidade: 'break',
     npc: {
       zeny: 50_000,
@@ -184,6 +230,7 @@ export const ORES: Ore[] = [
     kinds: ['w5'],
     refinaDe: [15, 19],
     especial: true,
+    chanceAumentada: true,
     penalidade: 'break',
     npc: {
       zeny: 50_000,
@@ -199,6 +246,7 @@ export const ORES: Ore[] = [
     kinds: ['a1', 'shadowA'],
     refinaDe: [0, 9],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'break',
     npc: { zeny: 0, materiais: [{ itemId: 757, nome: 'Minério de Elunium', qtd: 5 }] },
   },
@@ -209,6 +257,7 @@ export const ORES: Ore[] = [
     kinds: ['a1'],
     refinaDe: [10, 19],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'down3',
     npc: { zeny: 50_000, materiais: [m(ELUNIUM, 3)] },
   },
@@ -219,6 +268,7 @@ export const ORES: Ore[] = [
     kinds: ['a2'],
     refinaDe: [0, 9],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'down3',
     npc: { zeny: 10_000, materiais: [m(ELUNIUM, 1), m(PO_ETER, 1)] },
   },
@@ -229,6 +279,7 @@ export const ORES: Ore[] = [
     kinds: ['a2'],
     refinaDe: [10, 19],
     especial: false,
+    chanceAumentada: false,
     penalidade: 'break',
     npc: {
       zeny: 50_000,
@@ -244,6 +295,7 @@ export const ORES: Ore[] = [
     kinds: ['a1', 'shadowA'],
     refinaDe: [0, 9],
     especial: true,
+    chanceAumentada: true,
     penalidade: 'break',
     npc: null,
     joyCoins: true,
@@ -255,6 +307,9 @@ export const ORES: Ore[] = [
     kinds: ['a1', 'shadowA'],
     refinaDe: [7, 9],
     especial: true,
+    // Mesma descrição do Oridecon Perfeito, trocando arma por equipamento: só
+    // fala em não perder o item e cair 1 refino.
+    chanceAumentada: false,
     penalidade: 'down1',
     npc: null,
     joyCoins: true,
@@ -266,6 +321,7 @@ export const ORES: Ore[] = [
     kinds: ['a1'],
     refinaDe: [10, 19],
     especial: true,
+    chanceAumentada: false,
     penalidade: 'down1',
     npc: null,
     joyCoins: true,
@@ -277,6 +333,7 @@ export const ORES: Ore[] = [
     kinds: ['a2'],
     refinaDe: [0, 9],
     especial: true,
+    chanceAumentada: true,
     penalidade: 'down1',
     npc: {
       zeny: 20_000,
@@ -290,6 +347,7 @@ export const ORES: Ore[] = [
     kinds: ['a2'],
     refinaDe: [10, 14],
     especial: true,
+    chanceAumentada: true,
     penalidade: 'break',
     npc: {
       zeny: 50_000,
@@ -303,6 +361,7 @@ export const ORES: Ore[] = [
     kinds: ['a2'],
     refinaDe: [15, 19],
     especial: true,
+    chanceAumentada: true,
     penalidade: 'break',
     npc: {
       zeny: 50_000,
@@ -319,9 +378,10 @@ export function ehSombrio(kind: ItemKind): boolean {
 /**
  * Taxa em zeny que o refinador cobra por tentativa, por categoria de item.
  *
- * Fonte: https://irowiki.org/wiki/Refinement_System (seção "Reagents and Cost").
- * É a única das três wikis que publica esses valores — o Browiki e o Hazy Forest
- * não os citam.
+ * FONTE DE TERCEIRO NÍVEL, não confirmada no LATAM: nem o Browiki nem a ficha
+ * do item publicam esse valor, e sem ele a conta ignoraria um custo que existe.
+ * Vem do https://irowiki.org/wiki/Refinement_System (seção "Reagents and Cost"),
+ * que é de iRO — usado por falta de fonte LATAM, e não por preferência.
  *
  * Sombrios não aparecem na tabela, e a taxa deles fica em 0 até alguém conferir
  * in-game: chutar um valor sairia caro no lugar errado, porque a taxa entra em

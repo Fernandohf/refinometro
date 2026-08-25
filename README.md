@@ -208,6 +208,31 @@ descritos em [Dados](#dados) — não são necessários para rodar o site.
 
 ## Dados
 
+### A ordem das fontes
+
+O alvo é o **Ragnarok Latin America**, e é isso que decide o que serve de referência. As fontes
+não valem todas o mesmo, e a ordem abaixo é a regra do projeto — quando duas discordam, ganha a
+de cima, e a discordância vira um aviso na tela em vez de sumir na conta.
+
+1. **[Browiki](https://browiki.org/wiki/Refinamento)** — o wiki do próprio servidor
+   ("O fã site brasileiro de *Ragnarök Online Latin America*"). É a referência preferida para
+   mecânica: chances, minérios, penalidades, custos de NPC, Grau.
+2. **[Divine Pride](https://www.divine-pride.net/), servidor LATAM** — datamine do cliente do
+   jogo, não texto escrito à mão, e por isso mais confiável sobre o que um item **é**: id, nome,
+   categoria, faixa de refino, descrição. A ressalva é que a descrição é uma string do cliente:
+   ela pode estar desatualizada ou traduzida errado (o Carnium de Éter, abaixo, é um caso).
+3. **Outros wikis** ([iROwiki](https://irowiki.org/wiki/Refinement_System),
+   [Hazy Forest](https://hazyforest.com/equipment:refine)) — servem só onde as duas de cima não
+   dizem nada, e o que vier de lá fica marcado como não confirmado no LATAM. Não é fonte para
+   contradizer o Browiki.
+
+Nada de preço vem de fonte nenhuma: cotação é do jogador, sempre.
+
+Hoje só um número está no nível 3 — a taxa que o refinador cobra por tentativa, que nenhuma
+fonte do LATAM publica. Na base de itens, o **nome** é sempre o do LATAM (item sem tradução nem
+entra na busca); só a *categoria* de um item recém-lançado pode vir do cartão em inglês, porque
+nível de arma e posição não mudam de servidor.
+
 ### Chances e custos — Browiki
 
 As tabelas de chance, os minérios, as penalidades de falha e os custos de Grau saem do
@@ -223,21 +248,55 @@ silêncio. Se o Browiki reorganizar as páginas, `npm run data:parse` avisa.
 
 Fontes: [Refinamento](https://browiki.org/wiki/Refinamento) · [Grau](https://browiki.org/wiki/Grau)
 
-As tabelas de minério foram conferidas contra o [Hazy Forest](https://hazyforest.com/equipment:refine),
-wiki não-oficial do kRO. Bateram em tudo — inclusive na parte que parecia errada: para Arma nv5 e
-Equipamento nv2, **todo minério acima do +10 destrói o item**, até os Perfeitos. É o inverso do
-padrão dos níveis 1–4, e é assim mesmo.
+Como conferência, as tabelas de minério foram comparadas com o
+[Hazy Forest](https://hazyforest.com/equipment:refine), wiki não-oficial do kRO — fonte de
+terceiro nível, aqui só como segunda opinião. Bateram em tudo, inclusive na parte que parecia
+errada: para Arma nv5 e Equipamento nv2, **todo minério acima do +10 destrói o item**, até os
+Perfeitos. É o inverso do padrão dos níveis 1–4, e é assim mesmo.
 
-Duas divergências entre as fontes ficaram registradas:
+Quatro divergências entre as fontes ficaram registradas:
+
+**"Especial" não quer dizer "chance maior".** O Browiki põe todos os minérios especiais na
+mesma tabela de chances aumentadas. As descrições dos itens no Divine Pride dizem outra coisa, e
+com uma consistência que não parece descuido: quem aumenta a chance **anuncia isso**, e quem só
+protege descreve só a proteção.
+
+| Minério | O que a descrição LATAM promete | Efeito |
+| --- | --- | --- |
+| Oridecon / Elunium **Enriquecido** | "Aumenta as chances de sucesso ao refinar uma arma" | só chance — **continua destruindo o item** |
+| Oridecon / Elunium **Perfeito** | "garante a segurança […] a arma não será perdida, mas reduz 1 nível de refino" | só proteção |
+| Bradium / Carnium **Perfeito** | "Em casos de falha ao refinar itens +10 ou mais, a arma não será perdida, mas reduz 1 nível de refino" | só proteção |
+| Os de Éter marcados "com maior chance" | "Refina armas de nível 5, do +1 até +10, **com maior chance**" | chance **e** proteção |
+
+Por isso o motor tem dois campos independentes: `especial` (acesso — é o que a opção do
+formulário destrava) e `chanceAumentada` (efeito — é o que escolhe a tabela). Isso muda o plano
+de verdade: numa Arma nv4, a tentativa do +8 vale 20% com Oridecon Perfeito, não 40%, e o
+Perfeito para de aparecer acompanhado de Bênção do Ferreiro — as duas protegiam a mesma coisa, e
+o Enriquecido, mais caro por unidade, sai na frente por dobrar a chance.
+
+**É o único ponto em que o motor não segue o Browiki**, e é deliberado: aqui a pergunta não é
+"como a mecânica funciona" e sim "o que este item faz", que é exatamente onde o datamine ganha
+de um agrupamento de tabela feito à mão. Onde as duas leituras dão números diferentes, um aviso
+aparece na tela dizendo que aquele trecho depende da divergência. `npm run descricoes` imprime
+as descrições dos 22 minérios, em todos os servidores, para reconferir quando o texto do jogo
+mudar.
+
+**Faixa do Carnium de Éter.** A descrição LATAM diz "+16 até +20", mas o Browiki, o texto
+coreano do mesmo item e a descrição do gêmeo de arma (Bradium de Éter) dizem "+11 até +20". Três
+fontes contra uma tradução que repete a faixa do *Carnium de Éter Perfeito*: o motor fica com
++11..+20.
 
 **Bradium e Carnium.** O Hazy Forest diz que, além da queda de 3 refinos, existe uma chance
-**rara** de destruir o item; o Browiki só cita a queda. Como nenhuma das duas fontes dá o
-número, ele não é modelado — a calculadora avisa quando o plano depende desses minérios.
+**rara** de destruir o item. O Browiki e a descrição do item no LATAM só citam a queda, e as
+duas mandam mais que uma wiki de kRO — então a quebra rara **não é modelada**. Fica como nota de
+rodapé no plano, para quem quiser margem: se ela existir de fato no LATAM, o custo real é um
+pouco maior que o calculado.
 
 **Grau abaixo do +11.** O texto do Browiki afirma que o processo exige o item em +11, mas a
-tabela de chances da própria página lista valores desde o +9, e o
-[Hazy Forest](https://hazyforest.com/equipment:grade) traz a mesma tabela sem citar exigência
-nenhuma. Entre um texto e duas tabelas que concordam, o motor segue as tabelas: Grau D vale a
+tabela de chances da própria página lista valores desde o +9. É o Browiki contra ele mesmo, e
+só por isso vale abrir uma terceira fonte: o
+[Hazy Forest](https://hazyforest.com/equipment:grade) traz a mesma tabela desde o +9, sem citar
+exigência nenhuma. Entre um texto e duas tabelas que concordam, o motor segue as tabelas: Grau D vale a
 partir do +9, C do +10, B e A do +11 (`REFINO_MINIMO_GRAU`). Isso não é detalhe: com o processo
 seguro, a falha não destrói nada, então chance baixa custa só repetição de material — e tentar o
 Grau D logo no +9 sai **22% mais barato** que subir até o +11 antes, numa campanha completa de
@@ -394,14 +453,18 @@ visual de cabeça no Topo continua não refinando.
 
 Os preços de minérios são de mercado e mudam por servidor e por semana, então são
 informados por você na interface e ficam salvos no navegador. Os valores que vêm
-preenchidos em `src/data/defaultPrices.ts` são médias do
-[Hazy Forest](https://hazyforest.com/equipment:refine), não um preço oficial.
+preenchidos em `src/data/defaultPrices.ts` **não têm fonte** e nem poderiam ter: são um chute de
+ordem de grandeza para o campo não vir vazio. Trocá-los pelo que você está vendo no jogo é o que
+faz o resultado valer alguma coisa.
 
-### Taxa do refinador — iROwiki
+### Taxa do refinador — fora do LATAM
 
-O NPC cobra um valor em zeny por tentativa, além do minério. Nem o Browiki nem o Hazy Forest
-publicam esses números; o [iROwiki](https://irowiki.org/wiki/Refinement_System) publica, e é
-de lá que sai a tabela em `src/data/ores.ts`:
+Único número do projeto que vem de um wiki de outro servidor, e por falta de opção. O NPC cobra
+um valor em zeny por tentativa, além do minério; nem o Browiki nem a ficha do item no jogo
+publicam quanto. O [iROwiki](https://irowiki.org/wiki/Refinement_System) publica, e é de lá que
+sai a tabela em `src/data/ores.ts`. Ignorar a taxa seria pior que usar a de iRO — ela entra em
+toda tentativa e decide, na margem, qual minério compensa —, então ela entra marcada como não
+confirmada, no rodapé do app e aqui:
 
 | Categoria | Taxa de Refino por tentativa |
 | --- | --- |

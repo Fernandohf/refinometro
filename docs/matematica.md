@@ -43,10 +43,16 @@ Fixe uma **categoria** de equipamento `k ∈ 𝒦 = {w1, w2, w3, w4, w5, a1, a2,
 | --- | --- | --- |
 | `R(k)` | refino máximo alcançável | `maxRefine()` |
 | `O(k, r)` | minérios utilizáveis quando o item está no refino `r` | `oresFor()` |
-| `q(k, r, σ, ε) ∈ (0,1]` | chance de a tentativa `r → r+1` dar certo, com minério da classe `σ ∈ {comum, especial}` e evento `ε ∈ {0,1}` | `chanceOf()`, tabela `refineChances.json` |
+| `q(k, r, σ, ε) ∈ (0,1]` | chance de a tentativa `r → r+1` dar certo, na tabela `σ ∈ {comum, alta}` e evento `ε ∈ {0,1}` | `chanceOf()`, tabela `refineChances.json` |
 | `τ(k, o) ≥ 0` | taxa cobrada pelo refinador na tentativa com o minério `o` | `taxaDaTentativa()` |
 | `β(k, r) ∈ ℕ ∪ {⊥}` | Bênçãos do Ferreiro necessárias para proteger a tentativa que sai de `r` | `blessingCost()` |
 | `π(o) ∈ {quebra, desce1, desce3}` | o que a falha faz com o item | campo `penalidade` |
+| `σ(o) ∈ {comum, alta}` | qual tabela de chances o minério `o` usa | campo `chanceAumentada` |
+
+`σ(o)` e `π(o)` são **independentes**: um minério pode aumentar a chance e ainda destruir o item
+(Oridecon Enriquecido), proteger sem aumentar a chance (Oridecon Perfeito) ou fazer as duas
+coisas (Eteridecon Enriquecido). Nenhum dos dois se deduz de o minério ser "especial", que é uma
+questão de acesso — ver [README, "Chances e custos"](../README.md#chances-e-custos--browiki).
 
 E dois preços informados pelo jogador: `u(i) ∈ (0, ∞]` para cada material `i`
 ([§7](#7-custo-de-aquisição-comprar-ou-fabricar)), e `V₀ > 0`, o preço de reposição do item

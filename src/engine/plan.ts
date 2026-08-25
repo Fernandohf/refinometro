@@ -1,7 +1,14 @@
 import { GRADE_ORDER, type Grade } from '../data/grade';
 import { BLESSING_ITEM_ID, blessingCost, ehSombrio, type FailureMode, type ItemKind } from '../data/ores';
 import { ETHER_BLESSING_ITEM_ID } from '../data/grade';
-import { maxRefine, RefineImpossivel, safeLimit, solveRefine, type RefineOptions } from './refine';
+import {
+  chanceOf,
+  maxRefine,
+  RefineImpossivel,
+  safeLimit,
+  solveRefine,
+  type RefineOptions,
+} from './refine';
 import { GrauImpossivel, solveGradeCampaign, suportaGrau, type GradeAttemptPlan } from './grade';
 import { simulateCampaign, type Fase, type SimulationResult } from './simulate';
 import type { CalcInput, PolicyEntry, ResourceUsage } from './types';
@@ -19,6 +26,16 @@ export interface StrategyRange {
   arriscaQuebrar: boolean;
   /** Descrição do que acontece ao falhar. */
   naFalha: string;
+  /** O minério usa a tabela de chances aumentadas — é por isso que ele está aqui. */
+  chanceAumentada: boolean;
+  /** O minério é Enriquecido / Perfeito (JoyCoins ou receita cara). */
+  minerioEspecial: boolean;
+  /**
+   * O minério, sozinho, já sobreviveria à falha (derruba refino em vez de
+   * quebrar). Junto com `bencaos > 0` isso quer dizer que a proteção dele está
+   * ociosa: a Bênção segura o refino no lugar de qualquer jeito.
+   */
+  minerioProtege: boolean;
 }
 
 export interface Aviso {
@@ -398,6 +415,9 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
       chance: a.chance,
       arriscaQuebrar: a.falhaVaiPara === null && a.chance < 1,
       naFalha,
+      chanceAumentada: a.ore.chanceAumentada,
+      minerioEspecial: a.ore.especial,
+      minerioProtege: a.ore.penalidade !== 'break',
     });
   }
 
@@ -405,7 +425,14 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
 }
 
 function descreverFalha(penalidade: FailureMode, comBencao: boolean): string {
-  if (comBencao) return 'a Bênção segura o item e o refino';
+  // Com Bênção, quem segura o item é sempre ela — mas dizer só isso ao lado de
+  // um minério que também sobrevive à falha faz o par parecer redundante. O
+  // texto deixa claro qual das duas proteções está valendo.
+  if (comBencao) {
+    return penalidade === 'break'
+      ? 'a Bênção segura o item e o refino'
+      : 'a Bênção segura o refino no lugar (sozinho, o minério já não quebraria o item)';
+  }
   switch (penalidade) {
     case 'break':
       return 'o item é destruído';
@@ -495,14 +522,42 @@ function gerarAvisos(
     });
   }
 
+  // Minério especial que NÃO aumenta a chance, numa tentativa em que as duas
+  // tabelas do Browiki dariam números diferentes. É onde a descrição do item
+  // (Divine Pride) e o agrupamento do Browiki se contradizem com consequência
+  // em zeny.
+  const divergentes = fases
+    .flatMap((f) => f.trechos)
+    .filter(
+      (t) =>
+        t.minerioEspecial &&
+        !t.chanceAumentada &&
+        chanceOf(input.kind, t.para, true, input.evento) !==
+          chanceOf(input.kind, t.para, false, input.evento),
+    );
+  if (divergentes.length > 0) {
+    const quais = [...new Set(divergentes.map((t) => t.minerio))].join(', ');
+    const faixas = divergentes.map((t) => `+${t.de}→+${t.para}`).join(', ');
+    avisos.push({
+      nivel: 'atencao',
+      texto:
+        `O plano usa ${quais} em ${faixas}, e aí as fontes discordam. O Browiki joga todo minério ` +
+        `especial na mesma tabela de chances aumentadas, mas a descrição desse minério no jogo só ` +
+        `promete não destruir o item e derrubar 1 refino — nada sobre chance, ao contrário da do ` +
+        `Enriquecido, que diz "aumenta as chances de sucesso" com todas as letras. O motor segue a ` +
+        `descrição do item e usa a chance comum; se in-game valer a aumentada, este trecho sai mais ` +
+        `barato do que o previsto aqui.`,
+    });
+  }
+
   const usaBradiumOuCarnium = fases
     .flatMap((f) => f.trechos)
     .some((t) => (t.minerioItemId === 6224 || t.minerioItemId === 6223) && t.bencaos === 0);
   if (usaBradiumOuCarnium) {
     avisos.push({
-      nivel: 'atencao',
+      nivel: 'info',
       texto:
-        'O plano usa Bradium ou Carnium sem Bênção. O Browiki diz que a falha só derruba 3 refinos, mas o Hazy Forest registra também uma chance RARA de destruir o item. Como nenhuma das duas fontes dá esse número, ele não entra na conta — o custo real pode ser um pouco maior.',
+        'O plano usa Bradium ou Carnium sem Bênção. O Browiki e a descrição do item no jogo dizem que a falha só derruba 3 refinos, e é isso que a conta usa. Uma wiki de kRO registra também uma chance RARA de destruir o item; nenhuma fonte do LATAM confirma nem dá o número, então ele fica de fora — se existir por aqui, o custo real é um pouco maior.',
     });
   }
 
@@ -546,6 +601,43 @@ function gerarAvisos(
     avisos.push({
       nivel: 'info',
       texto: 'A Bênção do Ferreiro está sendo cotada pela receita do NPC, não por preço de mercado. Informe o preço real para um número mais fiel.',
+    });
+  }
+
+  // Bênção junto de um minério que já sobrevive à falha sozinho. Não é
+  // desperdício — as duas proteções não são a mesma —, mas lido de fora parece,
+  // e é a dúvida mais comum sobre o plano: se a Bênção já segura o item, por
+  // que pagar por um minério que também segura?
+  const bencaoSobreMinerioQueProtege = fases
+    .flatMap((f) => f.trechos)
+    .filter((t) => t.bencaos > 0 && t.minerioProtege);
+  if (bencaoSobreMinerioQueProtege.length > 0) {
+    // O motivo de o minério estar ali muda conforme ele aumentar ou não a
+    // chance, e as duas coisas podem aparecer no mesmo plano — daí a lista
+    // sair separada em vez de num monte só.
+    const descrever = (ts: StrategyRange[], motivo: string) =>
+      `Em ${ts.map((t) => `+${t.de}→+${t.para}`).join(', ')}, ${motivo} ` +
+      `(${[...new Set(ts.map((t) => t.minerio))].join(', ')}).`;
+
+    const porChance = bencaoSobreMinerioQueProtege.filter((t) => t.chanceAumentada);
+    const porPreco = bencaoSobreMinerioQueProtege.filter((t) => !t.chanceAumentada);
+    const motivos = [
+      porChance.length > 0
+        ? descrever(porChance, 'o minério está no plano pela CHANCE: ele usa a tabela de chances aumentadas e é o mais barato entre os que dão essa chance')
+        : null,
+      porPreco.length > 0
+        ? descrever(porPreco, 'o minério não aumenta chance nenhuma — está no plano só por ser o mais barato que atende à faixa')
+        : null,
+    ].filter((t): t is string => t !== null);
+
+    avisos.push({
+      nivel: 'info',
+      texto:
+        `O plano gasta Bênção do Ferreiro junto de minérios que, sozinhos, já não destruiriam o ` +
+        `equipamento: a falha deles derruba refino em vez de quebrar, e é a Bênção que segura o ` +
+        `refino no lugar. A proteção do minério fica ociosa, não a Bênção. ${motivos.join(' ')} ` +
+        `Dá para usar os mesmos minérios sem Bênção e o item continua vivo — o que muda é que cada ` +
+        `falha desce refino, e é esse caminho de volta que a Bênção estava comprando.`,
     });
   }
 

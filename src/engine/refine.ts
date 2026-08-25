@@ -22,9 +22,14 @@ function colunaDe(kind: ItemKind): string {
   return kind === 'shadowW' || kind === 'shadowA' ? 'shadow' : kind;
 }
 
-/** Chance de a tentativa que produz `+para` dar certo, para um item `kind`. */
-export function chanceOf(kind: ItemKind, para: number, especial: boolean, evento: boolean): number | null {
-  const tab: ChanceTab = especial ? (evento ? 'specialEvent' : 'special') : evento ? 'normalEvent' : 'normal';
+/**
+ * Chance de a tentativa que produz `+para` dar certo, para um item `kind`.
+ *
+ * `aumentada` é a propriedade do MINÉRIO de usar a tabela alta (`Ore.chanceAumentada`),
+ * e não a de ser um minério especial: nem todo especial aumenta a chance.
+ */
+export function chanceOf(kind: ItemKind, para: number, aumentada: boolean, evento: boolean): number | null {
+  const tab: ChanceTab = aumentada ? (evento ? 'specialEvent' : 'special') : evento ? 'normalEvent' : 'normal';
   return TABS[tab][String(para)]?.[colunaDe(kind)] ?? null;
 }
 
@@ -74,7 +79,10 @@ export function actionsAt(de: number, opts: RefineOptions): RefineAction[] {
   for (const ore of oresFor(opts.kind, de)) {
     if (ore.especial && !opts.usarMineriosEspeciais) continue;
 
-    const chance = chanceOf(opts.kind, de + 1, ore.especial, opts.evento);
+    // A tabela é escolhida por `chanceAumentada`, não por `especial`: o Bradium
+    // Perfeito e o Carnium Perfeito são minérios especiais que, pela descrição
+    // deles, só trocam a quebra por perder 1 refino — não aumentam a chance.
+    const chance = chanceOf(opts.kind, de + 1, ore.chanceAumentada, opts.evento);
     if (chance === null || chance <= 0) continue;
 
     const custoMinerio = oreCost(ore, opts.precos);
@@ -107,7 +115,30 @@ export function actionsAt(de: number, opts: RefineOptions): RefineAction[] {
     }
   }
 
-  return acoes;
+  return semDominadas(acoes);
+}
+
+/**
+ * Descarta ações que outra faz igual e mais barato.
+ *
+ * Duas ações com a mesma chance e o mesmo destino de falha são indistinguíveis
+ * para o motor: a matriz de transição é idêntica e só o custo muda. A cara
+ * nunca é escolhida, mas sobreviver até a política deixaria o plano poder
+ * exibi-la num empate — e é justamente o par que confunde quem lê a estratégia,
+ * porque a proteção do minério vira letra morta ao lado da Bênção.
+ *
+ * Cortar aqui é seguro para a análise de segurança (`niveisSeguros`): quando
+ * duas ações têm o mesmo destino de falha, tirar uma não muda o conjunto de
+ * destinos alcançáveis a partir do nível.
+ */
+function semDominadas(acoes: RefineAction[]): RefineAction[] {
+  const melhorPorTransicao = new Map<string, RefineAction>();
+  for (const a of acoes) {
+    const chave = `${a.chance}|${a.falhaVaiPara ?? 'quebra'}`;
+    const atual = melhorPorTransicao.get(chave);
+    if (!atual || a.custo < atual.custo) melhorPorTransicao.set(chave, a);
+  }
+  return [...melhorPorTransicao.values()];
 }
 
 /**

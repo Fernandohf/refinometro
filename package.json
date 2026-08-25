@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "perf": "vite-node scripts/perf.ts",
     "demo": "vite-node scripts/demo.ts",
+    "descricoes": "vite-node scripts/descricoes.ts",
     "item": "vite-node scripts/fetch-item.ts --",
     "buscar": "vite-node scripts/buscar.ts --"
   },

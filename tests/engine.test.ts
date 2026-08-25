@@ -5,6 +5,7 @@ import {
   blessingCost,
   BLESSING_ITEM_ID,
   ORE_BY_ID,
+  ORES,
   oresFor,
   TAXA_REFINO,
   taxaDaTentativa,
@@ -128,6 +129,153 @@ describe('tabelas do Browiki', () => {
     expect(blessingCost('w4', 14)).toBeNull();
     expect(blessingCost('shadowW', 7)).toBeNull();
     expect(blessingCost('shadowA', 7)).toBeNull();
+  });
+});
+
+describe('o que cada minério faz', () => {
+  /**
+   * A tabela conferida uma a uma na descrição LATAM do item (`npm run
+   * descricoes`). Os dois efeitos são independentes, e o nome do minério não diz
+   * qual ele tem: o Oridecon Enriquecido aumenta a chance e ainda destrói o item
+   * na falha; o Oridecon Perfeito faz o contrário — só protege; e os de Éter
+   * marcados "com maior chance" fazem os dois.
+   */
+  const EFEITOS: Record<string, { chanceAumentada: boolean; penalidade: string }> = {
+    fracon: { chanceAumentada: false, penalidade: 'break' },
+    emveretarcon: { chanceAumentada: false, penalidade: 'break' },
+    oridecon: { chanceAumentada: false, penalidade: 'break' },
+    bradium: { chanceAumentada: false, penalidade: 'down3' },
+    eteridecon: { chanceAumentada: false, penalidade: 'down3' },
+    'bradium-eter': { chanceAumentada: false, penalidade: 'break' },
+    'oridecon-enriquecido': { chanceAumentada: true, penalidade: 'break' },
+    'oridecon-perfeito': { chanceAumentada: false, penalidade: 'down1' },
+    'bradium-perfeito': { chanceAumentada: false, penalidade: 'down1' },
+    'eteridecon-enriquecido': { chanceAumentada: true, penalidade: 'down1' },
+    'eteridecon-perfeito': { chanceAumentada: true, penalidade: 'break' },
+    'bradium-eter-perfeito': { chanceAumentada: true, penalidade: 'break' },
+    elunium: { chanceAumentada: false, penalidade: 'break' },
+    carnium: { chanceAumentada: false, penalidade: 'down3' },
+    eterium: { chanceAumentada: false, penalidade: 'down3' },
+    'carnium-eter': { chanceAumentada: false, penalidade: 'break' },
+    'elunium-enriquecido': { chanceAumentada: true, penalidade: 'break' },
+    'elunium-perfeito': { chanceAumentada: false, penalidade: 'down1' },
+    'carnium-perfeito': { chanceAumentada: false, penalidade: 'down1' },
+    'eterium-enriquecido': { chanceAumentada: true, penalidade: 'down1' },
+    'eterium-perfeito': { chanceAumentada: true, penalidade: 'break' },
+    'carnium-eter-perfeito': { chanceAumentada: true, penalidade: 'break' },
+  };
+
+  it('separa aumentar a chance de proteger contra a quebra', () => {
+    expect(ORES.map((o) => o.id).sort()).toEqual(Object.keys(EFEITOS).sort());
+    for (const ore of ORES) {
+      const esperado = EFEITOS[ore.id]!;
+      expect(ore.chanceAumentada, `${ore.id}: chanceAumentada`).toBe(esperado.chanceAumentada);
+      expect(ore.penalidade, `${ore.id}: penalidade`).toBe(esperado.penalidade);
+    }
+  });
+
+  it('não confunde "é especial" com "aumenta a chance"', () => {
+    // Ser especial é sobre acesso (JoyCoins / receita cara) e controla o que o
+    // jogador destrava no formulário. Aumentar a chance é sobre efeito. Nenhum
+    // dos quatro Perfeitos de Oridecon/Elunium/Bradium/Carnium aumenta chance
+    // nenhuma — todos são especiais.
+    for (const id of ['oridecon-perfeito', 'elunium-perfeito', 'bradium-perfeito', 'carnium-perfeito']) {
+      const ore = ORE_BY_ID.get(id)!;
+      expect(ore.especial, id).toBe(true);
+      expect(ore.chanceAumentada, id).toBe(false);
+    }
+
+    // E o Enriquecido é o oposto: aumenta a chance e não protege de nada.
+    for (const id of ['oridecon-enriquecido', 'elunium-enriquecido']) {
+      const ore = ORE_BY_ID.get(id)!;
+      expect(ore.chanceAumentada, id).toBe(true);
+      expect(ore.penalidade, id).toBe('break');
+    }
+  });
+
+  it('nunca paga por um Perfeito onde o minério comum dá a mesma coisa', () => {
+    // O caso que motivou tudo isto: com Bênção, "Oridecon Perfeito" e "Oridecon"
+    // têm a MESMA chance e o MESMO destino de falha — a proteção do Perfeito
+    // vira letra morta e só sobra o preço dele. A poda de dominadas garante que
+    // a versão cara nem chegue ao otimizador.
+    for (let de = 7; de <= 9; de++) {
+      const acoes = actionsAt(de, opts({ kind: 'w4' })).filter((a) => a.bencaos > 0);
+      const perfeito = acoes.filter((a) => a.ore.id === 'oridecon-perfeito');
+      expect(perfeito, `+${de}`).toEqual([]);
+    }
+  });
+
+  it('registra onde discordar do Browiki muda número', () => {
+    // O Browiki joga todo minério especial na tabela alta. Onde o motor segue a
+    // descrição do item e diz "chance comum", as duas leituras podem dar números
+    // diferentes — e é bom saber exatamente onde, porque é aí que a divergência
+    // vale zeny e o plano precisa avisar.
+    const divergem = new Set<string>();
+    for (const ore of ORES) {
+      if (!ore.especial || ore.chanceAumentada) continue;
+      for (const kind of ore.kinds) {
+        for (let de = ore.refinaDe[0]; de <= ore.refinaDe[1]; de++) {
+          for (const evento of [false, true]) {
+            if (chanceOf(kind, de + 1, true, evento) !== chanceOf(kind, de + 1, false, evento)) {
+              divergem.add(`${ore.id} ${kind}`);
+            }
+          }
+        }
+      }
+    }
+
+    // Os Perfeitos de Oridecon e Elunium pegam a faixa +8..+10, em que as duas
+    // tabelas são bem diferentes (20% x 40% na tentativa do +8, numa arma nv4).
+    // Os de Bradium e Carnium ficam do +11 para cima, onde as tabelas quase
+    // sempre coincidem — só a Arma nv3 em evento escapa.
+    expect([...divergem].sort()).toEqual([
+      'bradium-perfeito w3',
+      'elunium-perfeito a1',
+      'elunium-perfeito shadowA',
+      'oridecon-perfeito shadowW',
+      'oridecon-perfeito w3',
+      'oridecon-perfeito w4',
+    ]);
+  });
+
+  it('avisa quando o plano depende da divergência entre Browiki e Divine Pride', () => {
+    const r = calcular(
+      input({ kind: 'w3', refinoAtual: 10, refinoAlvo: 12, evento: true, usarBencaoFerreiro: false }),
+      { tempoMs: 0 },
+    );
+    const usaBradiumPerfeito = r.fases
+      .flatMap((f) => f.trechos)
+      .some((t) => t.minerioItemId === 6226);
+    expect(usaBradiumPerfeito).toBe(true);
+    expect(r.avisos.some((a) => a.texto.includes('as fontes discordam'))).toBe(true);
+  });
+
+  it('descarta a ação cara quando outra faz exatamente o mesmo', () => {
+    // Mesma chance e mesmo destino de falha = mesma linha da matriz de
+    // transição. Duas dessas na lista só serviriam para o plano poder exibir a
+    // mais cara num empate — foi o que fez "Oridecon Perfeito + Bênção"
+    // aparecer ao lado de um Enriquecido que dava a mesma coisa.
+    for (const kind of ['w1', 'w2', 'w3', 'w4', 'w5', 'a1', 'a2'] as const) {
+      for (let de = 0; de < 20; de++) {
+        const chaves = actionsAt(de, opts({ kind })).map(
+          (a) => `${a.chance}|${a.falhaVaiPara ?? 'quebra'}`,
+        );
+        expect(new Set(chaves).size, `${kind} +${de}`).toBe(chaves.length);
+      }
+    }
+  });
+
+  it('explica a Bênção que acompanha um minério que já protege sozinho', () => {
+    // Numa Arma nv4 até o +11 o plano usa Oridecon Perfeito com Bênção: a
+    // proteção do minério fica ociosa e só a chance dele é aproveitada. É
+    // legítimo, mas parece erro de quem lê — e por isso vira aviso.
+    const r = calcular(input({ refinoAlvo: 11, precoItem: 30_000_000 }), { tempoMs: 0 });
+    const trechos = r.fases.flatMap((f) => f.trechos);
+
+    const ociosos = trechos.filter((t) => t.bencaos > 0 && t.minerioProtege);
+    expect(ociosos.length).toBeGreaterThan(0);
+    expect(ociosos.every((t) => t.naFalha.includes('já não quebraria o item'))).toBe(true);
+    expect(r.avisos.some((a) => a.texto.includes('já não destruiriam o equipamento'))).toBe(true);
   });
 });
 
@@ -946,11 +1094,22 @@ describe('equipamento que não pode ser perdido', () => {
   });
 
   it('põe preço na garantia, comparando com o plano que aceita o risco', () => {
-    const aviso = seguro({ refinoAlvo: 9, precoItem: 500_000 }).avisos.find((a) =>
+    // Item barato: aceitando o risco compensa tentar com Oridecon comum e
+    // recomprar quando quebra, então a garantia tem preço e o aviso o mostra.
+    const aviso = seguro({ refinoAlvo: 9, precoItem: 100_000 }).avisos.find((a) =>
       a.texto.startsWith('Nenhuma tentativa'),
     );
     expect(aviso).toBeDefined();
     expect(aviso!.texto).toMatch(/a garantia custa/);
+  });
+
+  it('reconhece quando a garantia não custa nada', () => {
+    // Item caro o bastante e o plano ótimo já não arriscava: aí o aviso não
+    // pode inventar um preço para a garantia.
+    const aviso = seguro({ refinoAlvo: 9, precoItem: 30_000_000 }).avisos.find((a) =>
+      a.texto.startsWith('Nenhuma tentativa'),
+    );
+    expect(aviso!.texto).toMatch(/não custa nada/);
   });
 
   it('só usa o processo seguro nos degraus de grau', () => {

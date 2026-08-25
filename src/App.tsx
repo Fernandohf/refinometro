@@ -567,6 +567,12 @@ function Rodape() {
     <footer className="mt-6 space-y-4 rounded-xl border border-borda bg-painel/40 p-4 text-xs leading-relaxed text-suave">
       <section>
         <h2 className="mb-2 text-xs font-semibold tracking-wide text-texto uppercase">De onde vêm os números</h2>
+        <p className="mb-3">
+          O alvo é o <strong className="text-texto">Ragnarok Latin America</strong>, e as fontes
+          seguem essa ordem: o Browiki, que é o wiki do próprio servidor; o Divine Pride no
+          servidor LATAM, que é datamine do cliente do jogo; e, só onde nenhum dos dois diz nada,
+          um wiki de fora — sempre marcado como não confirmado por aqui.
+        </p>
         <dl className="space-y-2">
           <Fonte
             o_que="Chances e minérios"
@@ -579,16 +585,19 @@ function Rodape() {
               Browiki — Grau
             </a>
             . Daí saem as chances de cada nível, os minérios, as penalidades de falha e o que o NPC
-            cobra pelos materiais.
+            cobra pelos materiais. Onde a ficha do item no jogo contradiz o Browiki sobre o que um
+            minério faz, vale a ficha — e o plano avisa no trecho em que isso muda o número.
           </Fonte>
 
           <Fonte
             o_que="Taxa do refinador"
             href="https://irowiki.org/wiki/Refinement_System"
-            nome="iROwiki"
+            nome="iROwiki (iRO)"
           >
             {' '}
-            — única fonte que publica a taxa por tentativa. Ainda não foi conferida in-game.
+            — <strong className="text-texto">fora do LATAM</strong>, e por falta de opção: nenhuma
+            fonte daqui publica quanto o NPC cobra por tentativa. Ignorar a taxa também seria
+            errado, então ela entra com esses valores e este aviso. Não foi conferida in-game.
           </Fonte>
 
           <Fonte
@@ -618,8 +627,9 @@ function Rodape() {
         Refino — que pulam direto para um refino fixo em vez de tentar.
       </p>
       <p>
-        Projeto de fã, sem vínculo com a Gravity, a Level Up! Games ou o Divine Pride. As chances são
-        as do Browiki; se o seu servidor rodar valores diferentes, o resultado sai diferente.
+        Projeto de fã, sem vínculo com a Gravity, a GNJOY Latam ou o Divine Pride. Tudo aqui é do
+        Ragnarok Latin America; se o seu servidor rodar valores diferentes, o resultado sai
+        diferente.
       </p>
     </footer>
   );

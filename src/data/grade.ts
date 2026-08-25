@@ -38,11 +38,12 @@ const AMBAR = { itemId: 1000328, nome: 'Âmbar de Éter' };
 /**
  * Refino mínimo a partir do qual faz sentido procurar uma tentativa de grau.
  *
- * As duas wikis se contradizem: o texto do Browiki afirma que o item precisa
- * estar em +11, mas a tabela de chances da mesma página lista valores a partir
- * do +9 — e o Hazy Forest (https://hazyforest.com/equipment:grade) traz a mesma
- * tabela desde o +9 sem citar exigência nenhuma. Entre um texto e duas tabelas
- * que concordam entre si, seguimos as tabelas.
+ * O Browiki se contradiz: o texto da página afirma que o item precisa estar em
+ * +11, mas a tabela de chances da MESMA página lista valores a partir do +9.
+ * Como a fonte preferida não fecha sozinha, aqui vale abrir uma de terceiro
+ * nível para desempatar: o Hazy Forest (https://hazyforest.com/equipment:grade)
+ * traz a mesma tabela desde o +9 sem citar exigência nenhuma. Entre um texto e
+ * duas tabelas que concordam entre si, seguimos as tabelas.
  *
  * Este valor é só o piso da busca: quem realmente decide é a tabela, que traz
  * `null` onde o degrau não é possível. Hoje isso significa D a partir do +9, C a
