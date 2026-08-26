@@ -5,7 +5,7 @@ import { nomeDoItem } from '../data/nomes';
 import { COR_GRAU, nomeNoJogo, rotuloCurto } from '../data/rotulos';
 import type { ItemKind } from '../data/ores';
 import { fichaNoDivinePride } from '../data/items';
-import { quantidade } from '../format';
+import { quantidade, zeny, zenyExato } from '../format';
 import { Pastilha } from './ui';
 
 /**
@@ -178,6 +178,7 @@ export function CartaoItem({
   refino,
   grau,
   slots,
+  preco,
 }: {
   itemId: number | null;
   itemNome: string | null;
@@ -185,6 +186,12 @@ export function CartaoItem({
   refino: number;
   grau: Grade;
   slots: number;
+  /**
+   * Preço do item no +0, ao lado da ficha. O cartão mostra o item COMO VAI
+   * FICAR, então o preço precisa dizer que é o do item cru — senão parece o
+   * valor da peça pronta, que é outro número (e está logo abaixo).
+   */
+  preco?: number;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -201,6 +208,14 @@ export function CartaoItem({
           {/* Sem item escolhido o nome JÁ é a categoria: repeti-la aqui só
               encheria a linha. */}
           {itemNome ? rotuloCurto(kind) : 'nenhum item escolhido na busca'}
+          {preco !== undefined && preco > 0 && (
+            <>
+              {' · '}
+              <span className="tabular-nums" title={`${zenyExato(preco)} no +0`}>
+                {zeny(preco)} no +0
+              </span>
+            </>
+          )}
           {itemId !== null && (
             <>
               {' · '}

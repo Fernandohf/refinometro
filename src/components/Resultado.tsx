@@ -1,17 +1,18 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { nomeDoItem } from '../data/nomes';
 import { listaDeCompras, receitaDe, sourcingOf } from '../engine/pricing';
 import { fluxoDeCusto, quantidadesNaMargem } from '../engine/fluxoDeCusto';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
+import type { Grade } from '../data/grade';
 import { ROTULO_GRAU, rotuloCurto } from '../data/rotulos';
 import { CartaoItem, Composicao, ItemComArte, SlotItem } from './ItemNoJogo';
-import { CadeiaDeDecisoes } from './Cadeia';
+import { Percurso, TabelaDeEstados } from './Cadeia';
 import { CurvaDeCusto } from './CurvaDeCusto';
 import { ResumoDoFluxo, SankeyCusto } from './SankeyCusto';
 import { porcento, quantidade, zeny, zenyExato } from '../format';
-import { Divisor, Info, Painel, PainelRecolhivel, Pastilha, Segmentado, TituloDeSecao } from './ui';
+import { BotaoDoPainel, Divisor, Info, Painel, Pastilha, Segmentado, TituloDeSecao } from './ui';
 
 export type MargemKey = keyof Percentis;
 
@@ -66,6 +67,9 @@ export function Resultado({
   // contexto pode esperar o fim da página.
   const criticos = plano.avisos.filter((a) => a.nivel !== 'info');
   const informativos = plano.avisos.filter((a) => a.nivel === 'info');
+  // O mesmo fluxo que a lista de compras soma: os dois painéis são leituras da
+  // mesma `listaDeCompras`, no mesmo percentil (ver `fluxoDeCusto`).
+  const fluxo = fluxoDeCusto(plano, margem);
 
   return (
     <div className="space-y-4">
@@ -164,21 +168,38 @@ export function Resultado({
         {precisao && <div className="mt-4 text-right">{precisao}</div>}
       </Painel>
 
-      {Object.keys(plano.recursos.itens).length > 0 && (
-        <Painel titulo="Lista de compras">
-          <Compras plano={plano} margem={margem} />
-        </Painel>
-      )}
-
-      {moduloEstoque}
-
+      {/* A ordem é a das decisões de quem joga: quanto custa → como eu faço →
+          no que o dinheiro vira → o que eu compro → dá com o que eu tenho. Ela
+          já foi outra (a lista de compras vinha antes da estratégia que a
+          gera, e o simulador de estoque antes das duas), e a leitura só fazia
+          sentido para quem já sabia o que ia encontrar. */}
       <Painel
         titulo="Melhor estratégia"
         info={
-          <Info titulo="Melhor estratégia">
+          <Info
+            titulo="Melhor estratégia"
+            largura={informativos.length > 0 ? 'larga' : 'normal'}
+            contagem={informativos.length || undefined}
+          >
             A sequência que a calculadora escolheu: em cada faixa de refino, qual minério usar e
             quantas Bênçãos somar. Não é a de maior chance, é a de menor custo esperado até o alvo —
             às vezes vale pagar caro num degrau para não cair três níveis nele.
+            {informativos.length > 0 && (
+              <>
+                <Divisor />
+                <span className="md-titulo-m mb-1.5 block text-texto">Notas sobre este plano</span>
+                <span className="block space-y-1.5">
+                  {informativos.map((a, i) => (
+                    <span key={i} className="flex gap-2">
+                      <span aria-hidden className="text-realce">
+                        ·
+                      </span>
+                      <span>{a.texto}</span>
+                    </span>
+                  ))}
+                </span>
+              </>
+            )}
           </Info>
         }
       >
@@ -188,7 +209,15 @@ export function Resultado({
             // degrau. Detalhar a sequência idêntica quatro vezes só afoga o
             // resto do plano, então da segunda vez em diante mostramos só o
             // cabeçalho e o custo.
-            <Fase key={i} fase={fase} repetida={ehRepeticao(plano.fases, i)} />
+            <Fase
+              key={i}
+              fase={fase}
+              repetida={ehRepeticao(plano.fases, i)}
+              itemId={itemId}
+              itemNome={itemNome ?? rotuloCurto(plano.input.kind)}
+              grau={plano.input.grauAlvo}
+              slots={itemSlots}
+            />
           ))}
         </ol>
         {plano.fases.length === 0 && (
@@ -196,49 +225,34 @@ export function Resultado({
         )}
       </Painel>
 
-      <CadeiaDeDecisoes
-        fases={plano.fases}
-        itemId={itemId}
-        itemNome={itemNome ?? rotuloCurto(plano.input.kind)}
-        grau={plano.input.grauAlvo}
-        slots={itemSlots}
-      />
-
-      {/* Consumo por minério é conferência, não decisão: quem vai ao jogo leva a
-          lista de compras. Fica recolhido para não competir com ela — e para os
-          dois totais divergentes não aparecerem lado a lado sem necessidade. */}
-      <PainelRecolhivel
-        titulo="Minérios e materiais"
-        info={
-          <Info titulo="Minérios e materiais">
-            Conferência, não decisão: aqui os minérios aparecem prontos, como o motor os conta, e
-            não desmontados no que se compra. Quem vai ao jogo leva a lista de compras — os dois
-            totais divergem de propósito. A coluna{' '}
-            <strong className="text-texto">ter em mãos</strong> é quanto separar para não ficar sem
-            material no meio do caminho na margem escolhida: cada linha está no percentil dela,
-            então a soma passa do orçamento — é o preço de não faltar nada de uma vez só.
-          </Info>
-        }
-        resumo={
-          <>
-            O consumo material por material, antes de a lista de compras desmontar em receita de
-            NPC o que compensa fabricar. Média de{' '}
-            {Math.round(plano.recursos.tentativas).toLocaleString('pt-BR')} tentativas de refino.
-          </>
-        }
-      >
-        <Materiais plano={plano} margem={margem} />
-      </PainelRecolhivel>
-
-      {informativos.length > 0 && (
-        <Painel titulo="Notas sobre este plano">
-          <ul className="space-y-2">
-            {informativos.map((a, i) => (
-              <AvisoLinha key={i} aviso={a} />
-            ))}
-          </ul>
+      {/* Colado na lista de compras porque os dois totais são o MESMO número:
+          o diagrama é a lista relida por natureza do gasto. Encostá-lo no
+          orçamento, que é o percentil do total, poria dois totais diferentes um
+          embaixo do outro — e é essa divergência que a página já gasta dois
+          textos explicando. */}
+      {fluxo.total > 0 && (
+        <Painel
+          titulo="Para onde vai o zeny"
+          info={
+            <Info titulo="Para onde vai o zeny">
+              As mesmas quantidades da lista de compras logo abaixo, agrupadas pela natureza do
+              gasto em vez de pelo nome do material. É o desenho que mostra que a maior parte de
+              uma campanha cara não é minério — é proteção contra a quebra e reposição do
+              equipamento destruído.
+            </Info>
+          }
+        >
+          <SankeyCusto fluxo={fluxo} />
+          <ResumoDoFluxo fluxo={fluxo} />
         </Painel>
       )}
+
+      {Object.keys(plano.recursos.itens).length > 0 && (
+        <PainelDeCompras plano={plano} margem={margem} />
+      )}
+
+      {moduloEstoque}
+
     </div>
   );
 }
@@ -273,6 +287,7 @@ function Trajetoria({
         refino={i.refinoAlvo}
         grau={i.grauAlvo}
         slots={itemSlots ?? 0}
+        preco={i.precoItem}
       />
       <p className="text-sm leading-relaxed text-suave">
         Saindo do <strong className="text-texto tabular-nums">+{i.refinoAtual}</strong>
@@ -425,6 +440,44 @@ function Distribuicao({
   );
 }
 
+/**
+ * A lista de compras e a tabela de minérios, que eram dois painéis.
+ *
+ * São a mesma campanha contada duas vezes: "Minérios e materiais" mostrava o
+ * consumo em minério PRONTO, como o motor conta, e a lista mostra o mesmo
+ * consumo desmontado no que existe à venda — porque metade dos minérios
+ * ninguém compra, fabrica no balcão. Como painéis irmãos, a segunda tabela só
+ * parecia repetir a primeira com outro total. Como duas vistas do mesmo
+ * painel, a diferença entre elas vira a pergunta que se está fazendo: o que eu
+ * compro, ou quanto eu gasto de cada minério.
+ */
+function PainelDeCompras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
+  const [vista, setVista] = useState<'compras' | 'minerios'>('compras');
+
+  return (
+    <Painel
+      titulo="Lista de compras"
+      aside={
+        <Segmentado
+          rotulo="Como ver"
+          value={vista}
+          onChange={setVista}
+          opcoes={[
+            { key: 'compras', rotulo: 'o que comprar', dica: 'Só o que se acha à venda, já desmontado das receitas de NPC.' },
+            { key: 'minerios', rotulo: 'por minério', dica: 'O consumo em minério pronto, como o motor conta — conferência do plano.' },
+          ]}
+        />
+      }
+    >
+      {vista === 'compras' ? (
+        <Compras plano={plano} margem={margem} />
+      ) : (
+        <Materiais plano={plano} margem={margem} />
+      )}
+    </Painel>
+  );
+}
+
 const ROTULO_VIA: Record<string, string> = {
   mercado: 'comprar',
   npc: 'fabricar no NPC',
@@ -448,7 +501,24 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
   const copiasNaMargem = plano.simulacao ? plano.simulacao.quebras[margem] + 1 : null;
 
   return (
-    <div className="overflow-x-auto">
+    <div>
+      {/* O balão fica FORA do `overflow-x-auto`: dentro dele, uma camada
+          temporária é recortada pela borda da rolagem. */}
+      <TituloDeSecao
+        info={
+          <Info titulo="Por minério" alinhar="direita">
+            Conferência, não decisão: aqui os minérios aparecem prontos, como o motor os conta, e
+            não desmontados no que se compra — quem vai ao jogo leva a outra vista. A coluna{' '}
+            <strong className="text-texto">ter em mãos</strong> é quanto separar para não ficar sem
+            material no meio do caminho na margem escolhida: cada linha está no percentil dela,
+            então a soma passa do orçamento — é o preço de não faltar nada de uma vez só.
+          </Info>
+        }
+      >
+        Consumo por minério · média de{' '}
+        {Math.round(plano.recursos.tentativas).toLocaleString('pt-BR')} tentativas
+      </TituloDeSecao>
+      <div className="overflow-x-auto">
       <table className="md-corpo-m w-full">
         <thead>
           <tr className="md-rotulo-p border-b border-borda text-left text-suave">
@@ -491,6 +561,7 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -504,7 +575,6 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
  */
 function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
   const lista = listaDeCompras(quantidadesNaMargem(plano, margem), plano.input.precos);
-  const fluxo = fluxoDeCusto(plano, margem);
 
   const quebras = Math.ceil(
     plano.simulacao ? plano.simulacao.quebras[margem] : plano.recursos.itensQuebrados,
@@ -518,32 +588,9 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
 
   return (
     <>
-      {/* A lista diz o que comprar; o desenho diz o que o dinheiro É. Numa
-          campanha de +10 nos preços padrão, dois terços do orçamento não são
-          minério — são proteção e reposição, e isso não se lê numa lista
-          ordenada por valor. */}
-      {fluxo.total > 0 && (
-        <div className="mb-5">
-          <TituloDeSecao
-            info={
-              <Info titulo="Para onde vai o zeny">
-                As mesmas quantidades da lista abaixo, agrupadas pela natureza do gasto em vez de
-                pelo nome do material. É o desenho que mostra que a maior parte de uma campanha
-                cara não é minério — é proteção contra a quebra e reposição do equipamento
-                destruído.
-              </Info>
-            }
-          >
-            Para onde vai o zeny
-          </TituloDeSecao>
-          <SankeyCusto fluxo={fluxo} />
-          <ResumoDoFluxo fluxo={fluxo} />
-        </div>
-      )}
-
       <TituloDeSecao
         info={
-          <Info titulo="Comprar no mercado">
+          <Info titulo="Comprar no mercado" alinhar="direita">
             Só o que se acha à venda: os minérios com receita de NPC já entram aqui desmontados nos
             insumos deles. O custo de um material, em toda a calculadora, é o da receita (materiais
             + balcão) sempre que fabricar sair mais barato que comprar pronto.
@@ -762,7 +809,36 @@ function ehRepeticao(fases: PlanoDeFase[], i: number): boolean {
   return fases.slice(0, i).some((f) => assinatura(f) === atual);
 }
 
-function Fase({ fase, repetida }: { fase: PlanoDeFase; repetida?: boolean }) {
+/**
+ * Uma fase do plano — e, a um clique, as duas leituras finas dela.
+ *
+ * A tabela de estados e o percurso sorteado eram um painel separado ("A cadeia
+ * de decisões"), o que punha a mesma política duas vezes na página: agrupada
+ * aqui, desagrupada lá. Agora abrem DENTRO da fase que explicam, que é onde a
+ * pergunta nasce — "por que esta faixa custa isso?" se faz olhando a faixa.
+ */
+function Fase({
+  fase,
+  repetida,
+  itemId,
+  itemNome,
+  grau,
+  slots,
+}: {
+  fase: PlanoDeFase;
+  repetida?: boolean;
+  itemId: number | null;
+  itemNome: string;
+  grau: Grade;
+  slots: number;
+}) {
+  const [tabela, setTabela] = useState(false);
+  const [percurso, setPercurso] = useState(false);
+  // A fase de Grau é uma tentativa só, repetida, e o texto abaixo já a descreve
+  // inteira; a repetida usa a política da primeira, que continua aberta acima.
+  const politica = repetida ? undefined : fase.politica;
+  const temDetalhe = politica !== undefined && politica.length > 0;
+
   return (
     <li className="rounded-xl bg-superficie-baixa p-3.5">
       <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
@@ -827,6 +903,39 @@ function Fase({ fase, repetida }: { fase: PlanoDeFase; repetida?: boolean }) {
             refino de volta para +0.
           </p>
         </div>
+      )}
+
+      {temDetalhe && (
+        <>
+          <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2 border-t border-borda pt-3">
+            <BotaoDoPainel aberto={tabela} onClick={() => setTabela((a) => !a)}>
+              ver estado por estado
+            </BotaoDoPainel>
+            <BotaoDoPainel aberto={percurso} onClick={() => setPercurso((a) => !a)}>
+              Simular — ver uma campanha acontecer
+            </BotaoDoPainel>
+          </div>
+
+          {tabela && (
+            <div className="mt-3">
+              <TabelaDeEstados politica={politica} alvo={fase.para ?? 0} />
+            </div>
+          )}
+
+          {percurso && (
+            <div className="mt-3">
+              <Percurso
+                politica={politica}
+                de={fase.de ?? 0}
+                alvo={fase.para ?? 0}
+                itemId={itemId}
+                itemNome={itemNome}
+                grau={grau}
+                slots={slots}
+              />
+            </div>
+          )}
+        </>
       )}
     </li>
   );

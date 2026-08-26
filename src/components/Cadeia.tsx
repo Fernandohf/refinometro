@@ -1,103 +1,30 @@
 import { useMemo, useState } from 'react';
 
 import type { Grade } from '../data/grade';
-import type { PlanoDeFase } from '../engine/plan';
 import type { PolicyEntry } from '../engine/types';
 import { porcento, zeny, zenyExato } from '../format';
 import { NomeNoJogo, SlotItem } from './ItemNoJogo';
-import { Botao, BotaoDoPainel, Info, Painel, Pastilha, TituloDeSecao } from './ui';
+import { Botao, BotaoDoPainel, Info, Pastilha, TituloDeSecao } from './ui';
 
-/**
- * A cadeia de decisões, estado por estado.
- *
- * O painel "Melhor estratégia" agrupa os degraus que usam o mesmo minério, e é
- * assim que se lê um plano. Mas a política é uma cadeia de Markov: cada refino
- * é um estado com uma decisão própria, e agrupar esconde justamente o que a
- * decisão pesa — que no +9 uma falha custa três níveis, que o custo esperado
- * dali até o alvo é quase todo o orçamento, que a Bênção entra por causa disso
- * e não por causa da chance.
- *
- * Duas leituras da mesma política: a tabela, que mostra todos os estados de uma
- * vez, e o percurso, que anda um passo por vez, sorteando de verdade. A segunda
- * é a que responde "por que isso custa tanto se a chance é 40%?" — porque a
- * pessoa vê o item cair de +9 para +6 e refazer o caminho.
- */
-export function CadeiaDeDecisoes({
-  fases,
-  itemId,
-  itemNome,
-  grau,
-  slots,
-}: {
-  fases: PlanoDeFase[];
-  itemId: number | null;
-  itemNome: string;
-  grau: Grade;
-  slots: number;
-}) {
-  const [aberto, setAberto] = useState(false);
-  // Só as fases de refino têm política: a de Grau é uma tentativa só, repetida,
-  // e o painel de estratégia já a descreve inteira.
-  const comPolitica = fases.filter((f) => f.politica && f.politica.length > 0);
-  const [fase, setFase] = useState(0);
+/*
+  As duas leituras da política, para dentro do painel "Melhor estratégia".
+  ─────────────────────────────────────────────────────────────────────────────
 
-  const escolhida = comPolitica[Math.min(fase, comPolitica.length - 1)];
+  Isto foi um painel próprio ("A cadeia de decisões") e não é mais. A tabela
+  repetia quatro das cinco colunas da estratégia — minério, Bênção, chance,
+  destino da falha —, só que sem agrupar os degraus; ter as duas na página era
+  ler o mesmo plano duas vezes para descobrir uma coluna nova.
 
-  if (comPolitica.length === 0) return null;
+  O que não se repetia continua aqui, e agora abre DENTRO da fase que explica:
 
-  return (
-    <Painel
-      titulo="A cadeia de decisões"
-      aside={
-        <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
-          {aberto ? 'esconder' : 'abrir'}
-        </BotaoDoPainel>
-      }
-    >
-      {!aberto ? (
-        <p className="text-sm leading-relaxed text-suave">
-          Cada refino é um estado com uma decisão própria: qual minério, quantas Bênçãos, o que
-          acontece ao falhar e quanto ainda falta gastar dali até o alvo. Abra para ver a política
-          estado por estado — ou para percorrer a cadeia sorteando de verdade.
-        </p>
-      ) : (
-        <div className="space-y-4">
-          {comPolitica.length > 1 && (
-            <div role="tablist" aria-label="Fases com política" className="flex flex-wrap gap-2">
-              {comPolitica.map((f, i) => {
-                const ativa = i === Math.min(fase, comPolitica.length - 1);
-                return (
-                  <Botao
-                    key={i}
-                    role="tab"
-                    aria-selected={ativa}
-                    tamanho="pequeno"
-                    variante={ativa ? 'tonal' : 'contornado'}
-                    onClick={() => setFase(i)}
-                  >
-                    {f.rotulo}
-                  </Botao>
-                );
-              })}
-            </div>
-          )}
-
-          <TabelaDeEstados politica={escolhida!.politica!} alvo={escolhida!.para ?? 0} />
-
-          <Percurso
-            politica={escolhida!.politica!}
-            de={escolhida!.de ?? 0}
-            alvo={escolhida!.para ?? 0}
-            itemId={itemId}
-            itemNome={itemNome}
-            grau={grau}
-            slots={slots}
-          />
-        </div>
-      )}
-    </Painel>
-  );
-}
+  - `TabelaDeEstados` traz o `falta gastar` — o custo esperado daquele degrau
+    até o alvo, que é o número que a política de fato otimiza e que não existe
+    em nenhum outro lugar da tela;
+  - `Percurso` anda a cadeia sorteando de verdade. Não é redundante com nada:
+    é a única peça do app que mostra variância como consequência, e é o que
+    responde "por que custa tanto se a chance é 40%?" — vendo o item cair de
+    +9 para +6 e refazer o caminho.
+*/
 
 /**
  * Onde a falha joga o item, dito como o jogo diz.
@@ -114,7 +41,7 @@ function destinoDaFalha(e: PolicyEntry): { texto: string; perigo: boolean } {
   return { texto: `cai para +${para}`, perigo: false };
 }
 
-function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; alvo: number }) {
+export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; alvo: number }) {
   // O custo esperado do primeiro estado é o da campanha inteira: serve de
   // escala para a barra, mostrando quanto de tudo ainda está pela frente.
   const maior = Math.max(...politica.map((e) => e.custoEsperado), 1);
@@ -237,7 +164,7 @@ interface Passo {
  * roda no Worker, cem mil vezes); é uma campanha só, visível, para a cadeia
  * deixar de ser tabela e virar consequência.
  */
-function Percurso({
+export function Percurso({
   politica,
   de,
   alvo,
