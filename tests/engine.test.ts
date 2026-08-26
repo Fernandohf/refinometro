@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_PRICES } from '../src/data/defaultPrices';
+import { PRECOS_FIXOS } from './precosFixos';
 import {
   blessingCost,
   BLESSING_ITEM_ID,
@@ -37,7 +37,7 @@ import type { CalcInput } from '../src/engine/types';
 
 const opts = (over: Partial<RefineOptions> = {}): RefineOptions => ({
   kind: 'w4',
-  precos: DEFAULT_PRICES,
+  precos: PRECOS_FIXOS,
   evento: false,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
@@ -55,7 +55,7 @@ const input = (over: Partial<CalcInput> = {}): CalcInput => ({
   grauAtual: 'none',
   grauAlvo: 'none',
   evento: false,
-  precos: DEFAULT_PRICES,
+  precos: PRECOS_FIXOS,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
   perdaAceitavel: true,
@@ -473,14 +473,14 @@ describe('Bênção do Ferreiro na simulação', () => {
 
   it('deixa níveis da faixa sem Bênção quando ela não compensa neles', () => {
     // Bênção cara o bastante para só valer no topo, onde a falha custa mais.
-    const r = simular({ precos: { ...DEFAULT_PRICES, [BLESSING_ITEM_ID]: 100_000_000 } });
+    const r = simular({ precos: { ...PRECOS_FIXOS, [BLESSING_ITEM_ID]: 100_000_000 } });
     const naFaixa = trechosDe(r).filter((t) => t.de >= 7 && t.de <= 13);
     expect(naFaixa.some((t) => t.bencaos > 0)).toBe(true);
     expect(naFaixa.some((t) => t.bencaos === 0)).toBe(true);
   });
 
   it('consome na amostragem a mesma quantidade que a política prevê', () => {
-    const r = simular({ precos: { ...DEFAULT_PRICES, [BLESSING_ITEM_ID]: 100_000_000 } });
+    const r = simular({ precos: { ...PRECOS_FIXOS, [BLESSING_ITEM_ID]: 100_000_000 } });
     const exato = r.recursos.itens[BLESSING_ITEM_ID]!;
     expect(exato).toBeGreaterThan(0);
     // Proteger toda a faixa custaria muito mais Bênção do que a política pede;
@@ -526,7 +526,7 @@ describe('escolha de estratégia', () => {
   });
 
   it('não gasta Bênção quando ela custa mais do que protege', () => {
-    const precos = { ...DEFAULT_PRICES, 6635: 1e12 };
+    const precos = { ...PRECOS_FIXOS, 6635: 1e12 };
     const plan = solveRefine(7, 10, opts({ kind: 'w4', precos }));
     const usouBencao = plan.politica.slice(7, 10).some((p) => p.acao.bencaos > 0);
     expect(usouBencao).toBe(false);
@@ -1025,7 +1025,7 @@ describe('equipamento que não pode ser perdido', () => {
     // A lista de alvos precisa dizer QUAL das duas coisas a falha faz: são a
     // mesma palavra ("arriscado") e decisões opostas — perder um refino custa
     // mais uma tentativa, perder o item custa o item e tudo que já foi pago.
-    const cond = { precos: DEFAULT_PRICES, evento: false, usarBencaoFerreiro: true, usarMineriosEspeciais: true };
+    const cond = { precos: PRECOS_FIXOS, evento: false, usarBencaoFerreiro: true, usarMineriosEspeciais: true };
 
     // Arma nv4 saindo do +0: até o +4 nada falha; do +5 em diante o caminho
     // atravessa a faixa em que todo minério quebra o equipamento.
