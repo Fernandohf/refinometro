@@ -273,6 +273,7 @@ function Trajetoria({
         refino={i.refinoAlvo}
         grau={i.grauAlvo}
         slots={itemSlots ?? 0}
+        preco={i.precoItem}
       />
       <p className="text-sm leading-relaxed text-suave">
         Saindo do <strong className="text-texto tabular-nums">+{i.refinoAtual}</strong>
