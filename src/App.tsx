@@ -14,7 +14,17 @@ import { Resultado, type MargemKey } from './components/Resultado';
 import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { META } from './data/items';
-import { BotaoDoPainel, Campo, NumeroZeny, Painel, Select, Toggle } from './components/ui';
+import {
+  BotaoDoPainel,
+  Campo,
+  Info,
+  NumeroZeny,
+  Painel,
+  Select,
+  TituloDeSecao,
+  Toggle,
+} from './components/ui';
+import { SlotItem } from './components/ItemNoJogo';
 import { rotuloDoAlvo, TrilhaRefino } from './components/TrilhaRefino';
 import { dataBR, zeny } from './format';
 
@@ -178,12 +188,12 @@ export default function App() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">
+      <header className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <h1 className="md-titulo-g text-2xl">
           Refinô<span className="text-realce">metro</span>
         </h1>
-        <p className="mt-1 text-suave">
-          Quanto custa, de verdade, refinar uma arma ou equipamento no Ragnarok Latam.
+        <p className="md-corpo-m text-suave">
+          Quanto custa, de verdade, refinar no Ragnarok Latam.
         </p>
       </header>
 
@@ -292,7 +302,7 @@ export default function App() {
                   </Campo>
                 </div>
               ) : (
-                <p className="text-xs text-suave">
+                <p className="md-corpo-p text-suave">
                   Grau não se aplica: só Arma nv5 e Armadura nv2 têm.
                 </p>
               )}
@@ -300,7 +310,7 @@ export default function App() {
           </Painel>
 
           <Painel titulo="Condições">
-            <div className="space-y-2">
+            <div className="divide-y divide-borda/60">
               <Toggle
                 label="Evento de Refino ativo"
                 dica="Chances maiores nos NPCs de forja. O evento de Grau anda junto."
@@ -342,8 +352,10 @@ export default function App() {
             // tem) merece o mesmo lugar que os avisos: no topo, sozinho, sem
             // números velhos ao lado sugerindo que ainda valem.
             <Painel titulo="Não dá para calcular isso">
-              <p className="text-perigo">{erro}</p>
-              <p className="mt-2 text-sm text-suave">
+              <p className="md-corpo-m rounded-xl bg-perigo-container p-3.5 text-no-perigo-container">
+                {erro}
+              </p>
+              <p className="md-corpo-m mt-2 text-suave">
                 Ajuste o alvo à esquerda e a conta volta sozinha.
               </p>
             </Painel>
@@ -430,7 +442,7 @@ function Precisao({ afinando, plano }: { afinando: boolean; plano: ResultadoPlan
   const sim = plano.simulacao;
 
   return (
-    <span className="text-xs text-suave" aria-live="polite">
+    <span className="md-corpo-p text-suave" aria-live="polite">
       {afinando ? (
         <span className="text-realce/80">afinando a simulação…</span>
       ) : sim ? (
@@ -464,6 +476,15 @@ function Precos({
   return (
     <Painel
       titulo="Preços do mercado"
+      info={
+        <Info titulo="Preços do mercado">
+          Os valores que já vêm preenchidos são um retrato do mercado do LATAM, não uma tabela do
+          jogo — <strong className="text-texto">ajuste-os para o que você está vendo</strong>, senão
+          o orçamento não vale nada. Deixe em <strong className="text-texto">0</strong> o que você
+          prefere fabricar no NPC: a calculadora cota pela receita e escolhe sozinha a via mais
+          barata entre comprar pronto e fabricar.
+        </Info>
+      }
       aside={
         <div className="flex gap-3">
           {!padrao && (
@@ -488,28 +509,33 @@ function Precos({
         <NumeroZeny value={precoItem} onChange={onPrecoItem} />
       </Campo>
 
+      {/* Fechado, o painel mostra as duas cotações que mais mexem no orçamento —
+          e nada mais. O parágrafo que pedia para conferi-las virou o aviso ao
+          lado: ele é lido uma vez e depois só afastava os números. */}
       {!aberto && (
-        <p className="mt-4 text-sm leading-relaxed text-suave">
-          Os preços dos minérios são um chute — ajuste para o que você está vendo no jogo, senão o
-          orçamento não vale nada. Oridecon está em {zeny(precos[984] ?? 0)}, Bênção do Ferreiro em{' '}
-          {zeny(precos[6635] ?? 0)}.
-        </p>
+        <dl className="md-corpo-m mt-4 space-y-1">
+          {DESTAQUES.map((d) => (
+            <div key={d.itemId} className="flex items-center justify-between gap-3">
+              <dt className="flex min-w-0 items-center gap-2">
+                <SlotItem id={d.itemId} tamanho="mini" />
+                {d.nome}
+              </dt>
+              <dd className="shrink-0 text-suave tabular-nums">{zeny(precos[d.itemId] ?? 0)}</dd>
+            </div>
+          ))}
+        </dl>
       )}
 
       {aberto && (
         <div className="mt-5 space-y-5">
-          <p className="text-xs leading-relaxed text-suave">
-            Deixe em 0 o que você prefere fabricar no NPC: a calculadora cota pela receita e escolhe
-            sozinha a via mais barata entre comprar pronto e fabricar.
-          </p>
-
           {PRICE_FIELDS.map((grupo) => (
             <div key={grupo.grupo}>
-              <h3 className="mb-2 text-xs font-semibold tracking-wide text-suave uppercase">{grupo.grupo}</h3>
+              <TituloDeSecao>{grupo.grupo}</TituloDeSecao>
               <div className="space-y-2">
                 {grupo.itens.map((item) => (
                   <div key={item.itemId} className="flex items-center gap-2">
-                    <span className="flex-1 text-sm">{item.nome}</span>
+                    <SlotItem id={item.itemId} tamanho="mini" />
+                    <span className="md-corpo-m min-w-0 flex-1">{item.nome}</span>
                     <div className="w-36">
                       <NumeroZeny
                         value={precos[item.itemId] ?? 0}
@@ -526,6 +552,19 @@ function Precos({
     </Painel>
   );
 }
+
+/**
+ * As cotações que o painel fechado mostra.
+ *
+ * São duas por escolha, não por falta de espaço: o Oridecon é o minério de
+ * quase todo trecho comum e a Bênção do Ferreiro é o item de proteção mais
+ * caro do plano. Errar qualquer uma das duas erra o orçamento inteiro; errar as
+ * outras muda alguns por cento.
+ */
+const DESTAQUES = [
+  { itemId: 984, nome: 'Oridecon' },
+  { itemId: 6635, nome: 'Bênção do Ferreiro' },
+];
 
 /** Uma fonte da tabela de créditos: o que ela fornece e de onde. */
 function Fonte({
@@ -562,11 +601,34 @@ function Fonte({
   );
 }
 
+/**
+ * Créditos e ressalvas, recolhidos.
+ *
+ * Este era o trecho mais longo da página: cinco parágrafos de proveniência que
+ * ninguém lê duas vezes, sob o resultado que todo mundo lê sempre. Recolhê-lo
+ * não é escondê-lo — o conteúdo continua no documento, encontrável pelo Ctrl+F
+ * e pelos buscadores, e a linha que fica à vista já nomeia as três fontes. O
+ * que some é o rolar.
+ */
 function Rodape() {
+  const [aberto, setAberto] = useState(false);
+
   return (
-    <footer className="mt-6 space-y-4 rounded-xl border border-borda bg-painel/40 p-4 text-xs leading-relaxed text-suave">
+    <footer className="md-corpo-p mt-6 rounded-2xl bg-superficie-baixa p-4 text-suave">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 className="md-rotulo-p text-texto">De onde vêm os números</h2>
+        <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
+          {aberto ? 'esconder' : 'ver fontes e ressalvas'}
+        </BotaoDoPainel>
+      </div>
+
+      <p className="mt-1.5">
+        Chances e minérios do Browiki, itens do Divine Pride (LATAM), taxa do refinador do iROwiki.
+        Os preços são seus. Projeto de fã, sem vínculo com a Gravity.
+      </p>
+
+      <div hidden={!aberto} className="mt-4 space-y-4">
       <section>
-        <h2 className="mb-2 text-xs font-semibold tracking-wide text-texto uppercase">De onde vêm os números</h2>
         <p className="mb-3">
           O alvo é o <strong className="text-texto">Ragnarok Latin America</strong>, e as fontes
           seguem essa ordem: o Browiki, que é o wiki do próprio servidor; o Divine Pride no
@@ -639,6 +701,7 @@ function Rodape() {
         Ragnarok Latin America; se o seu servidor rodar valores diferentes, o resultado sai
         diferente.
       </p>
+      </div>
     </footer>
   );
 }

@@ -1,15 +1,81 @@
 @import 'tailwindcss';
 
+/*
+  ─────────────────────────────────────────────────────────────────────────────
+  Material Design 3, em tema escuro, com o dourado do refino como cor primária.
+  ─────────────────────────────────────────────────────────────────────────────
+
+  Os nomes ficam em português porque o resto do projeto está em português, mas
+  cada um é um papel do Material — a tradução está anotada ao lado, que é o que
+  permite conferir a escolha contra a especificação em vez de contra o gosto.
+
+  A regra que organiza tudo: no escuro, elevação é TOM, não sombra. Uma
+  superfície mais alta é mais clara, e a sombra só reforça. Por isso as
+  superfícies formam uma escada de luminosidade em vez de um par fundo/painel.
+*/
 @theme {
-  --color-fundo: oklch(0.17 0.02 265);
-  --color-painel: oklch(0.22 0.025 265);
-  --color-borda: oklch(0.32 0.03 265);
-  --color-texto: oklch(0.93 0.01 265);
-  --color-suave: oklch(0.72 0.02 265);
-  --color-realce: oklch(0.78 0.16 85);
-  --color-perigo: oklch(0.68 0.19 25);
-  --color-atencao: oklch(0.8 0.15 70);
-  --color-ok: oklch(0.75 0.15 155);
+  /* Superfícies, da mais baixa à mais alta (surface → surface-container-highest). */
+  --color-fundo: oklch(0.16 0.018 265); /* surface */
+  --color-superficie-baixa: oklch(0.195 0.02 265); /* surface-container-low */
+  --color-painel: oklch(0.225 0.022 265); /* surface-container */
+  --color-superficie-alta: oklch(0.265 0.024 265); /* surface-container-high */
+  --color-superficie-topo: oklch(0.3 0.026 265); /* surface-container-highest */
+
+  /* Conteúdo sobre superfície. */
+  --color-texto: oklch(0.93 0.01 265); /* on-surface */
+  --color-suave: oklch(0.755 0.02 265); /* on-surface-variant */
+
+  /* Contornos: o forte separa, o fraco só sugere (outline / outline-variant). */
+  --color-contorno: oklch(0.55 0.02 265); /* outline */
+  --color-borda: oklch(0.34 0.025 265); /* outline-variant */
+
+  /* Primária: o dourado do refino. */
+  --color-realce: oklch(0.8 0.15 85); /* primary */
+  --color-no-realce: oklch(0.26 0.06 85); /* on-primary */
+  --color-realce-container: oklch(0.37 0.075 85); /* primary-container */
+  --color-no-realce-container: oklch(0.92 0.06 85); /* on-primary-container */
+
+  /* Estados. Cada um com o seu container, para o aviso não ser só texto colorido. */
+  --color-perigo: oklch(0.72 0.17 25); /* error */
+  --color-perigo-container: oklch(0.32 0.1 25); /* error-container */
+  --color-no-perigo-container: oklch(0.92 0.05 25); /* on-error-container */
+
+  --color-atencao: oklch(0.82 0.14 70);
+  --color-atencao-container: oklch(0.33 0.08 70);
+  --color-no-atencao-container: oklch(0.93 0.05 70);
+
+  --color-ok: oklch(0.78 0.14 155);
+  --color-ok-container: oklch(0.31 0.07 155);
+  --color-no-ok-container: oklch(0.92 0.05 155);
+
+  /*
+    Bronze do balcão do NPC, no diagrama de custo.
+
+    Existe porque o diagrama precisa de cinco faixas distinguíveis e as quatro
+    cores de estado (realce, perigo, atenção, ok) já têm dono. É parente do
+    dourado dos minérios — preparar o minério é primo de comprá-lo — e fica bem
+    abaixo dele em croma para as duas faixas não virarem uma. Longe do vermelho
+    de propósito: "reposição do item" e "fabricação" são vizinhas no desenho e
+    significam coisas opostas.
+  */
+  --color-bronze: oklch(0.6 0.06 55);
+
+  /*
+    Elevação do Material: cinco níveis, dos quais usamos três. Os valores são os
+    da especificação — duas sombras por nível, uma justa e escura para a borda
+    de contato, outra larga e fraca para a luz ambiente.
+  */
+  --shadow-e1: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --shadow-e2: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --shadow-e3: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 4px 8px 3px rgb(0 0 0 / 0.15);
+
+  /*
+    Movimento: a curva "enfatizada decelerada" do Material. Começa rápido e
+    freia longo — é o que faz um painel abrir parecendo que tem massa, em vez
+    de simplesmente aparecer.
+  */
+  --ease-padrao: cubic-bezier(0.2, 0, 0, 1);
+  --ease-saida: cubic-bezier(0.3, 0, 0.8, 0.15);
 }
 
 html {
@@ -26,6 +92,132 @@ body {
   overflow-wrap: break-word;
 }
 
+/*
+  ── Escala tipográfica ──────────────────────────────────────────────────────
+
+  O Material define quinze estilos; aqui cabem seis. Existirem como classe, e
+  não como um punhado de utilitários repetidos, é o que impede que "título de
+  painel" seja `text-sm` num arquivo e `text-xs` no outro — foi exatamente o
+  que aconteceu antes de existirem.
+*/
+.md-display {
+  font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.25rem);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.md-titulo-g {
+  font-size: 1.375rem;
+  line-height: 1.27;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.md-titulo-m {
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.md-corpo-m {
+  font-size: 0.875rem;
+  line-height: 1.57;
+}
+.md-corpo-p {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+/*
+  Rótulo: o texto que nomeia um controle ou um número, nunca o que explica. O
+  espacejamento aberto e a caixa alta são o que faz uma linha de 11px continuar
+  legível — e o que separa "ORÇAMENTO RECOMENDADO" do número logo abaixo sem
+  precisar de uma régua entre os dois.
+*/
+.md-rotulo-p {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/*
+  ── Camada de estado ────────────────────────────────────────────────────────
+
+  No Material, um alvo de toque não muda de cor ao ser apontado: ele ganha uma
+  película da própria cor de conteúdo, com opacidade fixa (8% ao pairar, 10% ao
+  focar ou pressionar). É por isso que o mesmo botão funciona sobre qualquer
+  superfície sem precisar de uma cor de hover por fundo.
+*/
+.estado {
+  position: relative;
+  isolation: isolate;
+}
+.estado::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease-padrao);
+  /* Atrás do conteúdo e à frente do próprio fundo. O `isolation` acima é o que
+     prende esse -1 ao botão: sem ele a película afundaria até o fundo da
+     página e o botão pareceria não reagir. */
+  z-index: -1;
+}
+.estado:hover::after {
+  opacity: 0.08;
+}
+.estado:focus-visible::after,
+.estado:active::after {
+  opacity: 0.1;
+}
+
+/*
+  Ondulação: o círculo que nasce onde o dedo tocou e se abre até cobrir o alvo.
+  É a única parte do Material que não dá para escrever em CSS estático — o
+  ponto de origem vem do evento (ver `useOndulacao`, em `ui.tsx`).
+*/
+.ondulacao {
+  position: absolute;
+  border-radius: 9999px;
+  background-color: currentColor;
+  opacity: 0.22;
+  transform: scale(0);
+  pointer-events: none;
+  animation: ondular 500ms var(--ease-padrao) forwards;
+  z-index: -1;
+}
+@keyframes ondular {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/*
+  Foco visível, uma vez só para a página inteira. O Material pede um anel
+  grosso e afastado — grosso para ser visto sem depender da cor, afastado para
+  não ser confundido com a borda do próprio campo.
+*/
+:focus-visible {
+  outline: 2px solid var(--color-realce);
+  outline-offset: 2px;
+}
+
+/* Quem pediu menos movimento não deve receber ondulação nem transição. */
+@media (prefers-reduced-motion: reduce) {
+  .ondulacao {
+    display: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Tira os esporões dos campos numéricos: aqui todo número é digitado. */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
@@ -34,20 +226,6 @@ input[type='number']::-webkit-inner-spin-button {
 }
 input[type='number'] {
   -moz-appearance: textfield;
-}
-
-/*
-  Bronze do balcão do NPC, no diagrama de custo.
-
-  Existe porque o diagrama precisa de cinco faixas distinguíveis e as quatro
-  cores de estado (realce, perigo, atenção, ok) já têm dono. É parente do
-  dourado dos minérios — preparar o minério é primo de comprá-lo — e fica bem
-  abaixo dele em croma para as duas faixas não virarem uma. Longe do vermelho
-  de propósito: "reposição do item" e "fabricação" são vizinhas no desenho e
-  significam coisas opostas.
-*/
-@theme {
-  --color-bronze: oklch(0.6 0.06 55);
 }
 
 /*

@@ -12,7 +12,18 @@ import {
 import type { Resultado as ResultadoPlano } from '../engine/plan';
 import { porcento, zeny, zenyExato } from '../format';
 import { MARGENS, type MargemKey } from './Resultado';
-import { BotaoDoPainel, Campo, NumeroQtd, NumeroZeny, Painel, Segmentado } from './ui';
+import {
+  Botao,
+  BotaoDoPainel,
+  Campo,
+  Info,
+  NumeroQtd,
+  NumeroZeny,
+  Painel,
+  Segmentado,
+  TituloDeSecao,
+} from './ui';
+import { SlotItem } from './ItemNoJogo';
 
 export const ESTOQUE_VAZIO: Estoque = { zeny: 0, itens: {}, copias: 1 };
 
@@ -148,6 +159,14 @@ export function SimuladorDeEstoque({
   return (
     <Painel
       titulo="Dá com o que eu tenho?"
+      info={
+        <Info titulo="Dá com o que eu tenho?">
+          A conta não é outra simulação: são as mesmas campanhas já sorteadas, lidas de outro jeito
+          — por isso a resposta acompanha a digitação. O que faltar no meio do caminho entra como
+          compra, pelos preços informados: a resposta é sobre o caixa, e o minério parado na mochila
+          conta pelo que ele deixa de custar.
+        </Info>
+      }
       aside={
         <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
           {aberto ? 'esconder' : 'simular'}
@@ -211,38 +230,54 @@ export function SimuladorDeEstoque({
               />
             </div>
 
-            <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">
-              <BotaoDoPainel onClick={preencherTudo}>preencher mochila e caixa</BotaoDoPainel>
-              <BotaoDoPainel onClick={resolverMaterial}>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Botao variante="tonal" tamanho="pequeno" onClick={preencherTudo}>
+                preencher mochila e caixa
+              </Botao>
+              <Botao variante="contornado" tamanho="pequeno" onClick={resolverMaterial}>
                 só o material, com o meu zeny
-              </BotaoDoPainel>
+              </Botao>
+              <Info titulo="Os dois preenchimentos" alinhar="direita">
+                O primeiro põe o piso de material na mochila e calcula o zeny que ele ainda exige; o
+                segundo mantém o zeny que você informou e calcula o material, na proporção em que a
+                campanha gasta. Os dois miram a mesma chance — material no chão é orçamento no
+                alto, e é sempre um ou o outro que sobe.
+              </Info>
             </div>
 
             {recado?.sobre === estoque && (
-              <p className="mt-2 text-xs leading-relaxed text-atencao">{recado.texto}</p>
+              <p className="md-corpo-p mt-2.5 rounded-lg bg-atencao-container p-2.5 text-no-atencao-container">
+                {recado.texto}
+              </p>
             )}
-
-            <p className="mt-2 text-xs leading-relaxed text-suave">
-              O primeiro põe o piso de material na mochila e calcula o zeny que ele ainda exige; o
-              segundo mantém o zeny que você informou e calcula o material, na proporção em que a
-              campanha gasta. Os dois miram a mesma chance — material no chão é orçamento no alto, e
-              é sempre um ou o outro que sobe.
-            </p>
           </div>
 
           <div>
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-xs font-semibold tracking-wide text-suave uppercase">O que você já tem</h3>
-              <BotaoDoPainel discreto onClick={() => onChange({ ...estoque, itens: {} })}>
-                zerar
-              </BotaoDoPainel>
-            </div>
+            <TituloDeSecao
+              info={
+                <Info titulo="O que você já tem">
+                  Só aparecem os materiais que o plano usa, já desmontados até o que se compra de
+                  verdade — quem fabrica Bradium tem <strong className="text-texto">Oridecon</strong>{' '}
+                  na mochila, não Bradium. O <strong className="text-texto">mínimo</strong> é o que
+                  a campanha mais sortuda consumiu: abaixo dele não existe caminho que não precise
+                  comprar mais no meio.
+                </Info>
+              }
+              aside={
+                <BotaoDoPainel discreto onClick={() => onChange({ ...estoque, itens: {} })}>
+                  zerar
+                </BotaoDoPainel>
+              }
+            >
+              O que você já tem
+            </TituloDeSecao>
 
             <div className="space-y-2">
               {campanha.materiais.map((m) => (
                 <div key={m.itemId} className="flex items-center gap-2">
-                  <span className="flex-1 text-sm">{nomeDoItem(m.itemId)}</span>
-                  <span className="text-xs text-suave tabular-nums">
+                  <SlotItem id={m.itemId} tamanho="mini" />
+                  <span className="md-corpo-m min-w-0 flex-1">{nomeDoItem(m.itemId)}</span>
+                  <span className="md-corpo-p text-suave tabular-nums">
                     mín. {inteiro(m.minimo)}
                   </span>
                   <div className="w-28">
@@ -256,13 +291,6 @@ export function SimuladorDeEstoque({
                 </div>
               ))}
             </div>
-
-            <p className="mt-2 text-xs leading-relaxed text-suave">
-              Só aparecem os materiais que o plano usa, já desmontados até o que se compra de
-              verdade — quem fabrica Bradium tem <strong className="text-texto">Oridecon</strong> na
-              mochila, não Bradium. O mínimo é o que a campanha mais sortuda consumiu: abaixo dele
-              não existe caminho que não precise comprar mais no meio.
-            </p>
           </div>
 
           <Veredito veredito={veredito} estoque={estoque} margem={margem} plano={plano} />
@@ -305,28 +333,28 @@ function Veredito({
   const amostradas = veredito.execucoes < (plano.simulacao?.execucoes ?? 0);
 
   return (
-    <div className="rounded-lg border border-borda bg-fundo/40 p-4">
-      <div className="text-xs tracking-wide text-suave uppercase">Chance de chegar ao alvo</div>
-      <div className={'mt-1 text-4xl font-semibold tabular-nums ' + corDaChance(veredito.chance)}>
+    <div className="rounded-xl bg-superficie-baixa p-4">
+      <div className="md-rotulo-p flex items-center gap-1 text-suave">
+        Chance de chegar ao alvo
+        {amostradas && (
+          <Info titulo="De onde sai esta chance">
+            Esta conta lê uma amostra das campanhas, não todas as{' '}
+            {plano.simulacao!.execucoes.toLocaleString('pt-BR')} que deram os percentis acima:
+            responder a cada tecla digitada exige tê-las cruas em mãos, e{' '}
+            {veredito.execucoes.toLocaleString('pt-BR')} bastam para a chance errar por menos de um
+            ponto percentual.
+          </Info>
+        )}
+      </div>
+      <div className={'md-display mt-1 tabular-nums ' + corDaChance(veredito.chance)}>
         {chanceLegivel(veredito.chance)}
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-suave">
+      <p className="md-corpo-m mt-2 text-suave">
         {veredito.chance === 0
           ? `Nenhuma das ${veredito.execucoes.toLocaleString('pt-BR')} campanhas simuladas chegou ao alvo com o que você tem.`
           : veredito.chance === 1
             ? `Todas as ${veredito.execucoes.toLocaleString('pt-BR')} campanhas simuladas chegaram ao alvo com o que você tem.`
-            : `${Math.round(veredito.chance * veredito.execucoes).toLocaleString('pt-BR')} das ${veredito.execucoes.toLocaleString('pt-BR')} campanhas simuladas chegaram ao alvo com o que você tem.`}{' '}
-        O que faltar no meio do caminho entra como compra, pelos preços informados: a resposta é
-        sobre o caixa, e o minério parado na mochila conta pelo que ele deixa de custar.
-        {amostradas && (
-          <>
-            {' '}
-            Esta conta lê uma amostra das campanhas, não todas as{' '}
-            {plano.simulacao!.execucoes.toLocaleString('pt-BR')} que deram os percentis acima:
-            responder a cada tecla digitada exige tê-las cruas em mãos, e {veredito.execucoes.toLocaleString('pt-BR')}{' '}
-            bastam para a chance errar por menos de um ponto percentual.
-          </>
-        )}
+            : `${Math.round(veredito.chance * veredito.execucoes).toLocaleString('pt-BR')} das ${veredito.execucoes.toLocaleString('pt-BR')} campanhas simuladas chegaram ao alvo com o que você tem.`}
       </p>
 
       {faltaNaMargem > 0 && (
@@ -361,20 +389,41 @@ function Veredito({
       )}
 
       {(veredito.materiais.some((m) => m.tem > 0) || estoque.copias > 1) && (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="mt-4">
+          {/* O balão fica FORA do `overflow-x-auto` de propósito: dentro dele,
+              uma camada temporária é recortada pela borda da rolagem. */}
+          <TituloDeSecao
+            info={
+              <Info titulo="Acaba em, e comprar" alinhar="direita">
+                &ldquo;Acaba em&rdquo; é a fração das campanhas em que o seu estoque daquele
+                material termina antes do alvo; &ldquo;comprar&rdquo; é quanto ainda faltaria na
+                margem escolhida. Ficar sem material não trava a campanha enquanto houver zeny para
+                repor — por isso a chance lá em cima olha o caixa, e esta tabela diz onde ele vai
+                ser gasto.
+              </Info>
+            }
+          >
+            Onde o seu estoque acaba
+          </TituloDeSecao>
+          <div className="overflow-x-auto">
+          <table className="md-corpo-m w-full">
             <thead>
-              <tr className="border-b border-borda text-left text-xs tracking-wide text-suave uppercase">
-                <th className="pb-2 font-medium">Material</th>
-                <th className="pb-2 text-right font-medium">Você tem</th>
-                <th className="pb-2 text-right font-medium">Acaba em</th>
-                <th className="pb-2 text-right font-medium">Comprar ({margemInfo.rotulo})</th>
+              <tr className="md-rotulo-p border-b border-borda text-left text-suave">
+                <th className="pb-2">Material</th>
+                <th className="pb-2 text-right">Você tem</th>
+                <th className="pb-2 text-right">Acaba em</th>
+                <th className="pb-2 text-right">Comprar ({margemInfo.rotulo})</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-borda/60">
               {veredito.materiais.map((m) => (
                 <tr key={m.itemId}>
-                  <td className="py-2">{nomeDoItem(m.itemId)}</td>
+                  <td className="py-2">
+                    <span className="flex items-center gap-2">
+                      <SlotItem id={m.itemId} tamanho="mini" />
+                      {nomeDoItem(m.itemId)}
+                    </span>
+                  </td>
                   <td className="py-2 text-right tabular-nums">{inteiro(m.tem)}</td>
                   <td
                     className={
@@ -401,12 +450,7 @@ function Veredito({
               )}
             </tbody>
           </table>
-          <p className="mt-3 text-xs leading-relaxed text-suave">
-            &ldquo;Acaba em&rdquo; é a fração das campanhas em que o seu estoque daquele material
-            termina antes do alvo; &ldquo;comprar&rdquo; é quanto ainda faltaria na margem
-            escolhida. Ficar sem material não trava a campanha enquanto houver zeny para repor — por
-            isso a chance lá em cima olha o caixa, e esta tabela diz onde ele vai ser gasto.
-          </p>
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import type { RiscoDaFalha } from '../engine/refine';
+import { Info } from './ui';
 
 /**
  * As marcas que a lista de refino alvo põe em cada opção.
@@ -57,9 +58,10 @@ export function TrilhaRefino({
             key={n}
             title={`+${n - 1} → +${n}`}
             className={
-              'h-2 flex-1 first:rounded-l-full last:rounded-r-full ' +
+              'h-2.5 flex-1 transition-colors duration-200 ease-padrao ' +
+              'first:rounded-l-full last:rounded-r-full ' +
               (!noCaminho(n)
-                ? 'bg-borda/50'
+                ? 'bg-borda'
                 : n <= limite
                   ? 'bg-ok'
                   : 'bg-atencao')
@@ -67,7 +69,7 @@ export function TrilhaRefino({
           />
         ))}
       </div>
-      <p className="mt-1.5 text-xs leading-snug text-suave">
+      <p className="md-corpo-p mt-2 text-suave">
         {alvo < atual ? (
           <span className="text-perigo">
             O alvo está abaixo do refino atual — refino não desce.
@@ -88,9 +90,13 @@ export function TrilhaRefino({
                 </span>{' '}
                 {/* Nenhum degrau deste caminho falha, mas a lista de alvos está
                     cheia de marcas — é aqui que elas ganham legenda, senão o
-                    símbolo aparece antes de significar alguma coisa. */}
-                Na lista, {MARCA_RISCO.quebra} marca os alvos que não dá para alcançar sem
-                arriscar o item, e {MARCA_RISCO.derruba} os que só derrubam o refino na falha.
+                    símbolo aparece antes de significar alguma coisa. Fica no
+                    botão porque é legenda: vale para a lista inteira, para
+                    sempre, e não muda com a escolha. */}
+                <Info titulo="As marcas da lista de alvos">
+                  Na lista, {MARCA_RISCO.quebra} marca os alvos que não dá para alcançar sem
+                  arriscar o item, e {MARCA_RISCO.derruba} os que só derrubam o refino na falha.
+                </Info>
               </>
             ) : (
               <>

@@ -5,7 +5,7 @@ import type { PlanoDeFase } from '../engine/plan';
 import type { PolicyEntry } from '../engine/types';
 import { porcento, zeny, zenyExato } from '../format';
 import { NomeNoJogo, SlotItem } from './ItemNoJogo';
-import { BotaoDoPainel, Painel } from './ui';
+import { Botao, BotaoDoPainel, Info, Painel, Pastilha, TituloDeSecao } from './ui';
 
 /**
  * A cadeia de decisões, estado por estado.
@@ -63,12 +63,22 @@ export function CadeiaDeDecisoes({
       ) : (
         <div className="space-y-4">
           {comPolitica.length > 1 && (
-            <div className="flex flex-wrap gap-1">
-              {comPolitica.map((f, i) => (
-                <BotaoDoPainel key={i} onClick={() => setFase(i)}>
-                  {i === Math.min(fase, comPolitica.length - 1) ? `▸ ${f.rotulo}` : f.rotulo}
-                </BotaoDoPainel>
-              ))}
+            <div role="tablist" aria-label="Fases com política" className="flex flex-wrap gap-2">
+              {comPolitica.map((f, i) => {
+                const ativa = i === Math.min(fase, comPolitica.length - 1);
+                return (
+                  <Botao
+                    key={i}
+                    role="tab"
+                    aria-selected={ativa}
+                    tamanho="pequeno"
+                    variante={ativa ? 'tonal' : 'contornado'}
+                    onClick={() => setFase(i)}
+                  >
+                    {f.rotulo}
+                  </Botao>
+                );
+              })}
             </div>
           )}
 
@@ -110,10 +120,25 @@ function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; alvo: nu
   const maior = Math.max(...politica.map((e) => e.custoEsperado), 1);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div>
+      {/* O balão fica FORA do `overflow-x-auto`: dentro dele, uma camada
+          temporária é recortada pela borda da rolagem. */}
+      <TituloDeSecao
+        info={
+          <Info titulo="Falta gastar" alinhar="direita">
+            O custo esperado daquele estado até o +{alvo}, já contando as falhas que ainda vão
+            acontecer. É o número que a política otimiza — e é por ele que a Bênção do Ferreiro
+            compensa em degraus onde ela parece cara: ela não muda a chance, muda para onde a falha
+            joga o item.
+          </Info>
+        }
+      >
+        A política, estado por estado
+      </TituloDeSecao>
+      <div className="overflow-x-auto">
+      <table className="md-corpo-m w-full">
         <thead>
-          <tr className="border-b border-borda text-left text-xs tracking-wide text-suave uppercase">
+          <tr className="md-rotulo-p border-b border-borda text-left text-suave">
             <th className="pr-3 pb-2 font-medium">Estado</th>
             <th className="pr-3 pb-2 font-medium">Decisão</th>
             <th className="pr-3 pb-2 text-right font-medium">Sucesso</th>
@@ -130,12 +155,15 @@ function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; alvo: nu
                   +{e.de} <span className="text-suave">→</span> +{e.de + 1}
                 </td>
                 <td className="py-1.5 pr-3">
-                  {e.acao.ore.nome}
-                  {e.acao.bencaos > 0 && (
-                    <span className="ml-1 text-xs whitespace-nowrap text-ok">
-                      +{e.acao.bencaos} Bênção
-                    </span>
-                  )}
+                  <span className="flex items-center gap-1.5">
+                    <SlotItem id={e.acao.ore.itemId} tamanho="mini" />
+                    {e.acao.ore.nome}
+                    {e.acao.bencaos > 0 && (
+                      <span className="text-xs whitespace-nowrap text-ok">
+                        +{e.acao.bencaos} Bênção
+                      </span>
+                    )}
+                  </span>
                 </td>
                 <td className="py-1.5 pr-3">
                   <Medida
@@ -167,12 +195,7 @@ function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; alvo: nu
           })}
         </tbody>
       </table>
-      <p className="mt-2 text-xs leading-relaxed text-suave">
-        &ldquo;Falta gastar&rdquo; é o custo esperado daquele estado até o +{alvo}, já contando as
-        falhas que ainda vão acontecer. É o número que a política otimiza — e é por ele que a
-        Bênção do Ferreiro compensa em degraus onde ela parece cara: ela não muda a chance, muda
-        para onde a falha joga o item.
-      </p>
+      </div>
     </div>
   );
 }
@@ -266,7 +289,7 @@ function Percurso({
   }
 
   return (
-    <div className="rounded-lg border border-borda bg-fundo/40 p-3">
+    <div className="rounded-xl bg-superficie-baixa p-3.5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <SlotItem id={itemId} />
@@ -285,15 +308,20 @@ function Percurso({
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {chegou ? (
-            <span className="text-sm font-medium text-ok">chegou ao +{alvo}!</span>
+            <Pastilha tom="ok">chegou ao +{alvo}!</Pastilha>
           ) : (
-            <BotaoDoPainel onClick={tentar}>
+            /* A tentativa é a ação principal deste cartão, e a única com
+               consequência: no Material ela é o botão preenchido, e recomeçar
+               fica em texto ao lado. */
+            <Botao variante="preenchido" tamanho="pequeno" onClick={tentar}>
               {atual ? `tentar +${refino} → +${refino + 1}` : 'tentar'}
-            </BotaoDoPainel>
+            </Botao>
           )}
-          <BotaoDoPainel onClick={recomecar}>recomeçar</BotaoDoPainel>
+          <BotaoDoPainel discreto onClick={recomecar}>
+            recomeçar
+          </BotaoDoPainel>
         </div>
       </div>
 

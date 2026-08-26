@@ -1,17 +1,17 @@
 import type { ReactNode } from 'react';
 
 import { nomeDoItem } from '../data/nomes';
-import { listaDeCompras, sourcingOf } from '../engine/pricing';
+import { listaDeCompras, receitaDe, sourcingOf } from '../engine/pricing';
 import { fluxoDeCusto, quantidadesNaMargem } from '../engine/fluxoDeCusto';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
 import { ROTULO_GRAU, rotuloCurto } from '../data/rotulos';
-import { CartaoItem } from './ItemNoJogo';
+import { CartaoItem, Composicao, ItemComArte, SlotItem } from './ItemNoJogo';
 import { CadeiaDeDecisoes } from './Cadeia';
 import { CurvaDeCusto } from './CurvaDeCusto';
 import { ResumoDoFluxo, SankeyCusto } from './SankeyCusto';
 import { porcento, quantidade, zeny, zenyExato } from '../format';
-import { Painel, PainelRecolhivel, Segmentado } from './ui';
+import { Divisor, Info, Painel, PainelRecolhivel, Pastilha, Segmentado, TituloDeSecao } from './ui';
 
 export type MargemKey = keyof Percentis;
 
@@ -96,16 +96,23 @@ export function Resultado({
             três vinham do mesmo tamanho, o que punha a média — que o próprio
             texto desaconselha usar — no mesmo peso da recomendação. */}
         <div className="mt-4">
-          <div className="text-xs tracking-wide text-suave uppercase">Orçamento recomendado</div>
+          <div className="md-rotulo-p flex items-center gap-1 text-suave">
+            Orçamento recomendado
+            <Info titulo="Orçamento recomendado">
+              O custo total da campanha no percentil que você escolheu ao lado. Numa margem de 90%,
+              nove de cada dez campanhas simuladas fecharam gastando isto ou menos — é quanto
+              separar para começar sem depender de sorte.
+            </Info>
+          </div>
           {sim ? (
             <>
               <div
-                className="mt-1 text-4xl font-semibold text-realce tabular-nums sm:text-5xl"
+                className="md-display mt-1 text-realce tabular-nums"
                 title={zenyExato(sim.custo[margem])}
               >
                 {zeny(sim.custo[margem])}
               </div>
-              <div className="mt-1 text-sm text-suave">
+              <div className="md-corpo-m mt-1 text-suave">
                 Margem de {margemInfo.rotulo.toLowerCase()} — {margemInfo.explica}.
               </div>
             </>
@@ -114,15 +121,10 @@ export function Resultado({
               {/* Um alvo caro não cabe no passe rápido, mas pode caber no
                   preciso. Chamá-lo de inalcançável antes da hora seria dar um
                   veredito que a simulação longa ainda pode desmentir. */}
-              <div
-                className={
-                  'mt-1 text-4xl font-semibold sm:text-5xl ' +
-                  (afinando ? 'text-suave' : 'text-perigo')
-                }
-              >
+              <div className={'md-display mt-1 ' + (afinando ? 'text-suave' : 'text-perigo')}>
                 {afinando ? 'calculando…' : 'fora de alcance'}
               </div>
-              <div className="mt-1 text-sm text-suave">
+              <div className="md-corpo-m mt-1 text-suave">
                 Este alvo pede ~{Math.round(plano.tentativasEsperadas).toLocaleString('pt-BR')}{' '}
                 tentativas de refino
                 {afinando
@@ -170,7 +172,16 @@ export function Resultado({
 
       {moduloEstoque}
 
-      <Painel titulo="Melhor estratégia">
+      <Painel
+        titulo="Melhor estratégia"
+        info={
+          <Info titulo="Melhor estratégia">
+            A sequência que a calculadora escolheu: em cada faixa de refino, qual minério usar e
+            quantas Bênçãos somar. Não é a de maior chance, é a de menor custo esperado até o alvo —
+            às vezes vale pagar caro num degrau para não cair três níveis nele.
+          </Info>
+        }
+      >
         <ol className="space-y-3">
           {plano.fases.map((fase, i) => (
             // Uma campanha de Grau repete o mesmo preparo de refino a cada
@@ -198,6 +209,16 @@ export function Resultado({
           dois totais divergentes não aparecerem lado a lado sem necessidade. */}
       <PainelRecolhivel
         titulo="Minérios e materiais"
+        info={
+          <Info titulo="Minérios e materiais">
+            Conferência, não decisão: aqui os minérios aparecem prontos, como o motor os conta, e
+            não desmontados no que se compra. Quem vai ao jogo leva a lista de compras — os dois
+            totais divergem de propósito. A coluna{' '}
+            <strong className="text-texto">ter em mãos</strong> é quanto separar para não ficar sem
+            material no meio do caminho na margem escolhida: cada linha está no percentil dela,
+            então a soma passa do orçamento — é o preço de não faltar nada de uma vez só.
+          </Info>
+        }
         resumo={
           <>
             O consumo material por material, antes de a lista de compras desmontar em receita de
@@ -267,7 +288,13 @@ function Trajetoria({
   );
 }
 
-/** Número de apoio: menor que o orçamento, com a ressalva junto. */
+/**
+ * Número de apoio: menor que o orçamento, com a ressalva a um clique.
+ *
+ * A ressalva de cada um destes números é longa e vale para sempre — a média
+ * engana, o valor justo compara com comprar pronto. Impressas embaixo dos três,
+ * elas ocupavam mais linhas que os números que explicavam.
+ */
 function Secundario({
   rotulo,
   valor,
@@ -277,15 +304,17 @@ function Secundario({
   rotulo: string;
   valor: string;
   titulo?: string;
-  nota: string;
+  nota: ReactNode;
 }) {
   return (
     <div>
-      <div className="text-xs tracking-wide text-suave uppercase">{rotulo}</div>
-      <div className="mt-1 text-xl font-semibold tabular-nums" title={titulo}>
+      <div className="md-rotulo-p flex items-center gap-1 text-suave">
+        {rotulo}
+        <Info titulo={rotulo}>{nota}</Info>
+      </div>
+      <div className="md-titulo-g mt-1 tabular-nums" title={titulo}>
         {valor}
       </div>
-      <div className="mt-1 text-xs leading-snug text-suave">{nota}</div>
     </div>
   );
 }
@@ -308,19 +337,26 @@ function Copias({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey })
 
   return (
     <div>
-      <div className="text-xs tracking-wide text-suave uppercase">Cópias do item</div>
-      <div className="mt-1 text-xl font-semibold tabular-nums">
+      <div className="md-rotulo-p flex items-center gap-1 text-suave">
+        Cópias do item
+        <Info titulo="Cópias do item">
+          Orçamento em zeny não é o bastante: numa faixa de quebra o equipamento vira consumo, e
+          quem só comprou um trava no meio da campanha esperando repor. Toda reposição entra no{' '}
+          <strong className="text-texto">+0</strong> — é o preço que o formulário pede — e o caminho
+          até o alvo é refeito desde o zero: quebrar não devolve o refino que já estava pago.
+        </Info>
+      </div>
+      <div className="md-titulo-g mt-1 tabular-nums">
         {naMargem === null ? quantidade(plano.copiasItem) : quantidade(naMargem)}
       </div>
-      <div className="mt-1 text-xs leading-snug text-suave">
+      <div className="md-corpo-p mt-1 text-suave">
         {reposicoes <= 0 ? (
-          <>Nessa margem o item não quebra: a sua, no +{inicial}, basta.</>
+          <>Nessa margem o item não quebra.</>
         ) : (
           <>
             A sua, no <strong className="text-texto">+{inicial}</strong>, mais{' '}
-            {quantidade(reposicoes)} de reposição no{' '}
-            <strong className="text-texto">+0</strong>
-            {naMargem === null ? ' (média)' : ', na margem escolhida'}.
+            {quantidade(reposicoes)} de reposição
+            {naMargem === null ? ' (média)' : ''}.
           </>
         )}
       </div>
@@ -365,7 +401,7 @@ function Distribuicao({
         escolhida={{ rotulo: info.rotulo, chance: info.chance, valor: custo[margem] }}
         margens={MARGENS.map((m) => custo[m.key])}
       />
-      <div className="mt-3 grid grid-cols-2 gap-1 text-xs sm:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-5">
         {MARGENS.map((m) => (
           <button
             key={m.key}
@@ -373,13 +409,14 @@ function Distribuicao({
             onClick={() => onMargem(m.key)}
             title={`${m.explica} — ${zenyExato(custo[m.key])}`}
             className={
-              'rounded-md px-2 py-1 text-left transition-colors ' +
+              'estado cursor-pointer rounded-lg px-2 py-1.5 text-left text-xs ' +
+              'transition-colors duration-200 ease-padrao ' +
               (m.key === margem
-                ? 'bg-realce/10 text-realce'
-                : 'text-suave hover:bg-fundo hover:text-texto')
+                ? 'bg-realce-container text-no-realce-container'
+                : 'text-suave hover:text-texto')
             }
           >
-            <span className="block tracking-wide uppercase">{m.rotulo}</span>
+            <span className="md-rotulo-p block">{m.rotulo}</span>
             <span className="block tabular-nums">{zeny(custo[m.key])}</span>
           </button>
         ))}
@@ -411,70 +448,50 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
   const copiasNaMargem = plano.simulacao ? plano.simulacao.quebras[margem] + 1 : null;
 
   return (
-    <>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-borda text-left text-xs tracking-wide text-suave uppercase">
-              <th className="pb-2 font-medium">Material</th>
-              <th className="pb-2 font-medium">Como obter</th>
-              <th className="pb-2 text-right font-medium">Média</th>
-              {plano.simulacao && <th className="pb-2 text-right font-medium">Ter em mãos</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-borda/60">
-            {linhas.map((l) => (
-              <tr key={l.itemId}>
-                <td className="py-2">{nomeDoItem(l.itemId)}</td>
-                <td className="py-2 text-xs text-suave">{ROTULO_VIA[l.via]}</td>
-                <td className="py-2 text-right tabular-nums">{quantidade(l.media)}</td>
-                {l.naMargem !== null && (
-                  <td className="py-2 text-right font-medium tabular-nums">
-                    {quantidade(Math.ceil(l.naMargem))}
-                  </td>
-                )}
-              </tr>
-            ))}
-            <tr className={plano.recursos.itensQuebrados > 0 ? 'text-perigo' : undefined}>
+    <div className="overflow-x-auto">
+      <table className="md-corpo-m w-full">
+        <thead>
+          <tr className="md-rotulo-p border-b border-borda text-left text-suave">
+            <th className="pb-2">Material</th>
+            <th className="pb-2">Como obter</th>
+            <th className="pb-2 text-right">Média</th>
+            {plano.simulacao && <th className="pb-2 text-right">Ter em mãos</th>}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-borda/60">
+          {linhas.map((l) => (
+            <tr key={l.itemId}>
               <td className="py-2">
-                Cópias do item
-                {plano.input.refinoAtual > 0 ? ` (+${plano.input.refinoAtual} e reposições no +0)` : ' (+0)'}
+                <span className="flex items-center gap-2">
+                  <SlotItem id={l.itemId} tamanho="mini" />
+                  {nomeDoItem(l.itemId)}
+                </span>
               </td>
-              <td className="py-2 text-xs text-suave">{zeny(plano.input.precoItem)} cada, no +0</td>
-              <td className="py-2 text-right tabular-nums">{quantidade(plano.copiasItem)}</td>
-              {copiasNaMargem !== null && (
+              <td className="md-corpo-p py-2 text-suave">{ROTULO_VIA[l.via]}</td>
+              <td className="py-2 text-right tabular-nums">{quantidade(l.media)}</td>
+              {l.naMargem !== null && (
                 <td className="py-2 text-right font-medium tabular-nums">
-                  {quantidade(copiasNaMargem)}
+                  {quantidade(Math.ceil(l.naMargem))}
                 </td>
               )}
             </tr>
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-3 text-xs leading-relaxed text-suave">
-        {plano.simulacao ? (
-          <>
-            A coluna &ldquo;ter em mãos&rdquo; é quanto separar para não ficar sem material no meio
-            do caminho na margem escolhida.{' '}
-            {copiasNaMargem !== null && copiasNaMargem > 1 ? (
-              <>
-                Inclui{' '}
-                <strong className="text-texto">
-                  {quantidade(copiasNaMargem)} cópias do item
-                </strong>
-                : a sua, no +{plano.input.refinoAtual}, mais {quantidade(copiasNaMargem - 1)} de
-                reposição — nessa margem o equipamento quebra no caminho. A reposição é sempre um
-                item <strong className="text-texto">+0</strong>, pelo preço sem refino que você
-                informou, e o caminho até o alvo é refeito desde o zero: quebrar não devolve o
-                refino que já estava pago.{' '}
-              </>
-            ) : (
-              <>Nessa margem o item não quebra: a sua, no +{plano.input.refinoAtual}, basta. </>
+          ))}
+          <tr className={plano.recursos.itensQuebrados > 0 ? 'text-perigo' : undefined}>
+            <td className="py-2">
+              Cópias do item
+              {plano.input.refinoAtual > 0 ? ` (+${plano.input.refinoAtual} e reposições no +0)` : ' (+0)'}
+            </td>
+            <td className="md-corpo-p py-2 text-suave">{zeny(plano.input.precoItem)} cada, no +0</td>
+            <td className="py-2 text-right tabular-nums">{quantidade(plano.copiasItem)}</td>
+            {copiasNaMargem !== null && (
+              <td className="py-2 text-right font-medium tabular-nums">
+                {quantidade(copiasNaMargem)}
+              </td>
             )}
-          </>
-        ) : null}
-      </p>
-    </>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -501,100 +518,235 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
 
   return (
     <>
-      {/* A tabela diz o que comprar; o desenho diz o que o dinheiro É. Numa
+      {/* A lista diz o que comprar; o desenho diz o que o dinheiro É. Numa
           campanha de +10 nos preços padrão, dois terços do orçamento não são
           minério — são proteção e reposição, e isso não se lê numa lista
           ordenada por valor. */}
       {fluxo.total > 0 && (
         <div className="mb-5">
-          <h3 className="mb-1 text-xs font-semibold tracking-wide text-suave uppercase">
+          <TituloDeSecao
+            info={
+              <Info titulo="Para onde vai o zeny">
+                As mesmas quantidades da lista abaixo, agrupadas pela natureza do gasto em vez de
+                pelo nome do material. É o desenho que mostra que a maior parte de uma campanha
+                cara não é minério — é proteção contra a quebra e reposição do equipamento
+                destruído.
+              </Info>
+            }
+          >
             Para onde vai o zeny
-          </h3>
+          </TituloDeSecao>
           <SankeyCusto fluxo={fluxo} />
           <ResumoDoFluxo fluxo={fluxo} />
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-borda text-left text-xs tracking-wide text-suave uppercase">
-              <th className="pb-2 font-medium">Comprar</th>
-              <th className="pb-2 text-right font-medium">Qtd</th>
-              <th className="pb-2 text-right font-medium">Preço un.</th>
-              <th className="pb-2 text-right font-medium">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-borda/60">
-            {lista.compras.map((l) => (
-              <tr key={l.itemId}>
-                <td className="py-2">{nomeDoItem(l.itemId)}</td>
-                <td className="py-2 text-right tabular-nums">{quantidade(l.qtd)}</td>
-                <td className="py-2 text-right text-suave tabular-nums">{zeny(l.custoUnitario)}</td>
-                <td className="py-2 text-right tabular-nums" title={zenyExato(l.total)}>
-                  {zeny(l.total)}
-                </td>
-              </tr>
+      <TituloDeSecao
+        info={
+          <Info titulo="Comprar no mercado">
+            Só o que se acha à venda: os minérios com receita de NPC já entram aqui desmontados nos
+            insumos deles. O custo de um material, em toda a calculadora, é o da receita (materiais
+            + balcão) sempre que fabricar sair mais barato que comprar pronto.
+            {plano.simulacao ? (
+              <>
+                {' '}
+                O total desta lista fica <strong className="text-texto">acima do orçamento</strong>{' '}
+                porque cada linha está no seu próprio percentil — é o preço de não faltar nada de
+                uma vez só. O orçamento é o percentil do custo total, em que a sorte de um material
+                compensa o azar de outro.
+              </>
+            ) : null}
+          </Info>
+        }
+      >
+        Comprar no mercado
+      </TituloDeSecao>
+
+      <ul className="divide-y divide-borda/60">
+        {lista.compras.map((l) => (
+          <LinhaDeCompra key={l.itemId} linha={l} />
+        ))}
+      </ul>
+
+      {/* Quem só lê a lista de cima compra 1.900 Minério de Oridecon sem saber
+          o que fazer com eles. A etapa do balcão é parte do que se leva ao
+          jogo, e é onde a composição de cada minério tem lugar. */}
+      {lista.fabricacaoAberta.length > 0 && (
+        <div className="mt-6">
+          <TituloDeSecao
+            info={
+              <Info titulo="Fabricar no balcão do NPC">
+                O que o refinador monta a partir do que você comprou. A proporção em destaque é a
+                da receita — quantas unidades de cada insumo saem uma unidade do minério — e o
+                número entre parênteses é o total desta campanha, que é o que aparece na lista de
+                compras acima.
+              </Info>
+            }
+          >
+            Fabricar no balcão do NPC
+          </TituloDeSecao>
+          <ul className="space-y-2">
+            {lista.fabricacaoAberta.map((f) => (
+              <LinhaDeFabricacao key={f.itemId} fabricacao={f} />
             ))}
-            {lista.zenyNpc > 0 && (
-              <tr>
-                <td className="py-2">Refino dos minérios (balcão do NPC)</td>
-                <td className="py-2 text-right text-suave tabular-nums">—</td>
-                <td className="py-2 text-right text-suave tabular-nums">—</td>
-                <td className="py-2 text-right tabular-nums" title={zenyExato(lista.zenyNpc)}>
-                  {zeny(lista.zenyNpc)}
-                </td>
-              </tr>
-            )}
-            {taxas > 0 && (
-              <tr>
-                <td className="py-2">Taxa do refinador</td>
-                <td className="py-2 text-right tabular-nums">
-                  {tentativas.toLocaleString('pt-BR')}
-                </td>
-                <td className="py-2 text-right text-suave tabular-nums">—</td>
-                <td className="py-2 text-right tabular-nums">{zeny(taxas)}</td>
-              </tr>
-            )}
-            {quebras > 0 && (
-              <tr className="text-perigo">
-                <td className="py-2">Reposição do item quebrado (no +0)</td>
-                <td className="py-2 text-right tabular-nums">{quebras}</td>
-                <td className="py-2 text-right tabular-nums">{zeny(plano.input.precoItem)}</td>
-                <td className="py-2 text-right tabular-nums" title={zenyExato(custoReposicao)}>
-                  {zeny(custoReposicao)}
-                </td>
-              </tr>
-            )}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-borda font-medium">
-              <td className="pt-2">Total da lista</td>
-              <td />
-              <td />
-              <td className="pt-2 text-right tabular-nums" title={zenyExato(total)}>
-                {zeny(total)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+          </ul>
+        </div>
+      )}
+
+      <Divisor />
+
+      {/* O que não é material: balcão, taxa e o item destruído. Não é lista de
+          compras — é o resto da conta —, então fica separado do que se procura
+          numa loja. */}
+      <dl className="md-corpo-m space-y-1.5">
+        {lista.zenyNpc > 0 && (
+          <LinhaDeConta rotulo="Refino dos minérios (balcão do NPC)" valor={lista.zenyNpc} />
+        )}
+        {taxas > 0 && (
+          <LinhaDeConta
+            rotulo="Taxa do refinador"
+            detalhe={`${tentativas.toLocaleString('pt-BR')} tentativas`}
+            valor={taxas}
+          />
+        )}
+        {quebras > 0 && (
+          <LinhaDeConta
+            rotulo="Reposição do item quebrado (no +0)"
+            detalhe={`${quebras}x ${zeny(plano.input.precoItem)}`}
+            valor={custoReposicao}
+            perigo
+          />
+        )}
+      </dl>
+
+      <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-borda pt-3">
+        <span className="md-titulo-m">Total da lista</span>
+        <span className="md-titulo-g text-realce tabular-nums" title={zenyExato(total)}>
+          {zeny(total)}
+        </span>
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-suave">
-        Material com receita de NPC entra desmontado: o custo dele, em toda a calculadora, é o da
-        receita (materiais + balcão) sempre que fabricar sair mais barato que comprar pronto. O
-        balcão vem somado numa linha só aqui; no desenho acima ele aparece aberto por minério, que
-        é o que diz qual deles valeria procurar pronto no mercado.
-        {plano.simulacao ? (
-          <>
-            {' '}
-            O total desta lista fica <strong className="text-texto">acima do orçamento</strong>{' '}
-            porque cada linha está no seu próprio percentil — é o preço de não faltar nada de uma vez
-            só. O orçamento é o percentil do custo total, em que a sorte de um material compensa o
-            azar de outro.
-          </>
-        ) : null}
-      </p>
     </>
+  );
+}
+
+/**
+ * Uma linha do que se compra: arte, nome, quantidade e o que ela custa.
+ *
+ * O item que TAMBÉM tem receita ganha um botão de informação com ela. Não é
+ * curiosidade: aquele item está na lista de compras justamente porque comprar
+ * saiu mais barato que fabricar pelos preços informados, e essa decisão vira do
+ * avesso se o preço mudar no dia seguinte.
+ */
+function LinhaDeCompra({ linha }: { linha: { itemId: number; qtd: number; custoUnitario: number; total: number } }) {
+  const receita = receitaDe(linha.itemId);
+
+  return (
+    <li className="flex items-center justify-between gap-3 py-2">
+      <ItemComArte
+        itemId={linha.itemId}
+        nome={
+          <span className="flex items-center gap-1">
+            {nomeDoItem(linha.itemId)}
+            {receita && (
+              <Info titulo={`Também dá para fabricar ${nomeDoItem(linha.itemId)}`}>
+                Está na lista de compras porque, pelos preços que você informou, comprar pronto sai
+                mais barato que a receita. O NPC pede{' '}
+                {receita.materiais.map((m, i) => (
+                  <span key={m.itemId}>
+                    {i > 0 ? ' + ' : ''}
+                    <strong className="text-texto">
+                      {m.qtd}x {m.nome}
+                    </strong>
+                  </span>
+                ))}
+                {receita.zeny > 0 && <> e {zenyExato(receita.zeny)} de balcão</>} por unidade.
+              </Info>
+            )}
+          </span>
+        }
+        apoio={
+          <>
+            <span className="tabular-nums">{quantidade(linha.qtd)} un.</span>
+            {' · Preço un. '}
+            <span className="tabular-nums">{zeny(linha.custoUnitario)}</span>
+          </>
+        }
+      />
+      <span className="md-corpo-m shrink-0 font-medium tabular-nums" title={zenyExato(linha.total)}>
+        {zeny(linha.total)}
+      </span>
+    </li>
+  );
+}
+
+/** Um minério montado no balcão, com a receita aberta embaixo. */
+function LinhaDeFabricacao({
+  fabricacao,
+}: {
+  fabricacao: {
+    itemId: number;
+    qtd: number;
+    zeny: number;
+    materiais: { itemId: number; nome: string; porUnidade: number; total: number }[];
+  };
+}) {
+  return (
+    <li className="rounded-xl bg-superficie-baixa p-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="flex min-w-0 items-center gap-2.5">
+          <SlotItem id={fabricacao.itemId} />
+          <span className="min-w-0">
+            <span className="md-corpo-m block font-medium text-texto">
+              <span className="tabular-nums">{quantidade(fabricacao.qtd)}x</span>{' '}
+              {nomeDoItem(fabricacao.itemId)}
+            </span>
+            <span className="md-corpo-p block text-suave">
+              {fabricacao.zeny > 0 ? (
+                <>
+                  balcão de{' '}
+                  <span className="tabular-nums" title={zenyExato(fabricacao.zeny)}>
+                    {zeny(fabricacao.zeny)}
+                  </span>
+                </>
+              ) : (
+                'o balcão não cobra por esta troca'
+              )}
+            </span>
+          </span>
+        </span>
+      </div>
+      {/* Sem o rótulo, as pastilhas ficam ambíguas: poderiam ser o que a
+          receita produz. "Pede" é a única palavra que diz a direção da troca. */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <span className="md-rotulo-p text-suave">pede</span>
+        <Composicao materiais={fabricacao.materiais} />
+      </div>
+    </li>
+  );
+}
+
+/** Um gasto que não é material: balcão, taxa, reposição. */
+function LinhaDeConta({
+  rotulo,
+  detalhe,
+  valor,
+  perigo,
+}: {
+  rotulo: string;
+  detalhe?: string;
+  valor: number;
+  perigo?: boolean;
+}) {
+  return (
+    <div className={'flex items-baseline justify-between gap-3 ' + (perigo ? 'text-perigo' : '')}>
+      <dt>
+        {rotulo}
+        {detalhe && <span className="md-corpo-p ml-1.5 text-suave">{detalhe}</span>}
+      </dt>
+      <dd className="shrink-0 tabular-nums" title={zenyExato(valor)}>
+        {zeny(valor)}
+      </dd>
+    </div>
   );
 }
 
@@ -612,37 +764,39 @@ function ehRepeticao(fases: PlanoDeFase[], i: number): boolean {
 
 function Fase({ fase, repetida }: { fase: PlanoDeFase; repetida?: boolean }) {
   return (
-    <li className="rounded-lg border border-borda bg-fundo/40 p-3">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-medium">{fase.rotulo}</h3>
-        <span className="text-sm text-suave tabular-nums" title={zenyExato(fase.custoEsperado)}>
+    <li className="rounded-xl bg-superficie-baixa p-3.5">
+      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="md-titulo-m">{fase.rotulo}</h3>
+        <span className="md-corpo-m text-suave tabular-nums" title={zenyExato(fase.custoEsperado)}>
           {zeny(fase.custoEsperado)}
         </span>
       </div>
 
       {repetida && (
-        <p className="text-sm text-suave">
+        <p className="md-corpo-m text-suave">
           Mesma sequência de minérios do preparo anterior — o Grau zerou o refino e você refaz o
           caminho.
         </p>
       )}
 
       {!repetida && fase.trechos.length > 0 && (
-        <ul className="space-y-1.5 text-sm">
+        <ul className="md-corpo-m space-y-2">
           {fase.trechos.map((t, i) => (
-            <li key={i} className="flex flex-wrap items-baseline gap-x-2">
-              <span className="w-20 shrink-0 font-mono text-xs text-suave tabular-nums">
+            <li key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="w-16 shrink-0 font-mono text-xs text-suave tabular-nums">
                 +{t.de}→+{t.para}
               </span>
+              {/* A arte do minério é o que se procura na loja e na mochila; o
+                  nome é o que se confere. Lê-lo sem ver o sprite obriga a
+                  traduzir cada passo antes de executá-lo no jogo. */}
+              <SlotItem id={t.minerioItemId} tamanho="mini" />
               <span className="font-medium">{t.minerio}</span>
-              {t.bencaos > 0 && (
-                <span className="rounded bg-ok/15 px-1.5 py-0.5 text-xs text-ok">
-                  + {t.bencaos} Bênção do Ferreiro
-                </span>
-              )}
-              <span className="text-xs text-suave">{porcento(t.chance)}</span>
+              {t.bencaos > 0 && <Pastilha tom="ok">+{t.bencaos} Bênção do Ferreiro</Pastilha>}
+              <span className="md-corpo-p text-suave tabular-nums">{porcento(t.chance)}</span>
               {t.chance < 1 && (
-                <span className={'text-xs ' + (t.arriscaQuebrar ? 'text-perigo' : 'text-suave')}>
+                <span
+                  className={'md-corpo-p ' + (t.arriscaQuebrar ? 'text-perigo' : 'text-suave')}
+                >
                   — na falha, {t.naFalha}
                 </span>
               )}
@@ -678,17 +832,25 @@ function Fase({ fase, repetida }: { fase: PlanoDeFase; repetida?: boolean }) {
   );
 }
 
+/**
+ * Um aviso, na superfície de estado do Material.
+ *
+ * O container colorido (`error-container` e parentes) existe justamente para
+ * isto: dizer a gravidade pela superfície, e não tingindo o texto — que é o que
+ * fazia um aviso de perigo inteiro ficar em vermelho sobre fundo escuro, no
+ * limite do contraste legível.
+ */
 function AvisoLinha({ aviso }: { aviso: Aviso }) {
   const cor =
     aviso.nivel === 'perigo'
-      ? 'border-perigo/40 bg-perigo/10 text-perigo'
+      ? 'bg-perigo-container text-no-perigo-container'
       : aviso.nivel === 'atencao'
-        ? 'border-atencao/40 bg-atencao/10 text-atencao'
-        : 'border-borda bg-fundo/40 text-suave';
+        ? 'bg-atencao-container text-no-atencao-container'
+        : 'bg-superficie-baixa text-suave';
   const icone = aviso.nivel === 'perigo' ? '⚠' : aviso.nivel === 'atencao' ? '!' : 'i';
 
   return (
-    <li className={`flex gap-2.5 rounded-lg border p-3 text-sm leading-relaxed ${cor}`}>
+    <li className={`md-corpo-m flex gap-2.5 rounded-xl p-3.5 ${cor}`}>
       <span aria-hidden className="shrink-0 font-bold">
         {icone}
       </span>
