@@ -424,7 +424,7 @@ export function oresFor(kind: ItemKind, from: number): Ore[] {
 /**
  * Bênção do Ferreiro (item 6635): impede a perda do item e o rebaixamento do
  * refino em caso de falha. Só funciona nas tentativas +7→+8 até +13→+14, e a
- * quantidade consumida cresce com o refino. Não acumula com Equipamentos Sombrios.
+ * quantidade consumida cresce com o refino. Não funciona com Equipamentos Sombrios.
  * Fonte: https://browiki.org/wiki/Refinamento (seção "Outros")
  */
 export const BLESSING_ITEM_ID = 6635;
