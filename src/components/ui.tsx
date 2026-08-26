@@ -215,12 +215,25 @@ export function BotaoDoPainel({
 export function Info({
   titulo,
   alinhar = 'esquerda',
+  largura = 'normal',
+  contagem,
   children,
 }: {
   /** O que está sendo explicado. Vira o cabeçalho do balão e o nome acessível. */
   titulo: string;
   /** `direita` quando o botão vive na borda direita e o balão sairia da tela. */
   alinhar?: 'esquerda' | 'direita';
+  /**
+   * `larga` para o balão que carrega uma lista, e não uma explicação. A medida
+   * estreita é boa para três linhas de texto e péssima para seis notas: vira
+   * uma coluna alta e fina que se lê pior do que o parágrafo que ela substituiu.
+   */
+  largura?: 'normal' | 'larga';
+  /**
+   * Quantas notas o balão carrega. Um ícone de ajuda promete explicação, não
+   * conteúdo — sem o número ao lado, o que está aqui dentro não é procurado.
+   */
+  contagem?: number;
   /** Só conteúdo em linha: o balão é um `<span>` e não pode conter parágrafos. */
   children: ReactNode;
 }) {
@@ -252,15 +265,19 @@ export function Info({
         type="button"
         aria-expanded={aberto}
         aria-controls={id}
-        aria-label={`O que é: ${titulo}`}
+        aria-label={
+          contagem ? `${titulo}: ${contagem} notas` : `O que é: ${titulo}`
+        }
         onClick={() => setAberto((a) => !a)}
         className={
-          'estado inline-flex size-6 shrink-0 cursor-pointer items-center justify-center ' +
+          'estado inline-flex h-6 shrink-0 cursor-pointer items-center justify-center gap-0.5 ' +
           'rounded-full text-base leading-none transition-colors duration-200 ease-padrao ' +
-          (aberto ? 'text-realce' : 'text-suave/70 hover:text-realce')
+          (contagem ? 'px-1 ' : 'w-6 ') +
+          (aberto || contagem ? 'text-realce' : 'text-suave/70 hover:text-realce')
         }
       >
         <IconeInfo />
+        {contagem ? <span className="md-rotulo-p tabular-nums">{contagem}</span> : null}
       </button>
 
       <span
@@ -268,9 +285,10 @@ export function Info({
         role="note"
         hidden={!aberto}
         className={
-          'md-corpo-p absolute top-full z-30 mt-2 w-72 max-w-[min(20rem,72vw)] rounded-xl ' +
+          'md-corpo-p absolute top-full z-30 mt-2 rounded-xl ' +
           'border border-contorno bg-camada p-3 text-left font-normal tracking-normal ' +
           'normal-case text-suave shadow-e3 ' +
+          (largura === 'larga' ? 'w-96 max-w-[min(26rem,82vw)] ' : 'w-72 max-w-[min(20rem,72vw)] ') +
           (alinhar === 'direita' ? 'right-0' : 'left-0')
         }
       >
@@ -323,43 +341,6 @@ export function Painel({
       )}
       {children}
     </section>
-  );
-}
-
-/**
- * Painel que abre e fecha, para detalhe que não precisa estar sempre na tela.
- *
- * O estado mora aqui porque é só aparência: nada do que está fechado deixa de
- * ser calculado, e reabrir não recalcula nada.
- */
-export function PainelRecolhivel({
-  titulo,
-  resumo,
-  info,
-  abreComo = 'fechado',
-  children,
-}: {
-  titulo: string;
-  /** Uma linha que responde o essencial sem precisar abrir. */
-  resumo?: ReactNode;
-  info?: ReactNode;
-  abreComo?: 'aberto' | 'fechado';
-  children: ReactNode;
-}) {
-  const [aberto, setAberto] = useState(abreComo === 'aberto');
-
-  return (
-    <Painel
-      titulo={titulo}
-      info={info}
-      aside={
-        <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
-          {aberto ? 'esconder' : 'ver detalhe'}
-        </BotaoDoPainel>
-      }
-    >
-      {aberto ? children : resumo ? <div className="md-corpo-m text-suave">{resumo}</div> : null}
-    </Painel>
   );
 }
 

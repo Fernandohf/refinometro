@@ -59,23 +59,33 @@ describe('página', () => {
   });
 
   it('põe o que muda a decisão antes do que só a explica', () => {
-    // A ordem da coluna de resultado é a ordem das perguntas: o que pode dar
-    // errado, quanto custa, o que comprar. Um aviso de perigo lido depois do
+    // A ordem da coluna de resultado é a ordem das decisões de quem joga: o que
+    // pode dar errado, quanto custa, como eu faço, no que o dinheiro vira, o
+    // que eu compro, dá com o que eu tenho. Um aviso de perigo lido depois do
     // orçamento chega tarde — ele existe justamente para desmentir o número.
     const html = renderToString(<App />);
 
     const aviso = html.indexOf('Risco de quebra do item');
     const orcamento = html.indexOf('Orçamento recomendado');
+    const estrategia = html.indexOf('Melhor estratégia');
+    const zeny = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Lista de compras');
-    const materiais = html.indexOf('Minérios e materiais');
+    const estoque = html.indexOf('Dá com o que eu tenho?');
 
     expect(aviso).toBeGreaterThan(-1);
     expect(aviso).toBeLessThan(orcamento);
-    expect(orcamento).toBeLessThan(compras);
-    // Consumo por minério é conferência: fica recolhido, atrás do resumo.
-    expect(compras).toBeLessThan(materiais);
+    // A estratégia é o que se FAZ: vem antes da lista de compras, que é
+    // derivada dela, e antes do simulador de estoque, que é conferência.
+    expect(orcamento).toBeLessThan(estrategia);
+    expect(estrategia).toBeLessThan(zeny);
+    expect(zeny).toBeLessThan(compras);
+    expect(compras).toBeLessThan(estoque);
+    // O consumo por minério é a segunda vista da lista, não um painel: nem o
+    // cabeçalho nem a coluna dele existem até alguém pedir. ("Minérios e
+    // materiais" continua na página como nome de grupo do Sankey.)
+    expect(html).not.toContain('Consumo por minério');
     expect(html).not.toContain('Ter em mãos');
-    expect(html).toContain('ver detalhe');
+    expect(html).toContain('por minério');
   });
 
   it('deixa a margem de segurança ao lado do número que ela muda', () => {
@@ -105,25 +115,33 @@ describe('página', () => {
     expect(html).toContain('divine-pride.net/database/item/1163');
   });
 
-  it('oferece a cadeia de decisões sem custar nada a quem não abre', () => {
+  it('oferece a cadeia dentro da fase, sem custar nada a quem não abre', () => {
+    // A cadeia era um painel próprio que repetia a estratégia com outra
+    // granularidade. Agora as duas leituras finas abrem dentro da fase que
+    // explicam — e continuam não custando render a quem não pede.
     const html = renderToString(<App />);
-    expect(html).toContain('A cadeia de decisões');
-    // Fechada: nem a tabela de estados nem o percurso são renderizados.
+    expect(html).not.toContain('A cadeia de decisões');
+    expect(html).toContain('ver estado por estado');
+    expect(html).toContain('Simular');
+    // Fechadas: nem a tabela de estados nem o percurso são renderizados.
     expect(html).not.toContain('Falta gastar');
-    expect(html).toContain('abrir');
+    expect(html).not.toContain('recomeçar');
   });
 
-  it('desenha o Sankey do custo dentro da lista de compras', () => {
-    // O desenho e a tabela são a mesma conta lida de dois jeitos, e ficam no
-    // mesmo painel: a proporção no diagrama, o número que se leva ao jogo na
-    // tabela.
+  it('desenha o Sankey do custo colado na lista de compras', () => {
+    // O desenho e a tabela são a mesma conta lida de dois jeitos, no mesmo
+    // percentil: são painéis vizinhos de propósito, e nessa ordem — a
+    // proporção primeiro, o que se leva ao jogo depois. Longe do orçamento,
+    // que é outro total (o percentil da soma, não a soma dos percentis).
     const html = renderToString(<App />);
-    const compras = html.indexOf('Lista de compras');
+    const orcamento = html.indexOf('Orçamento recomendado');
     const sankey = html.indexOf('Para onde vai o zeny');
+    const compras = html.indexOf('Lista de compras');
     const tabela = html.indexOf('Preço un.');
 
-    expect(sankey).toBeGreaterThan(compras);
-    expect(sankey).toBeLessThan(tabela);
+    expect(orcamento).toBeLessThan(sankey);
+    expect(sankey).toBeLessThan(compras);
+    expect(compras).toBeLessThan(tabela);
     // Os grupos por natureza do gasto, que é o que o desenho acrescenta.
     expect(html).toContain('Proteção');
     expect(html).toContain('Reposição do item');
