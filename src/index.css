@@ -21,6 +21,20 @@
   --color-superficie-alta: oklch(0.265 0.024 265); /* surface-container-high */
   --color-superficie-topo: oklch(0.3 0.026 265); /* surface-container-highest */
 
+  /*
+    Camada temporária: o balão de ajuda e a lista da busca — o que abre POR CIMA
+    de um painel e some no clique seguinte.
+
+    Tem tom próprio, acima de surface-container-highest, porque a escada das
+    superfícies é calibrada para painéis lado a lado sobre o fundo, e ali um
+    degrau de tom basta. Sobre um painel não bastava: o balão ficava a 1,25:1 do
+    cartão embaixo dele — separação que o olho não vê, e por isso a camada
+    parecia ter fundo transparente, com o texto de trás disputando a leitura.
+    Vale o contorno FORTE junto com ela: no escuro o tom sozinho não recorta uma
+    borda, e a sombra do Material é preta sobre preto.
+  */
+  --color-camada: oklch(0.36 0.028 265);
+
   /* Conteúdo sobre superfície. */
   --color-texto: oklch(0.93 0.01 265); /* on-surface */
   --color-suave: oklch(0.755 0.02 265); /* on-surface-variant */

@@ -154,7 +154,7 @@ export function BuscaItem({
               id={listaId}
               ref={lista}
               role="listbox"
-              className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl bg-superficie-alta py-1 shadow-e3"
+              className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-contorno bg-camada py-1 shadow-e3"
             >
               {resultados.map((item, i) => (
                 <li
@@ -188,7 +188,7 @@ export function BuscaItem({
           )}
 
           {focado && !mostrarLista && termo.trim().length >= 2 && (
-            <p className="md-corpo-p absolute z-10 mt-1 w-full rounded-xl bg-superficie-alta px-3 py-2.5 text-suave shadow-e3">
+            <p className="md-corpo-p absolute z-10 mt-1 w-full rounded-xl border border-contorno bg-camada px-3 py-2.5 text-suave shadow-e3">
               {carregando
                 ? 'Carregando a base do Divine Pride…'
                 : 'Nenhum item com esse nome. A base cobre armas, equipamentos e sombrios do LATAM — acessórios comuns e visuais ficam de fora porque não refinam.'}

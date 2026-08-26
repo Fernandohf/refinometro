@@ -269,7 +269,7 @@ export function Info({
         hidden={!aberto}
         className={
           'md-corpo-p absolute top-full z-30 mt-2 w-72 max-w-[min(20rem,72vw)] rounded-xl ' +
-          'border border-borda bg-superficie-topo p-3 text-left font-normal tracking-normal ' +
+          'border border-contorno bg-camada p-3 text-left font-normal tracking-normal ' +
           'normal-case text-suave shadow-e3 ' +
           (alinhar === 'direita' ? 'right-0' : 'left-0')
         }
