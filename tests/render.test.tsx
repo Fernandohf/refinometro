@@ -2,6 +2,10 @@ import { describe, expect, it, beforeAll } from 'vitest';
 import { renderToString } from 'react-dom/server';
 
 import App from '../src/App';
+import { CurvaDeCusto } from '../src/components/CurvaDeCusto';
+import { DEFAULT_PRICES } from '../src/data/defaultPrices';
+import { calcular } from '../src/engine/plan';
+import type { CalcInput } from '../src/engine/types';
 
 // O App lê preferências salvas já no inicializador do useState, antes de
 // qualquer efeito, então o teste precisa de um localStorage antes de renderizar.
@@ -179,6 +183,61 @@ describe('página', () => {
     expect(html).toContain('cobre 90% delas');
     // E a cauda que não cabe na escala é dita, não cortada em silêncio.
     expect(html).toContain('O bloco solto na ponta é a cauda');
+  });
+
+  it('só alisa a curva de custo onde o serrilhado é ruído de amostragem', () => {
+    // Duas doenças com o mesmo sintoma. Num alvo caro as faixas se encostam e o
+    // serrilhado é erro de amostragem — 5 mil campanhas em 48 faixas dão ~10%
+    // de ruído em cada uma. Num alvo barato os degraus SÃO o dado: no +7 os
+    // custos se juntam em blocos de 31,66 mi, o preço de repor o item, e o vão
+    // entre dois blocos é custo que não pode acontecer. Alisar o segundo caso
+    // desenharia uma rampa contínua por cima de valores impossíveis.
+    const traco = (refinoAlvo: number) => {
+      const input: CalcInput = {
+        kind: 'w4',
+        precoItem: 30_000_000,
+        refinoAtual: 0,
+        refinoAlvo,
+        grauAtual: 'none',
+        grauAlvo: 'none',
+        evento: false,
+        precos: DEFAULT_PRICES,
+        usarBencaoFerreiro: true,
+        usarMineriosEspeciais: true,
+        perdaAceitavel: true,
+      };
+      const r = calcular(input);
+      const c = r.simulacao!.custo;
+      const html = renderToString(
+        <CurvaDeCusto
+          amostras={r.simulacao!.amostras.custo}
+          media={r.custoEsperado}
+          escolhida={{ rotulo: '90%', chance: 0.9, valor: c.p90 }}
+          margens={[c.p50, c.p75, c.p90, c.p95, c.p99]}
+        />,
+      );
+      return { html, ds: [...html.matchAll(/ d="([^"]+)"/g)].map((m) => m[1]!) };
+    };
+
+    const barato = traco(7);
+    const caro = traco(11);
+
+    // O `Q` é a assinatura da curva: quadrática, e não escada.
+    expect(caro.ds.some((d) => d.includes('Q'))).toBe(true);
+    expect(barato.ds.some((d) => d.includes('Q'))).toBe(false);
+    // E onde os degraus ficam, a legenda diz de onde eles vêm.
+    expect(barato.html).toContain('Os degraus separados são os itens destruídos');
+    expect(caro.html).not.toContain('Os degraus separados');
+
+    // Quadrática nunca sai do triângulo dos seus pontos: nenhum traço pode
+    // estourar acima do pico nem mergulhar abaixo do eixo entre duas faixas.
+    for (const d of [...barato.ds, ...caro.ds]) {
+      expect(d).not.toMatch(/NaN|Infinity|undefined/);
+      for (const [, y] of d.matchAll(/[-\d.]+,([-\d.]+)/g)) {
+        expect(Number(y)).toBeGreaterThanOrEqual(28);
+        expect(Number(y)).toBeLessThanOrEqual(98);
+      }
+    }
   });
 
   it('credita todas as fontes, cada uma dizendo o que fornece', () => {

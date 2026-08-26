@@ -218,6 +218,12 @@ export function CurvaDeCusto({
         Cada faixa é a fatia das campanhas simuladas que custou aquilo. A área acesa vai até o
         orçamento escolhido: são {porcento(escolhida.chance)} das campanhas, e é exatamente isso que
         a margem compra.{' '}
+        {!curva.alisada && (
+          <>
+            Os degraus separados são os itens destruídos: cada quebra soma o preço de um item de uma
+            vez só, e os custos que ficam no vão entre um degrau e o seguinte não acontecem.{' '}
+          </>
+        )}
         {curva.cauda > 0 ? (
           <>
             O bloco solto na ponta é a cauda — {porcento(curva.cauda, 1)} das campanhas passam de{' '}
@@ -239,7 +245,40 @@ interface Histograma {
   pico: number;
   /** Fração das campanhas acima do limite da escala. */
   cauda: number;
+  /** `true` quando as faixas foram alisadas — ver `VAZIAS_PARA_ALISAR`. */
+  alisada: boolean;
 }
+
+/**
+ * Quanta faixa vazia ainda passa por distribuição contínua.
+ *
+ * Custo de campanha não é contínuo: cada item destruído soma o preço de um item
+ * de uma vez só, então o custo se junta em blocos — "não quebrou nenhum",
+ * "quebrou um", "quebrou dois" — separados por valores que simplesmente não
+ * acontecem. Num alvo barato os blocos são estreitos e o vão entre eles é
+ * enorme: no +7 de uma arma nível 4, 30 das 48 faixas ficam vazias e o desenho
+ * vira uma cerca de estacas. Num alvo caro os blocos se encavalam até virar uma
+ * curva de verdade — do +8 para cima medi no máximo três faixas vazias, e ainda
+ * assim lá na cauda.
+ *
+ * O corte separa os dois casos com uma folga larga: 6% de faixas vazias de um
+ * lado, 63% do outro. Ele decide se cabe alisar, e a distinção importa: no caso
+ * denso o serrilhado é ruído de amostragem e alisar não perde nada; no caso
+ * ralo os degraus SÃO a informação, e alisar desenharia uma rampa contínua por
+ * cima de custos impossíveis.
+ */
+const VAZIAS_PARA_ALISAR = 0.15;
+
+/**
+ * Passadas do filtro [1,2,1] sobre as faixas.
+ *
+ * São 5 mil campanhas guardadas em 48 faixas — umas 100 por faixa no meio da
+ * distribuição, o que dá cerca de 10% de erro de amostragem em cada uma. Esse é
+ * o serrilhado que se vê. Cada passada corta o ruído em ~0,61; duas deixam em
+ * torno de 4%, borrando só a escala de duas faixas, onde a distribuição não tem
+ * nenhum detalhe real a perder.
+ */
+const PASSADAS = 2;
 
 function histograma(amostras: Float64Array, limite: number): Histograma {
   const faixas = new Float64Array(N_FAIXAS);
@@ -255,33 +294,102 @@ function histograma(amostras: Float64Array, limite: number): Histograma {
   }
 
   const total = Math.max(1, amostras.length);
-  let pico = 0;
+  let vazias = 0;
   for (let i = 0; i < N_FAIXAS; i++) {
+    if (faixas[i] === 0) vazias++;
     faixas[i]! /= total;
-    if (faixas[i]! > pico) pico = faixas[i]!;
   }
 
-  return { faixas, pico: pico || 1, cauda: cauda / total };
+  // Contadas ANTES de alisar: depois de uma passada quase nenhuma faixa é zero,
+  // e o teste não teria mais o que medir.
+  const alisada = vazias / N_FAIXAS < VAZIAS_PARA_ALISAR;
+  if (alisada) for (let p = 0; p < PASSADAS; p++) alisar(faixas);
+
+  let pico = 0;
+  for (let i = 0; i < N_FAIXAS; i++) if (faixas[i]! > pico) pico = faixas[i]!;
+
+  return { faixas, pico: pico || 1, cauda: cauda / total, alisada };
 }
 
 /**
- * O contorno do histograma em degraus, e não numa curva suavizada.
+ * Uma passada do filtro [1,2,1] sobre as faixas, no lugar.
  *
- * Suavizar inventaria valores dentro de cada faixa: a amostragem não sabe o que
- * acontece lá dentro, e a escada é o que ela de fato mediu.
+ * Nas pontas a faixa de fora repete a de dentro em vez de valer zero. Tratá-la
+ * como zero jogaria massa para fora do desenho e afundaria justamente a primeira
+ * faixa — que é onde mora o piso, o custo da campanha em que nada deu errado.
  */
-function caminhos({ faixas, pico }: Histograma): { area: string; linha: string } {
-  const passo = X_LIMITE / N_FAIXAS;
-  const y = (f: number) => (BASE - (f / pico) * (BASE - TOPO)).toFixed(2);
-
-  let degraus = '';
-  for (let i = 0; i < N_FAIXAS; i++) {
-    const altura = y(faixas[i]!);
-    degraus += ` L${(i * passo).toFixed(2)},${altura} L${((i + 1) * passo).toFixed(2)},${altura}`;
+function alisar(faixas: Float64Array) {
+  let anterior = faixas[0]!;
+  for (let i = 0; i < faixas.length; i++) {
+    const atual = faixas[i]!;
+    const proxima = faixas[i + 1] ?? atual;
+    faixas[i] = (anterior + 2 * atual + proxima) / 4;
+    anterior = atual;
   }
+}
 
+/**
+ * O contorno do histograma: curva onde a amostragem é densa, degraus onde não é.
+ *
+ * A escada é o que a amostragem de fato mediu, e onde os degraus são grandes ela
+ * é a única leitura honesta — cada bloco é um item destruído a mais, e o vão
+ * entre dois blocos é custo que não pode acontecer. Arredondar aquilo inventaria
+ * valores impossíveis no lugar da estrutura mais importante de um alvo barato.
+ *
+ * Já onde as faixas se encostam, o serrilhado que sobra não é a distribuição:
+ * é o erro de amostragem das 5 mil campanhas guardadas. Ali a escada desenha
+ * ruído com a mesma tinta com que desenha a forma, e a curva mostra melhor o que
+ * foi medido. `VAZIAS_PARA_ALISAR` decide em qual dos dois casos estamos.
+ */
+function caminhos({ faixas, pico, alisada }: Histograma): { area: string; linha: string } {
+  const passo = X_LIMITE / N_FAIXAS;
+  const y = (f: number) => BASE - (f / pico) * (BASE - TOPO);
+  const corpo = alisada ? curva(faixas, passo, y) : degraus(faixas, passo, y);
+
+  // O corpo começa com um `L` até (0, altura da primeira faixa): partindo da
+  // base ele fecha o flanco esquerdo da área, e partindo do próprio ponto não
+  // desenha nada. Um corpo só serve às duas.
   return {
-    area: `M0,${BASE}${degraus} L${X_LIMITE},${BASE} Z`,
-    linha: `M0,${y(faixas[0]!)}${degraus}`,
+    area: `M0,${BASE}${corpo} L${X_LIMITE},${BASE} Z`,
+    linha: `M0,${y(faixas[0]!).toFixed(2)}${corpo}`,
   };
+}
+
+function degraus(faixas: Float64Array, passo: number, y: (f: number) => number): string {
+  let d = '';
+  for (let i = 0; i < N_FAIXAS; i++) {
+    const altura = y(faixas[i]!).toFixed(2);
+    d += ` L${(i * passo).toFixed(2)},${altura} L${((i + 1) * passo).toFixed(2)},${altura}`;
+  }
+  return d;
+}
+
+/**
+ * A mesma contagem, ligada por quadráticas em vez de cantos retos.
+ *
+ * Cada faixa vira um ponto no seu meio — é ali que a contagem dela vale — e a
+ * curva passa pelos meios-caminhos entre pontos vizinhos, usando o próprio ponto
+ * como controle. Uma quadrática nunca sai do triângulo dos seus três pontos, e
+ * é isso que segura o desenho: a curva não pode estourar acima do pico nem
+ * mergulhar abaixo de zero entre duas faixas, que é o defeito clássico de
+ * suavizar histograma com spline.
+ */
+function curva(faixas: Float64Array, passo: number, y: (f: number) => number): string {
+  const xs = [0];
+  const ys = [y(faixas[0]!)];
+  for (let i = 0; i < N_FAIXAS; i++) {
+    xs.push((i + 0.5) * passo);
+    ys.push(y(faixas[i]!));
+  }
+  // Âncoras nas bordas: sem elas a meia-faixa de cada ponta ficaria de fora e a
+  // área não fecharia rente ao eixo.
+  xs.push(X_LIMITE);
+  ys.push(y(faixas[N_FAIXAS - 1]!));
+
+  const n = (v: number) => v.toFixed(2);
+  let d = ` L${n(xs[0]!)},${n(ys[0]!)}`;
+  for (let i = 1; i < xs.length - 1; i++) {
+    d += ` Q${n(xs[i]!)},${n(ys[i]!)} ${n((xs[i]! + xs[i + 1]!) / 2)},${n((ys[i]! + ys[i + 1]!) / 2)}`;
+  }
+  return d + ` L${n(xs[xs.length - 1]!)},${n(ys[ys.length - 1]!)}`;
 }
