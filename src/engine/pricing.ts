@@ -99,6 +99,31 @@ export interface FabricacaoLinha {
   zeny: number;
 }
 
+/**
+ * A mesma fabricação, com a receita aberta: o que entra para sair o minério.
+ *
+ * `FabricacaoLinha` responde "quanto o balcão cobrou"; esta responde "o que o
+ * NPC pede em troca". É o que a lista de compras precisa para mostrar a
+ * composição de um item ao lado dele — sem isso, quem lê a lista vê 1.900
+ * Minério de Oridecon e não tem como saber que aquilo vira os 380 Oridecon do
+ * plano.
+ */
+export interface FabricacaoAberta extends FabricacaoLinha {
+  materiais: {
+    itemId: number;
+    nome: string;
+    /** Quantas unidades a receita pede para produzir UMA do item. */
+    porUnidade: number;
+    /** O total consumido: `porUnidade x qtd`. */
+    total: number;
+  }[];
+}
+
+/** A receita de NPC de um item, quando existe uma. */
+export function receitaDe(itemId: number): { zeny: number; materiais: MaterialCost[] } | null {
+  return RECIPES.get(itemId) ?? null;
+}
+
 export interface ListaDeCompras {
   /** Só o que se compra de fato — os intermediários já vêm desmontados. */
   compras: CompraLinha[];
@@ -110,6 +135,15 @@ export interface ListaDeCompras {
    * e uma linha de 0z só ocuparia espaço.
    */
   fabricacao: FabricacaoLinha[];
+  /**
+   * Toda etapa de fabricação, de balcão pago ou não, com a receita aberta.
+   *
+   * É a lista que a tela usa para mostrar a composição de cada minério. Inclui
+   * as receitas de 0z que `fabricacao` omite justamente porque elas existem: o
+   * jogador ainda precisa saber que os 1.900 Minério de Oridecon da lista viram
+   * 380 Oridecon no NPC, mesmo que a transformação seja de graça.
+   */
+  fabricacaoAberta: FabricacaoAberta[];
   /** Compras + balcão do NPC. Não inclui taxa de refino nem itens quebrados. */
   total: number;
 }
@@ -142,12 +176,10 @@ export function listaDeCompras(
       return;
     }
     zenyNpc += receita.zeny * qtd;
-    if (receita.zeny > 0) {
-      const acc = fabricados.get(itemId) ?? { qtd: 0, zeny: 0 };
-      acc.qtd += qtd;
-      acc.zeny += receita.zeny * qtd;
-      fabricados.set(itemId, acc);
-    }
+    const acc = fabricados.get(itemId) ?? { qtd: 0, zeny: 0 };
+    acc.qtd += qtd;
+    acc.zeny += receita.zeny * qtd;
+    fabricados.set(itemId, acc);
     for (const mat of receita.materiais) expandir(mat.itemId, mat.qtd * qtd, profundidade + 1);
   };
 
@@ -160,12 +192,32 @@ export function listaDeCompras(
     })
     .sort((a, b) => b.total - a.total || b.qtd - a.qtd);
 
-  const fabricacao: FabricacaoLinha[] = [...fabricados]
-    .map(([itemId, a]) => ({ itemId, qtd: a.qtd, zeny: a.zeny }))
+  const fabricacaoAberta: FabricacaoAberta[] = [...fabricados]
+    .map(([itemId, a]) => ({
+      itemId,
+      qtd: a.qtd,
+      zeny: a.zeny,
+      materiais: (RECIPES.get(itemId)?.materiais ?? []).map((mat) => ({
+        itemId: mat.itemId,
+        nome: mat.nome,
+        porUnidade: mat.qtd,
+        total: mat.qtd * a.qtd,
+      })),
+    }))
+    // Pela quantidade fabricada, e não pelo balcão: a de balcão zerado é tão
+    // parte do preparo quanto as outras, e ordenar por zeny a jogaria para o
+    // fim mesmo sendo a maior transformação da lista.
+    .sort((a, b) => b.qtd - a.qtd);
+
+  // Só o balcão pago vira linha de custo. Transformar 5 Minério de Oridecon em
+  // 1 Oridecon é de graça, e uma linha de 0z no diagrama só ocuparia espaço.
+  const fabricacao: FabricacaoLinha[] = fabricacaoAberta
+    .filter((f) => f.zeny > 0)
+    .map(({ itemId, qtd, zeny }) => ({ itemId, qtd, zeny }))
     .sort((a, b) => b.zeny - a.zeny);
 
   const total = linhas.reduce((s, l) => s + l.total, 0) + zenyNpc;
-  return { compras: linhas, zenyNpc, fabricacao, total };
+  return { compras: linhas, zenyNpc, fabricacao, fabricacaoAberta, total };
 }
 
 /** Custo de uma unidade de minério, pela via mais barata. */

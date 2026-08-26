@@ -10,7 +10,7 @@ import {
 } from '../data/items';
 import { rotuloCurto } from '../data/rotulos';
 import { SlotItem } from './ItemNoJogo';
-import { Campo } from './ui';
+import { Campo, Info, Pastilha } from './ui';
 import { dataBR } from '../format';
 
 /**
@@ -109,11 +109,20 @@ export function BuscaItem({
       <Campo
         label="Buscar item"
         dica={
-          selecionado
-            ? `Selecionado: ${selecionado}`
-            : erro
-              ? 'Não deu para carregar a base — escolha a categoria abaixo.'
-              : `${META.total.toLocaleString('pt-BR')} itens do Divine Pride (${META.servidor}), varridos em ${dataBR(META.geradoEm)}.`
+          <>
+            {META.total.toLocaleString('pt-BR')} itens do Divine Pride (servidor {META.servidor}),
+            varridos em {dataBR(META.geradoEm)}. A busca serve só para descobrir a{' '}
+            <strong className="text-texto">categoria de refino</strong> do equipamento — é a única
+            coisa que o cálculo precisa saber sobre ele. Sem achar o seu item, escolha a categoria
+            no campo abaixo.
+          </>
+        }
+        apoio={
+          erro ? (
+            <span className="text-atencao">
+              Não deu para carregar a base — escolha a categoria abaixo.
+            </span>
+          ) : undefined
         }
       >
         <div className="relative">
@@ -124,7 +133,7 @@ export function BuscaItem({
             aria-controls={listaId}
             aria-autocomplete="list"
             aria-activedescendant={ativo >= 0 ? `${listaId}-${ativo}` : undefined}
-            className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-texto outline-none focus:border-realce focus:ring-1 focus:ring-realce"
+            className="w-full rounded-lg border border-contorno bg-fundo px-3 py-2.5 text-texto outline-none transition-[border-color,box-shadow] duration-200 ease-padrao hover:border-texto focus:border-realce focus:shadow-[inset_0_0_0_1px_var(--color-realce)]"
             placeholder="Ex.: Luva de Segurança"
             value={termo}
             onChange={(ev) => {
@@ -145,7 +154,7 @@ export function BuscaItem({
               id={listaId}
               ref={lista}
               role="listbox"
-              className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-borda bg-painel shadow-lg"
+              className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl bg-superficie-alta py-1 shadow-e3"
             >
               {resultados.map((item, i) => (
                 <li
@@ -153,12 +162,12 @@ export function BuscaItem({
                   id={`${listaId}-${i}`}
                   role="option"
                   aria-selected={i === ativo}
-                  className={i === ativo ? 'bg-fundo' : undefined}
+                  className={i === ativo ? 'bg-realce-container/40' : undefined}
                 >
                   <button
                     type="button"
                     tabIndex={-1}
-                    className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-sm hover:bg-fundo"
+                    className="estado flex w-full cursor-pointer items-center justify-between gap-2 px-2.5 py-2 text-left text-sm"
                     onMouseEnter={() => setAtivo(i)}
                     onClick={() => escolher(item)}
                   >
@@ -179,7 +188,7 @@ export function BuscaItem({
           )}
 
           {focado && !mostrarLista && termo.trim().length >= 2 && (
-            <p className="absolute z-10 mt-1 w-full rounded-lg border border-borda bg-painel px-3 py-2 text-xs text-suave shadow-lg">
+            <p className="md-corpo-p absolute z-10 mt-1 w-full rounded-xl bg-superficie-alta px-3 py-2.5 text-suave shadow-e3">
               {carregando
                 ? 'Carregando a base do Divine Pride…'
                 : 'Nenhum item com esse nome. A base cobre armas, equipamentos e sombrios do LATAM — acessórios comuns e visuais ficam de fora porque não refinam.'}
@@ -188,23 +197,32 @@ export function BuscaItem({
         </div>
       </Campo>
 
-      {idSelecionado !== null && (
-        <p className="mt-2 text-xs text-suave">
-          Categoria e slots vindos da ficha no{' '}
-          <a
-            className="text-realce hover:underline"
-            href={fichaNoDivinePride(idSelecionado)}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            Divine Pride
-          </a>{' '}
-          (#{idSelecionado}). Confira se bate com o item no jogo.
-        </p>
+      {selecionado && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Pastilha tom="realce" titulo="Item escolhido na busca">
+            <SlotItem id={idSelecionado} tamanho="mini" />
+            {selecionado}
+          </Pastilha>
+          {idSelecionado !== null && (
+            <Info titulo="De onde vem esta ficha">
+              Categoria e slots vêm da ficha no{' '}
+              <a
+                className="text-realce hover:underline"
+                href={fichaNoDivinePride(idSelecionado)}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Divine Pride (#{idSelecionado})
+              </a>
+              , que é datamine do cliente do jogo. Confira se bate com o item que você tem em mãos —
+              a calculadora usa a ficha só para escolher a tabela de chances.
+            </Info>
+          )}
+        </div>
       )}
 
       {recusado?.naoRefinavel && (
-        <p className="mt-2 rounded-lg border border-atencao/40 bg-atencao/10 p-2.5 text-xs leading-relaxed text-atencao">
+        <p className="md-corpo-p mt-2 rounded-lg bg-atencao-container p-2.5 text-no-atencao-container">
           <strong>{recusado.nome}</strong> não pode ser refinado.{' '}
           {motivoLegivel(recusado.naoRefinavel)}
         </p>

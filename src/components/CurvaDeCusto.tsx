@@ -1,6 +1,7 @@
 import { useId, useMemo } from 'react';
 
 import { porcento, zeny, zenyExato } from '../format';
+import { Info } from './ui';
 
 /**
  * Largura do desenho em unidades do viewBox. O SVG é responsivo — o número só
@@ -77,7 +78,7 @@ export function CurvaDeCusto({
   // nada; a frase diz.
   if (limite <= 0 || amostras.length === 0 || limite <= piso) {
     return (
-      <p className="mt-4 text-xs leading-relaxed text-suave">
+      <p className="md-corpo-p mt-4 text-suave">
         Não há distribuição a desenhar: neste alvo nenhuma tentativa pode falhar, então toda
         campanha custa os mesmos {zenyExato(limite)}. A margem de segurança só tem o que fazer
         quando existe azar.
@@ -214,24 +215,31 @@ export function CurvaDeCusto({
         </g>
       </svg>
 
-      <figcaption className="mt-1 text-xs leading-relaxed text-suave">
-        Cada faixa é a fatia das campanhas simuladas que custou aquilo. A área acesa vai até o
-        orçamento escolhido: são {porcento(escolhida.chance)} das campanhas, e é exatamente isso que
-        a margem compra.{' '}
-        {!curva.alisada && (
-          <>
-            Os degraus separados são os itens destruídos: cada quebra soma o preço de um item de uma
-            vez só, e os custos que ficam no vão entre um degrau e o seguinte não acontecem.{' '}
-          </>
-        )}
-        {curva.cauda > 0 ? (
-          <>
-            O bloco solto na ponta é a cauda — {porcento(curva.cauda, 1)} das campanhas passam de{' '}
-            {zeny(limite)}, algumas muito além, e é ela que puxa a média para a direita da mediana.
-          </>
-        ) : (
-          <>É a cauda à direita que puxa a média para longe da mediana.</>
-        )}
+      {/* A legenda explica o desenho, e um desenho explicado uma vez fica
+          explicado. Impressa, ela ocupava mais altura que o gráfico — e o
+          gráfico é que responde a pergunta. */}
+      <figcaption className="md-corpo-p mt-1 flex items-center gap-1 text-suave">
+        A área acesa cobre {porcento(escolhida.chance)} das campanhas simuladas.
+        <Info titulo="Como ler esta curva">
+          Cada faixa é a fatia das campanhas simuladas que custou aquilo. A área acesa vai até o
+          orçamento escolhido: são {porcento(escolhida.chance)} das campanhas, e é exatamente isso
+          que a margem compra.{' '}
+          {!curva.alisada && (
+            <>
+              Os degraus separados são os itens destruídos: cada quebra soma o preço de um item de
+              uma vez só, e os custos que ficam no vão entre um degrau e o seguinte não acontecem.{' '}
+            </>
+          )}
+          {curva.cauda > 0 ? (
+            <>
+              O bloco solto na ponta é a cauda — {porcento(curva.cauda, 1)} das campanhas passam de{' '}
+              {zeny(limite)}, algumas muito além, e é ela que puxa a média para a direita da
+              mediana.
+            </>
+          ) : (
+            <>É a cauda à direita que puxa a média para longe da mediana.</>
+          )}
+        </Info>
       </figcaption>
     </figure>
   );
