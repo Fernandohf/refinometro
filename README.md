@@ -197,11 +197,13 @@ Sem abrir o navegador:
 npm run demo     # imprime planos de exemplo por extenso
 npm run perf     # mede os dois passes e calibra TENTATIVAS_POR_MS
 npm run buscar -- "Espingarda"   # procura itens no Divine Pride
+npm run precos   # cota os materiais de refino no mercado do LATAM
 ```
 
 O `--` antes dos argumentos é obrigatório nos scripts que recebem parâmetros (`buscar`,
-`item`): sem ele o npm engole o resto da linha. `demo` e `perf` rodam offline; `buscar` e
-`item` falam com o Divine Pride e precisam de conexão.
+`item`, `precos`): sem ele o npm engole o resto da linha. `demo` e `perf` rodam offline;
+`buscar` e `item` falam com o Divine Pride, `precos` fala com o site do LATAM, e os três
+precisam de conexão.
 
 Os comandos que atualizam os dados versionados (`data:fetch`, `data:parse`, `data:items`, `item`) estão
 descritos em [Dados](#dados) — não são necessários para rodar o site.
@@ -226,7 +228,11 @@ de cima, e a discordância vira um aviso na tela em vez de sumir na conta.
    dizem nada, e o que vier de lá fica marcado como não confirmado no LATAM. Não é fonte para
    contradizer o Browiki.
 
-Nada de preço vem de fonte nenhuma: cotação é do jogador, sempre.
+Preço tem uma quarta fonte, de outra natureza: a
+[consulta de preço de mercado](https://ro.gnjoylatam.com/pt/intro/shop-search/market-price) do
+site oficial, que publica o histórico de transações das lojas de jogador. Ela não decide nada no
+cálculo — a cotação que entra na conta é a sua, sempre. Ela decide o número que está no campo
+antes de você digitar o seu, e é atualizada por `npm run precos`. Ver [Preços](#preços).
 
 Hoje só um número está no nível 3 — a taxa que o refinador cobra por tentativa, que nenhuma
 fonte do LATAM publica. Na base de itens, o **nome** é sempre o do LATAM (item sem tradução nem
@@ -306,7 +312,7 @@ arma nv5. Quando o plano aposta nisso, um aviso aparece; falta confirmar in-game
 
 A base de itens serve só para descobrir a categoria do equipamento (Arma nv1–5, Equipamento
 nv1–2, Sombrio) e se ele é refinável — é a única coisa que o cálculo precisa saber sobre o
-item. O preço continua sendo informado à mão: o Divine Pride não guarda cotação.
+item. Preço não sai daqui: o Divine Pride não guarda cotação — ver [Preços](#preços).
 
 Os dados vêm da **página pública**, que não exige chave e já traz o nome em português do
 servidor LATAM. A base inteira é varrida e versionada em `src/data/items.json`:
@@ -452,10 +458,134 @@ visual de cabeça no Topo continua não refinando.
 ### Preços
 
 Os preços de minérios são de mercado e mudam por servidor e por semana, então são
-informados por você na interface e ficam salvos no navegador. Os valores que vêm
-preenchidos em `src/data/defaultPrices.ts` **não têm fonte** e nem poderiam ter: são um chute de
-ordem de grandeza para o campo não vir vazio. Trocá-los pelo que você está vendo no jogo é o que
-faz o resultado valer alguma coisa.
+informados por você na interface e ficam salvos no navegador. Trocá-los pelo que você está
+vendo no jogo é o que faz o resultado valer alguma coisa — nada abaixo muda isso.
+
+O que muda é a qualidade do palpite que já vem no campo. O site oficial publica o **histórico
+de transações** das lojas de jogador, por servidor e por janela de 1, 7 ou 30 dias:
+
+```bash
+npm run precos                        # FREYA, média de 30 dias conferida contra a de 7
+npm run precos -- --servidor=NIDHOGG  # NIDHOGG ou YGGDRASIL
+npm run precos -- --tolerancia=2      # aceitar mais divergência entre as janelas
+npm run precos -- --simular           # mostra a tabela e não grava
+```
+
+A tabela marca cada linha com a origem: `ok` e `~` vieram da média das janelas, `med` da mediana
+ponderada, e `!!`, `?` e `—` foram recusados.
+
+```bash
+```
+
+O script regrava `src/data/precos.json`, que é de onde os preços saem. `defaultPrices.ts` lê esse
+arquivo e o aplica por cima de uma tabela de chutes escritos à mão — a cotação vence onde existe,
+o chute cobre o resto. O rodapé do site credita a fonte, o servidor e a data da última execução.
+
+Duas datas, de propósito. `_geradoEm` é quando o script rodou; `cotadoEm`, por item, pode ser mais
+antiga — item que ninguém negociou nesta semana **mantém a cotação boa da semana passada** em vez
+de sumir, e é a data velha que denuncia isso. Cada linha guarda também o volume que sustentou o
+número e de onde ele veio:
+
+```json
+[6635, 3770000, "2026-08-26", 112146, "janelas"]
+[6223,    1990, "2026-08-26",   1116, "mediana"]
+```
+
+Duas travas antes de gravar: se mais de um quarto das consultas falhar, ou se menos de oito
+cotações passarem na conferência, o script sai com erro e preserva o arquivo. É o modo de falha
+que a varredura do Divine Pride já mostrou — o site muda, o parser passa a devolver vazio, nada
+estoura, e o commit grava a base zerada. Aqui seria pior: uma tabela vazia não parece quebrada,
+parece mercado parado.
+
+A página é Next.js e o resultado vem no payload do React Server Components, remontado a partir
+dos pedaços de `self.__next_f.push` — não há API pública, e as Server Actions dependem de um id
+de build que muda a cada deploy. `scripts/latam.ts` faz a leitura; `tests/mercadoLatam.test.ts`
+trava o formato contra uma cópia congelada do payload, e `tests/precos.test.ts` confere o arquivo
+gerado.
+
+Os testes do motor **não** usam esses preços: usam os congelados de `tests/precosFixos.ts`. Boa
+parte das asserções é sobre a forma do plano, e várias dessas escolhas se decidem na margem —
+com a primeira cotação real o Oridecon foi de 20.000 para 21.100, passou a compensar fabricá-lo a
+partir do minério, e a lista de compras mudou de item. O motor estava certo; o teste é que não
+podia depender de uma venda em Prontera.
+
+#### Por que a média de 30 dias não é copiada direto
+
+O site publica `avgItemPrice`, e a tentação é usá-lo como está. É média aritmética crua sobre a
+janela, sem descarte de extremo: em item líquido isso é inofensivo, em item raso uma venda solta
+decide o número sozinha. Medido em 26/08/2026, em FREYA:
+
+| item | transações (30d) | média 7d | média 30d | |
+| --- | ---: | ---: | ---: | --- |
+| Oridecon | 82.899 | 22.113 | 21.145 | estável |
+| Bênção do Ferreiro | 112.514 | 3.159.391 | 3.774.213 | estável |
+| Carnium | 1.101 | 8.821 | 495.977 | 56x |
+| Minério de Oridecon | 2.141 | 3.030 | 32.931 | 11x |
+
+O Minério de Oridecon a 32.931 é impossível: cinco minérios viram um Oridecon, que sai a 21.145.
+Uma venda a 4.000.000 — o `max` do período — puxou a média sozinha, e o chute que já estava no
+arquivo, 4.000, era mais honesto que a "média de 30 dias" do site.
+
+Daí a regra: a média de 30 dias só é aceita se a de 7 concordar com ela dentro da tolerância.
+Não é sofisticado, mas separa preço de anedota.
+
+#### A segunda opinião: mediana ponderada pelo volume
+
+O que a regra acima recusa não vira chute direto — ganha uma segunda chance. O site guarda um
+**histórico dia a dia** com min, máx, média e o volume de cada dia. Com o volume dá para perguntar
+outra coisa: *em que preço metade das unidades foi negociada*. O Carnium, dia a dia:
+
+```
+08-22   1.991    339 unidades
+08-09     855    317 unidades
+08-24   3.599     73 unidades
+08-16   10.000.000   3 unidades   <-
+08-10    6.000.000   1 unidade    <-
+```
+
+O preço real é ~2.000. As vendas milionárias, de uma a três unidades, são o que produzia a média
+de 495.977. A mediana ponderada não escolhe janela nem descarta nada à mão — ela simplesmente não
+enxerga o extremo, porque ele não é onde está a metade do volume:
+
+| item | média 30d | média 7d | mediana pond. |
+| --- | ---: | ---: | ---: |
+| Carnium | 495.977 | 8.821 | **1.990** |
+| Minério de Oridecon | 33.155 | 3.030 | **2.390** |
+| Topázio | 25.552 | 13.840 | **11.400** |
+| Bradium | 16.835 | 31.999 | **4.870** |
+| Carnium Perfeito | 1.001.757 | 432.478 | **615.000** |
+| Bradium Perfeito | 891.390 | 434.202 | **496.000** |
+| Oridecon *(controle)* | 21.156 | 22.063 | 19.941 |
+| Bênção do Ferreiro *(controle)* | 3.772.731 | 3.157.926 | 3.843.099 |
+
+Os controles quase não se movem: a mediana conserta o que estava quebrado sem distorcer o que já
+estava bom. Foi assim que o Minério de Oridecon passou a fechar economicamente — 5 × 2.390 =
+11.950 para fabricar um Oridecon que custa 21.200.
+
+Ela **não** é o caminho normal, por dois motivos. Custa uma requisição por item, e sai de uma
+Server Action (`getDetail`) que não é API pública: o id dela muda a cada deploy do site, então
+`scripts/latam.ts` o descobre em tempo de execução raspando o chunk que contém
+`createServerReference(…, "getDetail")`. E ser imune a outlier não é ser imune à falta de mercado —
+com três dias de histórico a mediana devolve um dos três números, e a robustez é ilusão. Daí os
+pisos de 5 dias e 100 unidades.
+
+Hoje isso recupera 6 itens que a conferência recusava, incluindo Bradium e Carnium, que não tinham
+preço nenhum. Quatro continuam recusados — Bênção de Éter (10 dias, 50 unidades), Topázio de Éter
+(3 e 17), Ametista de Éter (2 e 20) e Âmbar de Éter (3 e 22). Para esses nenhum estimador serve, e
+o chute escrito à mão é a resposta honesta.
+
+O que nem a mediana salva cai para a cotação anterior, se houver, e daí para o chute.
+
+Três coisas que a consulta não cobre, e que valem saber antes de confiar no número:
+
+- **Bradium e Carnium de Éter**, e as versões Perfeitas dos dois, não tiveram uma única
+  transação em 30 dias. Ficam sem preço, cotados pela receita de NPC — que é o comportamento
+  correto, não uma lacuna.
+- **Oridecon e Elunium Enriquecido** não são vendidos avulsos, só em `Cx ... [10]`. O preço
+  unitário sai da caixa dividida por 10, e é uma cotação pior que as outras: são poucas caixas
+  negociadas, e quem compra a caixa fechada não paga o mesmo por unidade.
+- **Item com menos de mil transações** sai marcado com `~`. O número passou na conferência entre
+  as duas janelas, mas duas janelas concordarem sobre pouco negócio não é o mesmo que preço.
 
 ### Taxa do refinador — fora do LATAM
 

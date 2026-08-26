@@ -17,7 +17,8 @@
     "demo": "vite-node scripts/demo.ts",
     "descricoes": "vite-node scripts/descricoes.ts",
     "item": "vite-node scripts/fetch-item.ts --",
-    "buscar": "vite-node scripts/buscar.ts --"
+    "buscar": "vite-node scripts/buscar.ts --",
+    "precos": "vite-node scripts/precos-latam.ts --"
   },
   "dependencies": {
     "react": "^19.2.0",

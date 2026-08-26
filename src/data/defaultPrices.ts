@@ -1,17 +1,16 @@
 import type { PriceTable } from '../engine/types';
 
+import cotacao from './precos.json';
+
 /**
- * Preços de partida, em zeny.
+ * Chutes de ordem de grandeza, para o que a cotação não alcança.
  *
- * NÃO são preços oficiais: o Browiki documenta as chances e as receitas de NPC,
- * mas o valor de mercado dos minérios varia por servidor e por semana. Estes
- * números são um chute razoável para o campo já vir preenchido — a calculadora
- * espera que o jogador ajuste para o preço que ele realmente está vendo.
- *
- * Itens fabricáveis no NPC (Bradium, Carnium, Eteridecon...) ficam em 0 de
- * propósito: sem preço de mercado informado, o motor os cota pela receita.
+ * Foram estes os preços de partida até o projeto passar a ler o mercado do
+ * LATAM: escritos à mão, sem fonte, só para o campo não vir vazio. Hoje são a
+ * reserva — valem para o item que ninguém negociou no período, ou cuja média o
+ * `npm run precos` recusou por instabilidade. Ver `DEFAULT_PRICES`.
  */
-export const DEFAULT_PRICES: PriceTable = {
+const CHUTES: PriceTable = {
   // Minérios básicos
   756: 4_000, // Minério de Oridecon
   757: 10_000, // Minério de Elunium
@@ -37,6 +36,53 @@ export const DEFAULT_PRICES: PriceTable = {
   720: 4_000, // Aquamarina
   728: 16_000, // Topázio
   1000321: 50_000, // Âmbar
+};
+
+/** Uma linha de `precos.json`: id, zeny, data da cotação e transações na janela. */
+type LinhaCotada = [itemId: number, zeny: number, cotadoEm: string, transacoes: number];
+
+/**
+ * Quando os preços foram lidos do mercado, e de onde.
+ *
+ * O rodapé credita isto. `geradoEm` é a data da última execução do script;
+ * `cotadoEm`, por item, pode ser mais antiga — item que ninguém negociou nesta
+ * semana mantém a cotação boa da semana passada em vez de sumir.
+ */
+export const COTACAO: {
+  fonte: string;
+  servidor: string;
+  janela: string;
+  geradoEm: string;
+  total: number;
+} = {
+  fonte: cotacao._fonte,
+  servidor: cotacao._servidor,
+  janela: cotacao._janela,
+  geradoEm: cotacao._geradoEm,
+  total: cotacao.precos.length,
+};
+
+/**
+ * Preços de partida, em zeny.
+ *
+ * NÃO são preços oficiais nem pretendem ser: são o que as lojas de jogador de UM
+ * servidor cobraram numa janela de tempo, e a calculadora continua esperando que
+ * você ajuste para o preço que está realmente vendo. Trocar um deles não é
+ * corrigir um erro do projeto — é a operação normal.
+ *
+ * A cotação vem de `precos.json`, gerado por `npm run precos` a partir do
+ * histórico de transações do site do LATAM. O que a conferência entre as duas
+ * janelas recusar não entra lá, e cai para o `CHUTES` acima — sem cotação
+ * confiável, um chute de ordem de grandeza é mais honesto que a média de 30 dias
+ * do site, que uma venda solta consegue multiplicar por 50.
+ *
+ * Item que não aparece em lugar nenhum fica sem preço, de propósito: os
+ * fabricáveis no NPC (Bradium, Carnium, Eteridecon...) são cotados pela receita,
+ * e o motor já escolhe sozinho entre comprar pronto e fabricar.
+ */
+export const DEFAULT_PRICES: PriceTable = {
+  ...CHUTES,
+  ...Object.fromEntries((cotacao.precos as LinhaCotada[]).map(([id, zeny]) => [id, zeny])),
 };
 
 /**

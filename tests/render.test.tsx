@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 
 import App from '../src/App';
 import { CurvaDeCusto } from '../src/components/CurvaDeCusto';
-import { DEFAULT_PRICES } from '../src/data/defaultPrices';
+import { PRECOS_FIXOS } from './precosFixos';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -201,7 +201,7 @@ describe('página', () => {
         grauAtual: 'none',
         grauAlvo: 'none',
         evento: false,
-        precos: DEFAULT_PRICES,
+        precos: PRECOS_FIXOS,
         usarBencaoFerreiro: true,
         usarMineriosEspeciais: true,
         perdaAceitavel: true,

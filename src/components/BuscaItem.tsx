@@ -11,8 +11,7 @@ import {
 import { rotuloCurto } from '../data/rotulos';
 import { SlotItem } from './ItemNoJogo';
 import { Campo } from './ui';
-
-const dataBR = (iso: string) => iso.split('-').reverse().join('/');
+import { dataBR } from '../format';
 
 /**
  * Busca o item na base varrida do Divine Pride, só para descobrir a categoria

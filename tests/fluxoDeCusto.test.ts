@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_PRICES } from '../src/data/defaultPrices';
+import { PRECOS_FIXOS } from './precosFixos';
 import { BLESSING_ITEM_ID } from '../src/data/ores';
 import { calcular } from '../src/engine/plan';
 import { listaDeCompras } from '../src/engine/pricing';
@@ -19,7 +19,7 @@ const input = (over: Partial<CalcInput> = {}): CalcInput => ({
   grauAtual: 'none',
   grauAlvo: 'none',
   evento: false,
-  precos: DEFAULT_PRICES,
+  precos: PRECOS_FIXOS,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
   perdaAceitavel: true,

@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
+import { COTACAO, DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
 import { GRADE_ORDER, type Grade } from './data/grade';
 import type { ItemKind } from './data/ores';
 import { CATEGORIAS, ROTULO_GRAU } from './data/rotulos';
@@ -16,7 +16,7 @@ import { BuscaItem } from './components/BuscaItem';
 import { META } from './data/items';
 import { BotaoDoPainel, Campo, NumeroZeny, Painel, Select, Toggle } from './components/ui';
 import { rotuloDoAlvo, TrilhaRefino } from './components/TrilhaRefino';
-import { zeny } from './format';
+import { dataBR, zeny } from './format';
 
 interface Estado {
   /** Nome do item escolhido na busca, só para exibição. */
@@ -608,15 +608,23 @@ function Rodape() {
             {' '}
             — nome, cartas e categoria de refino de{' '}
             <strong className="text-texto">{META.total.toLocaleString('pt-BR')}</strong> itens,
-            varridos das páginas públicas em {META.geradoEm.split('-').reverse().join('/')}. A
+            varridos das páginas públicas em {dataBR(META.geradoEm)}. A
             calculadora usa a ficha só para saber a categoria; o que ela afirma sobre um item pode
             ser conferido clicando no link da ficha.
           </Fonte>
 
-          <Fonte o_que="Preços de mercado" nome="Você">
+          <Fonte
+            o_que="Preços de mercado"
+            href={COTACAO.fonte}
+            nome={`Consulta de preço — servidor ${COTACAO.servidor}`}
+          >
             {' '}
-            — nada de cotação vem de fora. Os valores padrão são um chute inicial, e o resultado só
-            vale o que valerem os preços que você colocar.
+            — o que as lojas de jogador cobraram, em{' '}
+            <strong className="text-texto">{COTACAO.janela}</strong>, por{' '}
+            <strong className="text-texto">{COTACAO.total}</strong> materiais. Atualizado em{' '}
+            {dataBR(COTACAO.geradoEm)}. É só o valor de partida do campo:{' '}
+            <strong className="text-texto">a cotação que entra na conta é a sua</strong>, e o
+            resultado só vale o que valerem os preços que você colocar.
           </Fonte>
         </dl>
       </section>

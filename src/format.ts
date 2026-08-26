@@ -32,3 +32,8 @@ export function quantidade(n: number): string {
   if (n < 10) return n.toFixed(1).replace('.', ',');
   return Math.round(n).toLocaleString('pt-BR');
 }
+
+/** Data ISO ("2026-08-26") no formato de quem lê ("26/08/2026"). */
+export function dataBR(iso: string): string {
+  return iso.split('-').reverse().join('/');
+}
