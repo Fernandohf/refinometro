@@ -88,6 +88,23 @@ describe('página', () => {
     expect(html).toContain('por minério');
   });
 
+  it('não deixa pintura no elemento que o `until-found` esconde', () => {
+    // `until-found` esconde o CONTEÚDO do elemento, não o elemento: a caixa
+    // continua sendo desenhada. Com a borda, o fundo e a sombra no próprio
+    // elemento escondido, todo balão fechado apareceria na tela como uma
+    // pílula vazia — e são dezenas deles, um por botão de informação.
+    //
+    // A regra que isso deixa: quem carrega o `hidden` não pinta nada; quem
+    // pinta é a camada de dentro.
+    const html = renderToString(<App />);
+
+    const balao = html.match(/<span[^>]*role="note"[^>]*>/);
+    expect(balao).not.toBeNull();
+    expect(balao![0]).not.toContain('bg-camada');
+    expect(balao![0]).not.toContain('border-contorno');
+    expect(balao![0]).not.toContain('shadow-e3');
+  });
+
   it('deixa a margem de segurança ao lado do número que ela muda', () => {
     // Antes ela era um <select> no fim do formulário, do outro lado da tela.
     const html = renderToString(<App />);

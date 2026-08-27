@@ -202,9 +202,11 @@ export function BotaoDoPainel({
  * conteúdo deste botão, a um clique de distância e ancorado exatamente no que
  * explica.
  *
- * O conteúdo fica no documento mesmo fechado, escondido pelo atributo `hidden`.
- * É de graça (é texto), e é o que mantém a explicação encontrável pelo Ctrl+F
- * do navegador e pela busca de quem chega pelo Google.
+ * O conteúdo fica no documento mesmo fechado, escondido pelo atributo `hidden`
+ * — na variante `until-found`, que é a que o Ctrl+F do navegador consegue abrir
+ * (ver `useRevelavelPelaBusca`). Este comentário já disse que o `hidden` seco
+ * bastava para isso; não basta, e enquanto bastou a explicação fechada era
+ * invisível para quem a procurava pelo nome.
  *
  * ATENÇÃO ao onde: o balão é posicionado em relação ao botão, e por isso um
  * ancestral com `overflow-x-auto` — toda tabela larga desta página tem um — o
@@ -240,6 +242,7 @@ export function Info({
   const [aberto, setAberto] = useState(false);
   const id = useId();
   const caixa = useRef<HTMLSpanElement>(null);
+  const balao = useRevelavelPelaBusca<HTMLSpanElement>(!aberto, () => setAberto(true));
 
   // Um balão aberto se fecha com Esc ou com um clique em qualquer outro lugar —
   // as duas saídas que qualquer camada temporária do Material precisa ter.
@@ -280,20 +283,30 @@ export function Info({
         {contagem ? <span className="md-rotulo-p tabular-nums">{contagem}</span> : null}
       </button>
 
+      {/* Duas camadas, e a divisão entre elas não é gosto: `until-found` esconde
+          o CONTEÚDO do elemento, não o elemento. Com a pintura aqui fora, o
+          balão fechado aparecia como uma pílula vazia — borda, fundo e sombra
+          sem texto dentro. Fora fica só a posição; dentro, tudo que pinta. */}
       <span
+        ref={balao}
         id={id}
         role="note"
         hidden={!aberto}
         className={
-          'md-corpo-p absolute top-full z-30 mt-2 rounded-xl ' +
-          'border border-contorno bg-camada p-3 text-left font-normal tracking-normal ' +
-          'normal-case text-suave shadow-e3 ' +
+          'absolute top-full z-30 mt-2 ' +
           (largura === 'larga' ? 'w-96 max-w-[min(26rem,82vw)] ' : 'w-72 max-w-[min(20rem,72vw)] ') +
           (alinhar === 'direita' ? 'right-0' : 'left-0')
         }
       >
-        <span className="md-titulo-m mb-1 block text-texto">{titulo}</span>
-        {children}
+        <span
+          className={
+            'md-corpo-p block rounded-xl border border-contorno bg-camada p-3 text-left ' +
+            'font-normal tracking-normal normal-case text-suave shadow-e3'
+          }
+        >
+          <span className="md-titulo-m mb-1 block text-texto">{titulo}</span>
+          {children}
+        </span>
       </span>
     </span>
   );
@@ -373,6 +386,46 @@ export function TituloDeSecao({
       {aside}
     </div>
   );
+}
+
+/* ──────────────────────────────────────────────────── o que abre e o que fecha */
+
+/**
+ * `hidden`, mas na variante que a busca do navegador consegue abrir.
+ *
+ * `display:none` — o que o `hidden` seco faz — não é varrido pelo Ctrl+F nem
+ * pelo buscador: todo texto guardado atrás de um botão desta interface some
+ * para quem o procura pelo nome. `hidden="until-found"` esconde igual, mas
+ * deixa o navegador achar o trecho, abrir sozinho e avisar por um evento
+ * `beforematch`. É esse aviso que este hook devolve ao React — sem ele o
+ * conteúdo apareceria com o botão ainda dizendo "fechado", e o clique seguinte
+ * o fecharia de novo.
+ *
+ * O atributo precisa ser posto à mão porque o React serializa `hidden` como
+ * atributo booleano: `hidden="until-found"` sai do render como `hidden=""`. Daí
+ * o efeito rodar a cada mudança de estado — o React reescreve o atributo ao
+ * reesconder, e a variante tem de ser reposta por cima.
+ */
+function useRevelavelPelaBusca<T extends HTMLElement>(escondido: boolean, revelar: () => void) {
+  const alvo = useRef<T>(null);
+  // A função vem nova a cada render; guardá-la num ref evita reassinar o
+  // ouvinte à toa, sem obrigar quem chama a memorizá-la. Guardada DENTRO de um
+  // efeito porque escrever num ref durante o render é o que o React proíbe.
+  const aoAchar = useRef(revelar);
+  useEffect(() => {
+    aoAchar.current = revelar;
+  });
+
+  useEffect(() => {
+    const el = alvo.current;
+    if (!el) return;
+    if (escondido) el.setAttribute('hidden', 'until-found');
+    const achou = () => aoAchar.current();
+    el.addEventListener('beforematch', achou);
+    return () => el.removeEventListener('beforematch', achou);
+  }, [escondido]);
+
+  return alvo;
 }
 
 /* ─────────────────────────────────────────────────────────── campos de entrada */
