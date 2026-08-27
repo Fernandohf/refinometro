@@ -63,14 +63,18 @@ describe('página', () => {
     // pode dar errado, quanto custa, como eu faço, no que o dinheiro vira, o
     // que eu compro, dá com o que eu tenho. Um aviso de perigo lido depois do
     // orçamento chega tarde — ele existe justamente para desmentir o número.
+    //
+    // As abas não mudam essa ordem, e é por isso que ela é conferida pelo
+    // CONTEÚDO de cada painel, e não pelo rótulo da aba: os três rótulos vivem
+    // juntos, lá em cima, antes de qualquer painel.
     const html = renderToString(<App />);
 
     const aviso = html.indexOf('Risco de quebra do item');
     const orcamento = html.indexOf('Orçamento recomendado');
     const estrategia = html.indexOf('Melhor estratégia');
     const zeny = html.indexOf('Para onde vai o zeny');
-    const compras = html.indexOf('Lista de compras');
-    const estoque = html.indexOf('Dá com o que eu tenho?');
+    const compras = html.indexOf('Comprar no mercado');
+    const estoque = html.indexOf('Zeny em caixa');
 
     expect(aviso).toBeGreaterThan(-1);
     expect(aviso).toBeLessThan(orcamento);
@@ -88,11 +92,31 @@ describe('página', () => {
     expect(html).toContain('por minério');
   });
 
+  it('divide o resultado em três abas, e deixa fora delas o que governa as três', () => {
+    // O orçamento e a margem mandam nas três perguntas — a lista de compras e o
+    // simulador de estoque leem a mesma margem. Se o controle morasse na
+    // primeira aba, ele estaria numa tela e o efeito, em outra.
+    const html = renderToString(<App />);
+
+    const orcamento = html.indexOf('Orçamento recomendado');
+    const margem = html.indexOf('aria-label="Margem de segurança"');
+    const lista = html.indexOf('role="tablist"');
+
+    expect(orcamento).toBeLessThan(lista);
+    expect(margem).toBeLessThan(lista);
+
+    // Três abas, na ordem das prioridades, e só a primeira aberta.
+    const rotulos = [...html.matchAll(/role="tab" [^>]*>(?:<[^>]*>)*([^<]+)/g)].map((m) => m[1]);
+    expect(rotulos).toEqual(['O plano', 'O que comprar', 'O que eu tenho']);
+    expect(html.match(/role="tab" [^>]*aria-selected="true"/g)).toHaveLength(1);
+    expect(html.indexOf('aria-selected="true"')).toBeLessThan(html.indexOf('aria-selected="false"'));
+  });
+
   it('não deixa pintura no elemento que o `until-found` esconde', () => {
     // `until-found` esconde o CONTEÚDO do elemento, não o elemento: a caixa
     // continua sendo desenhada. Com a borda, o fundo e a sombra no próprio
-    // elemento escondido, todo balão fechado apareceria na tela como uma
-    // pílula vazia — e são dezenas deles, um por botão de informação.
+    // elemento escondido, todo balão fechado aparecia na tela como uma pílula
+    // vazia — e eram dezenas deles, um por botão de informação da página.
     //
     // A regra que isso deixa: quem carrega o `hidden` não pinta nada; quem
     // pinta é a camada de dentro.
@@ -103,6 +127,26 @@ describe('página', () => {
     expect(balao![0]).not.toContain('bg-camada');
     expect(balao![0]).not.toContain('border-contorno');
     expect(balao![0]).not.toContain('shadow-e3');
+    // O painel de aba não pinta, mas espaçava — dois fechados somavam dois
+    // respiros de nada no fim da página.
+    const painel = html.match(/<div[^>]*role="tabpanel"[^>]*>/);
+    expect(painel).not.toBeNull();
+    expect(painel![0]).not.toContain('pt-4');
+  });
+
+  it('esconde o que está em aba fechada sem tirá-lo do documento', () => {
+    // `display:none` some da busca do navegador, e um plano inteiro atrás de
+    // duas abas fechadas deixaria de ser encontrável pelo Ctrl+F e pelos
+    // buscadores. `until-found` esconde igual e continua achável — o navegador
+    // abre a aba sozinho ao encontrar o trecho.
+    const html = renderToString(<App />);
+
+    // O SSR serializa `hidden` como booleano; a variante é reposta no cliente
+    // (ver `useRevelavelPelaBusca`). O que o servidor precisa garantir é que o
+    // conteúdo das abas fechadas ESTEJA no HTML.
+    expect(html).toContain('role="tabpanel"');
+    expect(html).toContain('Comprar no mercado');
+    expect(html).toContain('Chance de chegar ao alvo');
   });
 
   it('deixa a margem de segurança ao lado do número que ela muda', () => {

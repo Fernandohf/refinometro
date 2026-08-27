@@ -12,9 +12,24 @@ import { Percurso, TabelaDeEstados } from './Cadeia';
 import { CurvaDeCusto } from './CurvaDeCusto';
 import { ResumoDoFluxo, SankeyCusto } from './SankeyCusto';
 import { porcento, quantidade, zeny, zenyExato } from '../format';
-import { BotaoDoPainel, Divisor, Info, Painel, Pastilha, Segmentado, TituloDeSecao } from './ui';
+import {
+  Abas,
+  BotaoDoPainel,
+  Divisor,
+  Info,
+  Painel,
+  Pastilha,
+  Segmentado,
+  TituloDeSecao,
+} from './ui';
 
 export type MargemKey = keyof Percentis;
+
+/**
+ * As abas são os três níveis de prioridade da página, não uma divisão nova: o
+ * que se FAZ, o que se COMPRA, e se dá com o que já se tem.
+ */
+type AbaKey = 'plano' | 'compras' | 'estoque';
 
 /**
  * As margens oferecidas. `chance` é a mesma coisa que o percentil, em número:
@@ -54,9 +69,9 @@ export function Resultado({
   /** De quantas campanhas simuladas vieram os percentis — rodapé do painel. */
   precisao?: ReactNode;
   /**
-   * Simulador de estoque, encaixado logo depois da lista de compras: "dá com o
-   * que eu tenho?" é a pergunta que vem depois de "o que comprar", e ela lê as
-   * mesmas quantidades.
+   * Simulador de estoque: a terceira aba. "Dá com o que eu tenho?" é a pergunta
+   * que vem depois de "o que comprar", e ela lê as mesmas quantidades. Ausente,
+   * a aba não existe.
    */
   moduloEstoque?: ReactNode;
 }) {
@@ -70,6 +85,73 @@ export function Resultado({
   // O mesmo fluxo que a lista de compras soma: os dois painéis são leituras da
   // mesma `listaDeCompras`, no mesmo percentil (ver `fluxoDeCusto`).
   const fluxo = fluxoDeCusto(plano, margem);
+  const temCompras = Object.keys(plano.recursos.itens).length > 0;
+
+  // Fora das abas fica o que governa as TRÊS: os avisos, o item, o orçamento e
+  // a margem. A margem, em especial, muda número na lista de compras e no
+  // simulador de estoque — deixá-la dentro da primeira aba seria pôr o controle
+  // numa tela e o efeito em outra.
+  const [aba, setAba] = useState<AbaKey>('plano');
+
+  const abas: { key: AbaKey; rotulo: string; conteudo: ReactNode }[] = [
+    {
+      key: 'plano',
+      rotulo: 'O plano',
+      conteudo: (
+        <Estrategia
+          plano={plano}
+          informativos={informativos}
+          itemId={itemId}
+          itemNome={itemNome}
+          itemSlots={itemSlots}
+        />
+      ),
+    },
+  ];
+
+  if (fluxo.total > 0 || temCompras) {
+    abas.push({
+      key: 'compras',
+      rotulo: 'O que comprar',
+      conteudo: (
+        <div className="space-y-4">
+          {/* O diagrama fica colado na lista porque os dois totais são o MESMO
+              número: ele é a lista relida por natureza do gasto. Encostá-lo no
+              orçamento, que é o percentil do total, poria dois totais
+              diferentes um embaixo do outro — e é essa divergência que a página
+              já gasta dois textos explicando. */}
+          {fluxo.total > 0 && (
+            <Painel
+              titulo="Para onde vai o zeny"
+              info={
+                <Info titulo="Para onde vai o zeny">
+                  As mesmas quantidades da lista de compras logo abaixo, agrupadas pela natureza do
+                  gasto em vez de pelo nome do material. É o desenho que mostra que a maior parte de
+                  uma campanha cara não é minério — é proteção contra a quebra e reposição do
+                  equipamento destruído.
+                </Info>
+              }
+            >
+              <SankeyCusto fluxo={fluxo} />
+              <ResumoDoFluxo fluxo={fluxo} />
+            </Painel>
+          )}
+
+          {temCompras && <PainelDeCompras plano={plano} margem={margem} />}
+        </div>
+      ),
+    });
+  }
+
+  // O rótulo é curto, e não a pergunta inteira: ela já é o título do painel
+  // logo abaixo, e a aba repetindo-a punha a mesma frase duas vezes seguidas.
+  if (moduloEstoque) {
+    abas.push({ key: 'estoque', rotulo: 'O que eu tenho', conteudo: moduloEstoque });
+  }
+
+  // Um alvo já alcançado não tem o que comprar, e o simulador de estoque é
+  // opcional: a aba escolhida pode deixar de existir entre um cálculo e outro.
+  const ativa = abas.some((a) => a.key === aba) ? aba : abas[0]!.key;
 
   return (
     <div className="space-y-4">
@@ -168,92 +250,88 @@ export function Resultado({
         {precisao && <div className="mt-4 text-right">{precisao}</div>}
       </Painel>
 
-      {/* A ordem é a das decisões de quem joga: quanto custa → como eu faço →
-          no que o dinheiro vira → o que eu compro → dá com o que eu tenho. Ela
-          já foi outra (a lista de compras vinha antes da estratégia que a
-          gera, e o simulador de estoque antes das duas), e a leitura só fazia
-          sentido para quem já sabia o que ia encontrar. */}
-      <Painel
-        titulo="Melhor estratégia"
-        info={
-          <Info
-            titulo="Melhor estratégia"
-            largura={informativos.length > 0 ? 'larga' : 'normal'}
-            contagem={informativos.length || undefined}
-          >
-            A sequência que a calculadora escolheu: em cada faixa de refino, qual minério usar e
-            quantas Bênçãos somar. Não é a de maior chance, é a de menor custo esperado até o alvo —
-            às vezes vale pagar caro num degrau para não cair três níveis nele.
-            {informativos.length > 0 && (
-              <>
-                <Divisor />
-                <span className="md-titulo-m mb-1.5 block text-texto">Notas sobre este plano</span>
-                <span className="block space-y-1.5">
-                  {informativos.map((a, i) => (
-                    <span key={i} className="flex gap-2">
-                      <span aria-hidden className="text-realce">
-                        ·
-                      </span>
-                      <span>{a.texto}</span>
-                    </span>
-                  ))}
-                </span>
-              </>
-            )}
-          </Info>
-        }
-      >
-        <ol className="space-y-3">
-          {plano.fases.map((fase, i) => (
-            // Uma campanha de Grau repete o mesmo preparo de refino a cada
-            // degrau. Detalhar a sequência idêntica quatro vezes só afoga o
-            // resto do plano, então da segunda vez em diante mostramos só o
-            // cabeçalho e o custo.
-            <Fase
-              key={i}
-              fase={fase}
-              repetida={ehRepeticao(plano.fases, i)}
-              itemId={itemId}
-              itemNome={itemNome ?? rotuloCurto(plano.input.kind)}
-              grau={plano.input.grauAlvo}
-              slots={itemSlots}
-            />
-          ))}
-        </ol>
-        {plano.fases.length === 0 && (
-          <p className="text-sm text-suave">Nada a fazer: o item já está no alvo.</p>
-        )}
-      </Painel>
-
-      {/* Colado na lista de compras porque os dois totais são o MESMO número:
-          o diagrama é a lista relida por natureza do gasto. Encostá-lo no
-          orçamento, que é o percentil do total, poria dois totais diferentes um
-          embaixo do outro — e é essa divergência que a página já gasta dois
-          textos explicando. */}
-      {fluxo.total > 0 && (
-        <Painel
-          titulo="Para onde vai o zeny"
-          info={
-            <Info titulo="Para onde vai o zeny">
-              As mesmas quantidades da lista de compras logo abaixo, agrupadas pela natureza do
-              gasto em vez de pelo nome do material. É o desenho que mostra que a maior parte de
-              uma campanha cara não é minério — é proteção contra a quebra e reposição do
-              equipamento destruído.
-            </Info>
-          }
-        >
-          <SankeyCusto fluxo={fluxo} />
-          <ResumoDoFluxo fluxo={fluxo} />
-        </Painel>
-      )}
-
-      {Object.keys(plano.recursos.itens).length > 0 && (
-        <PainelDeCompras plano={plano} margem={margem} />
-      )}
-
-      {moduloEstoque}
-
+      {/* As abas vêm DEPOIS do orçamento, e não no lugar dele: a resposta da
+          página é uma só, e as três abas são os três jeitos de continuar a
+          pergunta — como eu faço, o que eu compro, dá com o que eu tenho. */}
+      <Abas rotulo="O que ver do plano" value={ativa} onChange={setAba} abas={abas} />
     </div>
+  );
+}
+
+/**
+ * A sequência que a calculadora escolheu, fase por fase.
+ *
+ * É a primeira aba porque é o que se FAZ: a lista de compras é derivada dela, e
+ * o simulador de estoque é conferência das duas. A ordem já foi outra — a lista
+ * vinha antes da estratégia que a gera —, e a leitura só fazia sentido para
+ * quem já sabia o que ia encontrar.
+ */
+function Estrategia({
+  plano,
+  informativos,
+  itemId,
+  itemNome,
+  itemSlots,
+}: {
+  plano: ResultadoPlano;
+  /** Os avisos que só contextualizam: viram as notas do balão do painel. */
+  informativos: Aviso[];
+  itemId?: number | null;
+  itemNome?: string | null;
+  itemSlots?: number;
+}) {
+  return (
+    <Painel
+      titulo="Melhor estratégia"
+      info={
+        <Info
+          titulo="Melhor estratégia"
+          largura={informativos.length > 0 ? 'larga' : 'normal'}
+          contagem={informativos.length || undefined}
+        >
+          A sequência que a calculadora escolheu: em cada faixa de refino, qual minério usar e
+          quantas Bênçãos somar. Não é a de maior chance, é a de menor custo esperado até o alvo —
+          às vezes vale pagar caro num degrau para não cair três níveis nele.
+          {informativos.length > 0 && (
+            <>
+              <Divisor />
+              <span className="md-titulo-m mb-1.5 block text-texto">Notas sobre este plano</span>
+              <span className="block space-y-1.5">
+                {informativos.map((a, i) => (
+                  <span key={i} className="flex gap-2">
+                    <span aria-hidden className="text-realce">
+                      ·
+                    </span>
+                    <span>{a.texto}</span>
+                  </span>
+                ))}
+              </span>
+            </>
+          )}
+        </Info>
+      }
+    >
+      <ol className="space-y-3">
+        {plano.fases.map((fase, i) => (
+          // Uma campanha de Grau repete o mesmo preparo de refino a cada
+          // degrau. Detalhar a sequência idêntica quatro vezes só afoga o
+          // resto do plano, então da segunda vez em diante mostramos só o
+          // cabeçalho e o custo.
+          <Fase
+            key={i}
+            fase={fase}
+            repetida={ehRepeticao(plano.fases, i)}
+            itemId={itemId ?? null}
+            itemNome={itemNome ?? rotuloCurto(plano.input.kind)}
+            grau={plano.input.grauAlvo}
+            slots={itemSlots ?? 0}
+          />
+        ))}
+      </ol>
+      {plano.fases.length === 0 && (
+        <p className="text-sm text-suave">Nada a fazer: o item já está no alvo.</p>
+      )}
+    </Painel>
   );
 }
 
