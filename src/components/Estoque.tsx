@@ -75,7 +75,10 @@ export function SimuladorDeEstoque({
   estoque: Estoque;
   onChange: (e: Estoque) => void;
 }) {
-  const [aberto, setAberto] = useState(() => !estoqueEmBranco(estoque));
+  // Aberto de saída: o painel mora atrás de uma aba, e abrir a aba já É o
+  // pedido para simular. O convite recolhido fazia sentido quando ele vinha
+  // no fim de uma página longa, onde ninguém tinha pedido nada.
+  const [aberto, setAberto] = useState(true);
 
   const campanha = useMemo(() => {
     const sim = plano.simulacao;

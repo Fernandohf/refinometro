@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ButtonHTMLAttributes,
+  type KeyboardEvent as KeyboardEventReact,
   type PointerEvent as PointerEventReact,
   type ReactNode,
 } from 'react';
@@ -202,9 +203,11 @@ export function BotaoDoPainel({
  * conteúdo deste botão, a um clique de distância e ancorado exatamente no que
  * explica.
  *
- * O conteúdo fica no documento mesmo fechado, escondido pelo atributo `hidden`.
- * É de graça (é texto), e é o que mantém a explicação encontrável pelo Ctrl+F
- * do navegador e pela busca de quem chega pelo Google.
+ * O conteúdo fica no documento mesmo fechado, escondido pelo atributo `hidden`
+ * — na variante `until-found`, que é a que o Ctrl+F do navegador consegue abrir
+ * (ver `useRevelavelPelaBusca`). Este comentário já disse que o `hidden` seco
+ * bastava para isso; não basta, e enquanto bastou a explicação fechada era
+ * invisível para quem a procurava pelo nome.
  *
  * ATENÇÃO ao onde: o balão é posicionado em relação ao botão, e por isso um
  * ancestral com `overflow-x-auto` — toda tabela larga desta página tem um — o
@@ -240,6 +243,7 @@ export function Info({
   const [aberto, setAberto] = useState(false);
   const id = useId();
   const caixa = useRef<HTMLSpanElement>(null);
+  const balao = useRevelavelPelaBusca<HTMLSpanElement>(!aberto, () => setAberto(true));
 
   // Um balão aberto se fecha com Esc ou com um clique em qualquer outro lugar —
   // as duas saídas que qualquer camada temporária do Material precisa ter.
@@ -280,20 +284,30 @@ export function Info({
         {contagem ? <span className="md-rotulo-p tabular-nums">{contagem}</span> : null}
       </button>
 
+      {/* Duas camadas, e a divisão entre elas não é gosto: `until-found` esconde
+          o CONTEÚDO do elemento, não o elemento. Com a pintura aqui fora, o
+          balão fechado aparecia como uma pílula vazia — borda, fundo e sombra
+          sem texto dentro. Fora fica só a posição; dentro, tudo que pinta. */}
       <span
+        ref={balao}
         id={id}
         role="note"
         hidden={!aberto}
         className={
-          'md-corpo-p absolute top-full z-30 mt-2 rounded-xl ' +
-          'border border-contorno bg-camada p-3 text-left font-normal tracking-normal ' +
-          'normal-case text-suave shadow-e3 ' +
+          'absolute top-full z-30 mt-2 ' +
           (largura === 'larga' ? 'w-96 max-w-[min(26rem,82vw)] ' : 'w-72 max-w-[min(20rem,72vw)] ') +
           (alinhar === 'direita' ? 'right-0' : 'left-0')
         }
       >
-        <span className="md-titulo-m mb-1 block text-texto">{titulo}</span>
-        {children}
+        <span
+          className={
+            'md-corpo-p block rounded-xl border border-contorno bg-camada p-3 text-left ' +
+            'font-normal tracking-normal normal-case text-suave shadow-e3'
+          }
+        >
+          <span className="md-titulo-m mb-1 block text-texto">{titulo}</span>
+          {children}
+        </span>
       </span>
     </span>
   );
@@ -371,6 +385,217 @@ export function TituloDeSecao({
         {info}
       </h3>
       {aside}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────── o que abre e o que fecha */
+
+/**
+ * `hidden`, mas na variante que a busca do navegador consegue abrir.
+ *
+ * `display:none` — o que o `hidden` seco faz — não é varrido pelo Ctrl+F nem
+ * pelo buscador: todo texto guardado atrás de um botão desta interface some
+ * para quem o procura pelo nome. `hidden="until-found"` esconde igual, mas
+ * deixa o navegador achar o trecho, abrir sozinho e avisar por um evento
+ * `beforematch`. É esse aviso que este hook devolve ao React — sem ele o
+ * conteúdo apareceria com o botão ainda dizendo "fechado", e o clique seguinte
+ * o fecharia de novo.
+ *
+ * O atributo precisa ser posto à mão porque o React serializa `hidden` como
+ * atributo booleano: `hidden="until-found"` sai do render como `hidden=""`. Daí
+ * o efeito rodar a cada mudança de estado — o React reescreve o atributo ao
+ * reesconder, e a variante tem de ser reposta por cima.
+ */
+function useRevelavelPelaBusca<T extends HTMLElement>(escondido: boolean, revelar: () => void) {
+  const alvo = useRef<T>(null);
+  // A função vem nova a cada render; guardá-la num ref evita reassinar o
+  // ouvinte à toa, sem obrigar quem chama a memorizá-la. Guardada DENTRO de um
+  // efeito porque escrever num ref durante o render é o que o React proíbe.
+  const aoAchar = useRef(revelar);
+  useEffect(() => {
+    aoAchar.current = revelar;
+  });
+
+  useEffect(() => {
+    const el = alvo.current;
+    if (!el) return;
+    if (escondido) el.setAttribute('hidden', 'until-found');
+    const achou = () => aoAchar.current();
+    el.addEventListener('beforematch', achou);
+    return () => el.removeEventListener('beforematch', achou);
+  }, [escondido]);
+
+  return alvo;
+}
+
+/* ────────────────────────────────────────────────────────────────────── abas */
+
+/**
+ * Abas do Material, na variante primária.
+ *
+ * O que uma aba resolve é altura, e só vale quando os grupos respondem a
+ * perguntas DIFERENTES — senão ela não organiza, esconde. O preço é real e
+ * vale dito: comparar dois painéis que ficaram em abas distintas passa a
+ * exigir ir e voltar, e o que está fechado não sai numa impressão.
+ *
+ * O que não é preço é a busca do navegador: os painéis fechados continuam no
+ * documento, escondidos por `until-found`, então o Ctrl+F acha o texto e abre
+ * a aba certa sozinho (ver `useRevelavelPelaBusca`).
+ */
+export function Abas<T extends string>({
+  value,
+  onChange,
+  abas,
+  rotulo,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  abas: { key: T; rotulo: string; conteudo: ReactNode }[];
+  /** Nome do conjunto para leitores de tela. */
+  rotulo: string;
+}) {
+  const id = useId();
+  const botoes = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Um grupo de abas é UM ponto de tabulação: dentro dele quem anda é a seta,
+  // e o Tab sai para o conteúdo. É o que a especificação de ARIA pede, e é o
+  // que evita que um teclado precise atravessar três abas para chegar ao painel.
+  const navegar = (ev: KeyboardEventReact<HTMLButtonElement>, i: number) => {
+    const passo: Record<string, number | undefined> = {
+      ArrowRight: 1,
+      ArrowLeft: -1,
+      Home: -i,
+      End: abas.length - 1 - i,
+    };
+    const d = passo[ev.key];
+    if (d === undefined) return;
+    ev.preventDefault();
+    const alvo = (i + d + abas.length) % abas.length;
+    onChange(abas[alvo]!.key);
+    botoes.current[alvo]?.focus();
+  };
+
+  return (
+    <div>
+      <div
+        role="tablist"
+        aria-label={rotulo}
+        className="flex overflow-x-auto border-b border-borda"
+      >
+        {abas.map((a, i) => (
+          <Aba
+            key={a.key}
+            id={`${id}-aba-${a.key}`}
+            controla={`${id}-painel-${a.key}`}
+            ativa={a.key === value}
+            rotulo={a.rotulo}
+            aoClicar={() => onChange(a.key)}
+            aoTeclar={(ev) => navegar(ev, i)}
+            refBotao={(el) => {
+              botoes.current[i] = el;
+            }}
+          />
+        ))}
+      </div>
+
+      {abas.map((a) => (
+        <PainelDeAba
+          key={a.key}
+          id={`${id}-painel-${a.key}`}
+          rotuladoPor={`${id}-aba-${a.key}`}
+          escondido={a.key !== value}
+          revelar={() => onChange(a.key)}
+        >
+          {a.conteudo}
+        </PainelDeAba>
+      ))}
+    </div>
+  );
+}
+
+function Aba({
+  id,
+  controla,
+  ativa,
+  rotulo,
+  aoClicar,
+  aoTeclar,
+  refBotao,
+}: {
+  id: string;
+  controla: string;
+  ativa: boolean;
+  rotulo: string;
+  aoClicar: () => void;
+  aoTeclar: (ev: KeyboardEventReact<HTMLButtonElement>) => void;
+  refBotao: (el: HTMLButtonElement | null) => void;
+}) {
+  const { ondular, Ondas } = useOndulacao();
+
+  return (
+    <button
+      ref={refBotao}
+      type="button"
+      role="tab"
+      id={id}
+      aria-selected={ativa}
+      aria-controls={controla}
+      tabIndex={ativa ? 0 : -1}
+      onPointerDown={ondular}
+      onClick={aoClicar}
+      onKeyDown={aoTeclar}
+      className={
+        'estado relative flex flex-1 cursor-pointer items-end justify-center overflow-hidden ' +
+        'transition-colors duration-200 ease-padrao ' +
+        (ativa ? 'text-realce' : 'text-suave hover:text-texto')
+      }
+    >
+      <Ondas />
+      {/* A coluna existe para o indicador ter a largura do RÓTULO, e não a da
+          aba: é o que separa a aba primária do Material da secundária, cujo
+          traço atravessa a célula inteira. O alvo de toque continua sendo o
+          botão todo — a coluna só mede. */}
+      <span className="flex flex-col items-stretch">
+        <span className="md-corpo-m px-4 pt-3 pb-2.5 text-center font-medium whitespace-nowrap">
+          {rotulo}
+        </span>
+        {/* A barra existe sempre, transparente, para a aba não mudar de altura
+            ao ser escolhida — e é o sinal que não depende de distinguir o
+            dourado do cinza. */}
+        <span
+          aria-hidden
+          className={
+            'h-[3px] rounded-t-full transition-colors duration-200 ease-padrao ' +
+            (ativa ? 'bg-realce' : 'bg-transparent')
+          }
+        />
+      </span>
+    </button>
+  );
+}
+
+function PainelDeAba({
+  id,
+  rotuladoPor,
+  escondido,
+  revelar,
+  children,
+}: {
+  id: string;
+  rotuladoPor: string;
+  escondido: boolean;
+  revelar: () => void;
+  children: ReactNode;
+}) {
+  const alvo = useRevelavelPelaBusca<HTMLDivElement>(escondido, revelar);
+
+  return (
+    <div ref={alvo} id={id} role="tabpanel" aria-labelledby={rotuladoPor} hidden={escondido}>
+      {/* O respiro vai por DENTRO pelo mesmo motivo do balão: o elemento
+          escondido por `until-found` continua ocupando o que for dele, e duas
+          abas fechadas somavam dois respiros de nada no fim da página. */}
+      <div className="pt-4">{children}</div>
     </div>
   );
 }
