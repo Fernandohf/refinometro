@@ -86,7 +86,17 @@ describe('página', () => {
     // As abas não mudam essa ordem, e é por isso que ela é conferida pelo
     // CONTEÚDO de cada painel, e não pelo rótulo da aba: os três rótulos vivem
     // juntos, lá em cima, antes de qualquer painel.
+    //
+    // O alvo é fixado aqui, e não herdado do padrão da tela: o aviso de quebra
+    // é o primeiro item da ordem conferida, e só existe onde a falha pode
+    // destruir o equipamento — uma Arma nv4 até o +10, não a nv5 do padrão,
+    // que sobe de Éter e nunca quebra.
+    localStorage.setItem(
+      'refinometro:v1',
+      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none' }),
+    );
     const html = renderToString(<App />);
+    localStorage.removeItem('refinometro:v1');
 
     const aviso = html.indexOf('Risco de quebra do item');
     const orcamento = html.indexOf('Orçamento recomendado');
@@ -180,7 +190,16 @@ describe('página', () => {
     // mostrar o equipamento como ele vai ficar: arte, +refino e [slots].
     localStorage.setItem(
       'refinometro:v1',
-      JSON.stringify({ itemNome: 'Lâmina Nêmesis', itemId: 1163, itemSlots: 2, kind: 'w4' }),
+      JSON.stringify({
+        itemNome: 'Lâmina Nêmesis',
+        itemId: 1163,
+        itemSlots: 2,
+        kind: 'w4',
+        // O refino alvo entra explícito: é ele que o nome exibe, e o teste é
+        // sobre o formato do nome, não sobre o padrão da tela.
+        refinoAlvo: 10,
+        grauAlvo: 'none',
+      }),
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
@@ -213,7 +232,16 @@ describe('página', () => {
     // percentil: são painéis vizinhos de propósito, e nessa ordem — a
     // proporção primeiro, o que se leva ao jogo depois. Longe do orçamento,
     // que é outro total (o percentil da soma, não a soma dos percentis).
+    //
+    // Alvo fixado pelo mesmo motivo do teste da ordem: os grupos "Proteção" e
+    // "Reposição do item" só aparecem em campanha que compra Bênção e quebra
+    // equipamento, e a nv5 do padrão não faz nem uma coisa nem outra.
+    localStorage.setItem(
+      'refinometro:v1',
+      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none' }),
+    );
     const html = renderToString(<App />);
+    localStorage.removeItem('refinometro:v1');
     const orcamento = html.indexOf('Orçamento recomendado');
     const sankey = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Lista de compras');

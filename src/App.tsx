@@ -50,16 +50,25 @@ interface Estado {
   margem: MargemKey;
 }
 
+/**
+ * O que a tela mostra para quem chega sem mexer em nada.
+ *
+ * Não é um exemplo neutro de propósito: é um alvo que gente de verdade
+ * persegue — uma arma nível 5 comum de mercado, com Grau, parando no +8 em vez
+ * do +11 da regra de bolso. Categoria abstrata e alvo redondo faziam a primeira
+ * tela parecer uma demonstração; um item nomeado, com arte e preço plausível,
+ * já responde a pergunta de alguém.
+ */
 const INICIAL: Estado = {
-  itemNome: null,
-  itemId: null,
-  itemSlots: 0,
-  kind: 'w4',
-  precoItem: 30_000_000,
+  itemNome: 'Punho Consertado',
+  itemId: 560030,
+  itemSlots: 2,
+  kind: 'w5',
+  precoItem: 500_000,
   refinoAtual: 0,
-  refinoAlvo: 10,
+  refinoAlvo: 8,
   grauAtual: 'none',
-  grauAlvo: 'none',
+  grauAlvo: 'C',
   evento: false,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
@@ -84,7 +93,13 @@ function carregar(): Estado {
     if (!bruto) return INICIAL;
     // Mescla com o inicial para não quebrar quando a calculadora ganhar campos novos.
     const salvo = JSON.parse(bruto) as Partial<Estado>;
-    return { ...INICIAL, ...salvo, precos: { ...DEFAULT_PRICES, ...salvo.precos } };
+    const estado = { ...INICIAL, ...salvo, precos: { ...DEFAULT_PRICES, ...salvo.precos } };
+    // O padrão tem Grau, e quem voltar com uma categoria que não tem herdaria
+    // um alvo impossível: o efeito que normaliza isso só roda depois do
+    // primeiro render, e o erro apareceria por um quadro.
+    return suportaGrau(estado.kind)
+      ? estado
+      : { ...estado, grauAtual: 'none' as Grade, grauAlvo: 'none' as Grade };
   } catch {
     return INICIAL;
   }
