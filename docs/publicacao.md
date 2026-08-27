@@ -27,6 +27,24 @@ está em `/refinometro/`; se o repositório tiver outro nome, ajuste em
 O `npm test` roda **antes** do build, no mesmo job: o build é a calculadora inteira, e se as
 contas quebrarem nada sobe.
 
+### A origem do Pages precisa ser "GitHub Actions"
+
+Em **Settings → Pages → Build and deployment**, `Source` tem de estar em **GitHub Actions** —
+não em *Deploy from a branch*. Não é preferência: com a origem em branch, o GitHub roda o
+builder próprio dele (aparece como `pages build and deployment`, com um passo "Build with
+Jekyll") e publica a **raiz do repositório como ela está**, por cima do que o `deploy.yml`
+acabou de enviar.
+
+O modo de falha é dos silenciosos, e por isso está escrito aqui. Os dois workflows ficam
+**verdes**; o que quebra é o site, e do jeito mais confuso possível: o `index.html` publicado é
+o de desenvolvimento, aquele que carrega `/src/main.tsx` — arquivo que só existe no
+código-fonte, e sem o prefixo `/refinometro/`. No navegador isso vira uma página em branco e
+um `GET /src/main.tsx 404` no console.
+
+Como reconhecer, sem depender do console: se a lista de execuções tem um
+`pages build and deployment` ao lado de cada `Deploy no GitHub Pages`, a origem ainda está em
+branch. Com a origem correta, só o segundo existe.
+
 ## Base de itens — `.github/workflows/base-itens.yml`
 
 Revarre o Divine Pride toda segunda-feira (06:00 UTC) e comita `src/data/items.json` quando
