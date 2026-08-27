@@ -1,0 +1,43 @@
+name: Testes
+
+# O portão de qualidade de todo mundo: roda em pull request e em push nos
+# branches, para que a correção apareça antes do merge — o deploy.yml também
+# testa, mas ele só entra em cena quando a `main` já mudou.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# Um push novo no mesmo branch cancela a execução anterior: só interessa o
+# resultado do último commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Testes
+        run: npm test
+
+      # O build é a última conferência: `tsc -b` roda antes do Vite, então erro
+      # de tipo derruba aqui do mesmo jeito que derrubaria no deploy.
+      - name: Build
+        run: npm run build
