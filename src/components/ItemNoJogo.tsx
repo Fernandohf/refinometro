@@ -13,8 +13,8 @@ import { Pastilha } from './ui';
  *
  * Não passa pela base varrida e não custa byte nenhum de dados nossos: a URL é
  * o id do item, e `<img>` não esbarra em CORS — que é o que impede a busca ao
- * vivo (ver README, "Por que a base é varrida"). Um id sem arte devolve o
- * ícone de desconhecido do próprio site, então não há estado de erro a tratar.
+ * vivo (ver docs/dados-itens.md, "Por que a base é varrida"). Um id sem arte devolve
+ * o ícone de desconhecido do próprio site, então não há estado de erro a tratar.
  */
 const arteDoItem = (id: number) =>
   `https://static.divine-pride.net/images/items/collection/${id}.png`;

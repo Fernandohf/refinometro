@@ -2,14 +2,14 @@
 
 Este documento é a especificação formal do que `src/engine/` calcula: definições, hipóteses,
 proposições com demonstração e as referências de onde cada resultado vem. O
-[README](../README.md#como-o-motor-funciona) conta a mesma história em prosa e com foco em
+[Como o motor funciona](motor.md) conta a mesma história em prosa e com foco em
 *por que* o motor foi escrito assim; aqui o objetivo é outro — deixar cada afirmação
 verificável, e cada aproximação com o erro dela declarado.
 
 As referências numeradas — `[1]`, `[2]`, … — estão em [§12](#12-referências).
 
 **Convenções de notação.** Fórmulas ficam em blocos de código com símbolos Unicode (`Σ`, `≤`,
-`·`, `𝔼`), no mesmo estilo do README. Vetores são colunas; `1` é o vetor de uns; `‖x‖∞ =
+`·`, `𝔼`), no mesmo estilo do restante da documentação. Vetores são colunas; `1` é o vetor de uns; `‖x‖∞ =
 maxᵢ|xᵢ|`; para matrizes, `‖A‖∞` é a norma induzida (maior soma de módulos por linha).
 Desigualdades entre vetores são componente a componente. `(x)₊ = max(x, 0)`.
 
@@ -52,7 +52,7 @@ Fixe uma **categoria** de equipamento `k ∈ 𝒦 = {w1, w2, w3, w4, w5, a1, a2,
 `σ(o)` e `π(o)` são **independentes**: um minério pode aumentar a chance e ainda destruir o item
 (Oridecon Enriquecido), proteger sem aumentar a chance (Oridecon Perfeito) ou fazer as duas
 coisas (Eteridecon Enriquecido). Nenhum dos dois se deduz de o minério ser "especial", que é uma
-questão de acesso — ver [README, "Chances e custos"](../README.md#chances-e-custos--browiki).
+questão de acesso — ver [Chances e custos](dados-chances.md#especial-não-quer-dizer-chance-maior).
 
 E dois preços informados pelo jogador: `u(i) ∈ (0, ∞]` para cada material `i`
 ([§7](#7-custo-de-aquisição-comprar-ou-fabricar)), e `V₀ > 0`, o preço de reposição do item
@@ -814,7 +814,7 @@ Reunidas num lugar só, na ordem em que apareceram:
 | # | Hipótese | Onde entra | Se for falsa |
 | --- | --- | --- | --- |
 | H1 | Tentativas são Bernoulli independentes, com a chance da tabela | §2.1 | Se o servidor usar *pity*/sequência, o MDP muda de forma |
-| H2 | Chances, taxas e receitas das tabelas são as do servidor | §1.1 | Erro sistemático proporcional; ver as fontes no README |
+| H2 | Chances, taxas e receitas das tabelas são as do servidor | §1.1 | Erro sistemático proporcional; ver [as fontes](dados.md#a-ordem-das-fontes) |
 | H3 | Preços são fixos, exógenos e iguais na compra e na venda | §7, §9.4 | O custo vira um problema com duas fontes de risco |
 | H4 | Liquidez ilimitada ao preço informado, a qualquer momento | §9.1 | "Total ≤ caixa" deixa de ser equivalente à sobrevivência |
 | H5 | A reposição é sempre um item +0 ao preço `V₀` | §2.1 | Repor no refino corrente incentivaria quebrar de propósito |
@@ -915,5 +915,5 @@ de 72,7%) foram obtidos com os preços padrão de
     estabilidade da eliminação gaussiana e fator de crescimento.) Ver também
     <https://en.wikipedia.org/wiki/M-matrix>
 
-**Fontes dos dados do jogo** (chances, receitas, taxas) estão documentadas no
-[README](../README.md#dados): Browiki, Divine Pride e iROwiki.
+**Fontes dos dados do jogo** (chances, receitas, taxas) estão documentadas em
+[Os dados](dados.md): Browiki, Divine Pride e iROwiki.

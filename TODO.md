@@ -25,8 +25,8 @@
     testados devolveram 522 (allorigins, codetabs), 403/plano pago (corsproxy.io) ou markdown
     sem cookie (r.jina.ai). Restaria hospedar um proxy próprio: um serviço a manter, mais um
     ponto para cair, e uma requisição ao site deles por tecla digitada de cada visitante. A
-    tabela com as medições está no README, em "Por que a base é varrida, e não consultada ao
-    vivo".
+    tabela com as medições está em docs/dados-itens.md, em "Por que a base é varrida, e
+    não consultada ao vivo".
   - O que tornou a varredura viável foi descobrir que a ficha pesa 20 KB comprimidos, não os
     400 KB crus que assustavam o script antigo, e que os ~1.060 sombrios se classificam só
     pela listagem (`classificarPelaListagem`). Sobram ~4.700 fichas, ~20 min, uma vez — depois

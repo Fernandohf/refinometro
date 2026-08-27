@@ -6,8 +6,8 @@
 // Nada daqui roda no navegador, e não é por escolha: o site não manda
 // `Access-Control-Allow-Origin` em página nenhuma, nem na API oficial, e a busca
 // depende de um cookie de idioma que proxy genérico não repassa. Por isso a base
-// é varrida por CLI e versionada — o README detalha as medições em "Por que a
-// base é varrida, e não consultada ao vivo".
+// é varrida por CLI e versionada — docs/dados-itens.md detalha as medições em
+// "Por que a base é varrida, e não consultada ao vivo".
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
