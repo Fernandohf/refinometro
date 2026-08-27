@@ -15,6 +15,7 @@ import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { META } from './data/items';
 import {
+  BotaoCafe,
   BotaoDoPainel,
   Campo,
   Info,
@@ -701,6 +702,17 @@ function Rodape() {
         Ragnarok Latin America; se o seu servidor rodar valores diferentes, o resultado sai
         diferente.
       </p>
+      </div>
+
+      {/*
+        Fora do trecho recolhido, e de propósito: lá dentro é proveniência, que se
+        consulta uma vez; isto é um pedido, e pedido escondido não é pedido. Fica
+        no fim de tudo, depois das ressalvas, para não cobrar nada de quem veio
+        pela conta.
+      */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p>Sem anúncio, sem cadastro e sem custo. Se a conta te poupou zeny:</p>
+        <BotaoCafe href="https://buymeacoffee.com/fernandohf">Me pague um café</BotaoCafe>
       </div>
     </footer>
   );

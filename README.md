@@ -1,5 +1,7 @@
 # Refinômetro
 
+<a href="https://www.buymeacoffee.com/fernandohf" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="41" width="149"></a>
+
 Calculadora de custo de refino para o Ragnarok Latam. Diz quanto zeny, quantos minérios e
 quantas cópias do próprio equipamento você precisa ter em caixa para levar uma arma ou
 equipamento até um refino e um grau alvo, qual a melhor estratégia de minérios em cada
@@ -725,3 +727,18 @@ src/         interface
 tests/       testes do motor
 docs/        a matemática do motor, em detalhe (matematica.md)
 ```
+
+## Licença
+
+O código está sob a [licença MIT](LICENSE).
+
+Os **dados** não são meus e seguem a licença de quem os publicou: `data-raw/*.wiki` é wikitext
+copiado do [Browiki](https://browiki.org), e `src/data/items.json` vem das páginas públicas do
+[Divine Pride](https://www.divine-pride.net/). Ragnarok Online é da Gravity; este é um projeto
+de fã, sem vínculo com a Gravity, a GNJOY Latam ou o Divine Pride.
+
+## Apoie
+
+A calculadora é de graça, sem anúncio e sem cadastro. Se ela te poupou zeny:
+
+<a href="https://www.buymeacoffee.com/fernandohf" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="60" width="217"></a>
