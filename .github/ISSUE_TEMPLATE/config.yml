@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Como contribuir
+    url: https://github.com/Fernandohf/refinometro/blob/main/CONTRIBUTING.md
+    about: O que ajuda, como relatar e onde mexer em cada tipo de mudança.
+  - name: A documentação
+    url: https://github.com/Fernandohf/refinometro/blob/main/docs/README.md
+    about: Como o motor calcula, de onde vem cada número e as divergências já registradas.
