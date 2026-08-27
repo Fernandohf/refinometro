@@ -725,3 +725,12 @@ src/         interface
 tests/       testes do motor
 docs/        a matemática do motor, em detalhe (matematica.md)
 ```
+
+## Licença
+
+O código está sob a [licença MIT](LICENSE).
+
+Os **dados** não são meus e seguem a licença de quem os publicou: `data-raw/*.wiki` é wikitext
+copiado do [Browiki](https://browiki.org), e `src/data/items.json` vem das páginas públicas do
+[Divine Pride](https://www.divine-pride.net/). Ragnarok Online é da Gravity; este é um projeto
+de fã, sem vínculo com a Gravity, a GNJOY Latam ou o Divine Pride.
