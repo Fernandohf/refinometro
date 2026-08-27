@@ -101,6 +101,36 @@ function IconeVisto() {
   );
 }
 
+/**
+ * A caneca do Buy Me a Coffee, desenhada aqui.
+ *
+ * O botão oficial deles é um PNG servido do CDN da própria Buy Me a Coffee, e
+ * usá-lo custaria a única requisição a terceiro da página inteira: o CDN
+ * passaria a ver o IP de todo mundo que abre a calculadora, tendo clicado ou
+ * não. Desenhada, ela entra no bundle, fica nítida em qualquer zoom e não
+ * entrega visitante nenhum.
+ */
+function IconeCafe() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[1.25em] shrink-0" aria-hidden>
+      {/* Corpo, alça e apoio da caneca. */}
+      <path
+        fill="currentColor"
+        d="M4 9h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Zm12 2h1.4a2.6 2.6 0 0 1 0 5.2H16v-2h1.4a.6.6 0 0 0 0-1.2H16V11ZM4 21.2h16v1.6H4v-1.6Z"
+      />
+      {/* Vapor. São dois fios finos, e são eles que fazem a caneca ler como
+          café quente em vez de balde. */}
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        d="M8 1.4c-.9 1-.9 2 0 3s.9 2 0 3M12 1.4c-.9 1-.9 2 0 3s.9 2 0 3"
+      />
+    </svg>
+  );
+}
+
 /* ──────────────────────────────────────────────────────────────────── botões */
 
 /**
@@ -190,6 +220,42 @@ export function BotaoDoPainel({
     >
       {children}
     </Botao>
+  );
+}
+
+/**
+ * O botão do Buy Me a Coffee.
+ *
+ * O amarelo e o preto são da marca, e por isso são os únicos valores de cor
+ * fixos da interface — não saem de `index.css` e não viram token de propósito.
+ * Um botão de marca que troca de cor com o tema deixa de ser reconhecível, e
+ * ser reconhecível é a única coisa que ele tem a oferecer; por isso ele também
+ * não escurece no tema escuro. O amarelo carrega texto preto nas duas peles,
+ * então o contraste não depende do tema.
+ *
+ * O resto é o `Botao` preenchido: mesma altura, mesma forma, mesma ondulação,
+ * mesma película de estado. Ele é um botão desta tela, não um enxerto colado no
+ * rodapé.
+ */
+export function BotaoCafe({ href, children }: { href: string; children: ReactNode }) {
+  const { ondular, Ondas } = useOndulacao();
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      onPointerDown={ondular}
+      className={
+        'estado inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 ' +
+        'overflow-hidden rounded-full bg-[#FFDD00] px-5 text-black md-corpo-m font-medium ' +
+        'whitespace-nowrap shadow-e1 transition-shadow duration-200 ease-padrao hover:shadow-e2'
+      }
+    >
+      <Ondas />
+      <IconeCafe />
+      {children}
+    </a>
   );
 }
 

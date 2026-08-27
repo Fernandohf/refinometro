@@ -24,6 +24,25 @@ beforeAll(() => {
 });
 
 describe('página', () => {
+  it('deixa o apoio à vista, fora do trecho recolhido do rodapé', () => {
+    const html = renderToString(<App />);
+
+    // O rodapé esconde a proveniência atrás de um `hidden`, e o pedido não pode
+    // cair junto: pedido escondido não é pedido. `hidden` aparece no HTML do
+    // trecho recolhido, então o que se confere é que o botão vem DEPOIS dele —
+    // fora da <div> que abre e fecha.
+    const recolhido = html.indexOf('hidden=""');
+    const botao = html.indexOf('buymeacoffee.com/fernandohf');
+    expect(recolhido).toBeGreaterThan(-1);
+    expect(botao).toBeGreaterThan(recolhido);
+
+    expect(html).toContain('Me pague um café');
+    // A caneca é desenhada no bundle, e não buscada no CDN da Buy Me a Coffee:
+    // um <img> de lá entregaria o IP de todo visitante, tendo clicado ou não.
+    expect(html).not.toContain('cdn.buymeacoffee.com');
+    expect(html).toContain('rel="noreferrer noopener"');
+  });
+
   it('abre o simulador de estoque com o que ficou salvo', () => {
     // Estoque salvo => o painel já vem aberto, com os campos do plano atual.
     localStorage.setItem(
