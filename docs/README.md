@@ -16,6 +16,7 @@ caminho.
 | Documento | O que tem lá |
 | --- | --- |
 | [Como a interface se organiza](interface.md) | Material Design 3 como regra, o botão informativo e a lista de compras. |
+| [Ser encontrado](seo.md) | O que a página faz para aparecer numa busca por "calculadora de refino ragnarok latam" — e as duas coisas que o repositório não faz sozinho. |
 
 ## Os dados
 
