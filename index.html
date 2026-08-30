@@ -3,15 +3,63 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Refinômetro — Calculadora de Refino do Ragnarok Latam</title>
-    <meta
-      name="description"
-      content="Calcule o custo esperado, a melhor estratégia de minérios e o risco de quebra ao refinar armas e equipamentos no Ragnarok Latam."
-    />
+
+    <!--
+      Título, descrição, canônico, Open Graph e dados estruturados entram aqui,
+      gerados de `src/data/seo.ts` pelo plugin `seo()` do `vite.config.ts`. Não
+      apague este marcador: o build para se ele sumir.
+    -->
+    <!-- seo -->
+
+    <!-- Pré-conexão com o CDN do Divine Pride, de onde vem a arte de cada item.
+         O primeiro sprite aparece assim que o resultado renderiza, e sem isto o
+         navegador só começa o DNS + TLS quando encontra o <img>. -->
+    <link rel="preconnect" href="https://static.divine-pride.net" />
+
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚒️</text></svg>" />
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      O que existe antes do JavaScript rodar.
+
+      A calculadora é uma página só, montada no cliente: sem isto, o HTML que
+      sai do servidor é uma <div> vazia. O rastreador do Google renderiza a
+      página e enxerga o resto, mas ele é o único que faz isso — o cartão de
+      link do Discord, o do WhatsApp, o Bing e quem chega com o script
+      bloqueado leem exatamente este bloco e nada mais.
+
+      Não é uma cópia da tela nem um resumo escondido: é o mesmo cabeçalho que
+      o React desenha logo em seguida, no mesmo lugar, mais a frase que diz o
+      que está carregando. `createRoot` limpa os filhos do #root no primeiro
+      render, então isto some sozinho — e como o <h1> renderizado é igual a
+      este, o que o olho vê é o resto da página aparecendo em volta dele.
+    -->
+    <div id="root">
+      <div style="margin: 0 auto; max-width: 72rem; padding: 2rem 1rem; color: #e4e8ef">
+        <h1 style="font-size: 1.375rem; font-weight: 600; letter-spacing: -0.01em; margin: 0">
+          Refinô<span style="color: #eab532">metro</span>
+          <span style="font-size: 0.875rem; font-weight: 400; color: #a9b0bd">
+            Calculadora e simulador de custo de refino do Ragnarok Latam.
+          </span>
+        </h1>
+        <p style="font-size: 0.875rem; line-height: 1.57; color: #a9b0bd; max-width: 44rem">
+          Diga o item, o refino atual e aonde quer chegar: a calculadora responde quanto zeny,
+          quantos minérios e quantas cópias do equipamento a campanha custa, qual é a melhor
+          estratégia de minérios em cada faixa e qual é o risco de quebrar o item no caminho.
+        </p>
+        <p style="font-size: 0.75rem; color: #a9b0bd">Carregando a calculadora…</p>
+        <noscript>
+          <p style="font-size: 0.875rem; line-height: 1.57; color: #eab532">
+            A calculadora precisa de JavaScript: a conta roda inteira no seu navegador, sem
+            servidor e sem cadastro. Habilite o script nesta página, ou leia o método e as
+            fontes em
+            <a style="color: #eab532" href="https://github.com/Fernandohf/refinometro"
+              >github.com/Fernandohf/refinometro</a
+            >.
+          </p>
+        </noscript>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

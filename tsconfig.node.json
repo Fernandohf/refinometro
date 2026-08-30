@@ -11,5 +11,9 @@
     "types": ["node"],
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
   },
-  "include": ["vite.config.ts"]
+  // `src/data/seo.ts` entra aqui porque o plugin `seo()` do vite.config o
+  // importa: num projeto `composite`, todo arquivo alcançado precisa estar
+  // listado. Ele é dado puro, sem DOM e sem React, justamente para caber
+  // nos dois lados.
+  "include": ["vite.config.ts", "src/data/seo.ts"]
 }

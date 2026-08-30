@@ -13,6 +13,7 @@ import type { Estoque } from './engine/estoque';
 import { Resultado, type MargemKey } from './components/Resultado';
 import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
+import { Sobre } from './components/Sobre';
 import { META } from './data/items';
 import {
   BotaoCafe,
@@ -204,13 +205,25 @@ export default function App() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <header className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-1">
-        <h1 className="md-titulo-g text-2xl">
-          Refinô<span className="text-realce">metro</span>
+      {/*
+        A linha de apoio vive DENTRO do <h1>, e não como um <p> ao lado dele.
+
+        Visualmente é a mesma coisa — mesma medida, mesma cor, mesmo lugar. O
+        que muda é o que a página declara ser: "Refinômetro" sozinho não diz
+        nada a quem chegou de uma busca por "calculadora de refino do Ragnarok
+        Latam", e o <h1> é a primeira coisa que o buscador lê depois do
+        <title>. Um nome inventado como título de uma página que ninguém
+        procura pelo nome é o jeito mais fácil de não ser encontrado.
+      */}
+      <header className="mb-8">
+        <h1 className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="md-titulo-g text-2xl">
+            Refinô<span className="text-realce">metro</span>
+          </span>
+          <span className="md-corpo-m font-normal text-suave">
+            Calculadora e simulador de custo de refino do Ragnarok Latam.
+          </span>
         </h1>
-        <p className="md-corpo-m text-suave">
-          Quanto custa, de verdade, refinar no Ragnarok Latam.
-        </p>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
@@ -398,6 +411,7 @@ export default function App() {
             </div>
           ) : null}
 
+          <Sobre />
           <Rodape />
         </div>
       </div>
