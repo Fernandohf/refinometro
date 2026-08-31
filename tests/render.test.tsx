@@ -3,6 +3,7 @@ import { renderToString } from 'react-dom/server';
 
 import App from '../src/App';
 import { CurvaDeCusto } from '../src/components/CurvaDeCusto';
+import { TabelaDeEstados } from '../src/components/Cadeia';
 import { PRECOS_FIXOS } from './precosFixos';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
@@ -225,6 +226,48 @@ describe('página', () => {
     // Fechadas: nem a tabela de estados nem o percurso são renderizados.
     expect(html).not.toContain('Falta gastar');
     expect(html).not.toContain('recomeçar');
+  });
+
+  it('reparte o custo degrau a degrau, sem perder nem inventar zeny', () => {
+    // A tabela ganhou o `nesta etapa` ao lado do `falta gastar`. Ele é a
+    // diferença entre o que falta gastar num estado e no seguinte, então a
+    // soma da coluna PRECISA dar o custo da campanha: sobrando ou faltando
+    // zeny, a tabela estaria contando um degrau duas vezes ou escondendo um.
+    //
+    // É o número que a tabela existia para não dar: `falta gastar` cai suave
+    // porque é acumulado, e escondia que um degrau só come a maior parte.
+    const input: CalcInput = {
+      kind: 'w4',
+      precoItem: 30_000_000,
+      refinoAtual: 0,
+      refinoAlvo: 11,
+      grauAtual: 'none',
+      grauAlvo: 'none',
+      evento: false,
+      precos: PRECOS_FIXOS,
+      usarBencaoFerreiro: true,
+      usarMineriosEspeciais: true,
+      perdaAceitavel: true,
+    };
+    const fase = calcular(input).fases.find((f) => f.politica?.length)!;
+    const politica = fase.politica!;
+    const html = renderToString(<TabelaDeEstados politica={politica} alvo={11} />);
+
+    expect(html).toContain('Nesta etapa');
+    expect(html).toContain('Falta gastar');
+
+    // Os títulos das duas colunas trazem o número exato: é por eles que se
+    // confere a conta, e não pelo texto abreviado da barra.
+    const etapas = [...html.matchAll(/title="([\d.]+)z para sair do \+(\d+)/g)];
+    expect(etapas).toHaveLength(politica.length);
+
+    const numero = (s: string) => Number(s.replaceAll('.', ''));
+    const soma = etapas.reduce((t, m) => t + numero(m[1]!), 0);
+    // Arredondado zeny a zeny, uma vez por linha.
+    expect(soma).toBeCloseTo(Math.round(fase.custoEsperado), -1);
+
+    // E nenhum degrau sai negativo: subir um refino nunca devolve dinheiro.
+    for (const m of etapas) expect(numero(m[1]!)).toBeGreaterThanOrEqual(0);
   });
 
   it('desenha o Sankey do custo colado na lista de compras', () => {

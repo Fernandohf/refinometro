@@ -17,9 +17,10 @@ import { Botao, BotaoDoPainel, Info, Pastilha, TituloDeSecao } from './ui';
 
   O que não se repetia continua aqui, e agora abre DENTRO da fase que explica:
 
-  - `TabelaDeEstados` traz o `falta gastar` — o custo esperado daquele degrau
-    até o alvo, que é o número que a política de fato otimiza e que não existe
-    em nenhum outro lugar da tela;
+  - `TabelaDeEstados` traz as duas colunas de custo — o `nesta etapa`, que é o
+    que se espera gastar para vencer aquele degrau, e o `falta gastar`, o custo
+    esperado dali até o alvo, que é o número que a política de fato otimiza.
+    Nenhum dos dois existe em outro lugar da tela;
   - `Percurso` anda a cadeia sorteando de verdade. Não é redundante com nada:
     é a única peça do app que mostra variância como consequência, e é o que
     responde "por que custa tanto se a chance é 40%?" — vendo o item cair de
@@ -46,17 +47,32 @@ export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; a
   // escala para a barra, mostrando quanto de tudo ainda está pela frente.
   const maior = Math.max(...politica.map((e) => e.custoEsperado), 1);
 
+  // O que se espera gastar NESTE degrau: o que falta gastar aqui menos o que
+  // faltaria um refino acima. A política é contígua e termina no +alvo-1, cujo
+  // sucessor é o estado absorvente que vale 0.
+  //
+  // Não é o preço de uma tentativa: já traz dentro as falhas que ainda vão
+  // acontecer neste degrau e o custo de refazer o caminho de onde elas jogarem
+  // o item. É a coluna que responde "onde o dinheiro some", porque `falta
+  // gastar` é a soma acumulada dela e por isso cai suave, escondendo o degrau
+  // único que come a campanha.
+  const etapas = politica.map((e, i) => e.custoEsperado - (politica[i + 1]?.custoEsperado ?? 0));
+  const maiorEtapa = Math.max(...etapas, 1);
+
   return (
     <div>
       {/* O balão fica FORA do `overflow-x-auto`: dentro dele, uma camada
           temporária é recortada pela borda da rolagem. */}
       <TituloDeSecao
         info={
-          <Info titulo="Falta gastar" alinhar="direita">
-            O custo esperado daquele estado até o +{alvo}, já contando as falhas que ainda vão
-            acontecer. É o número que a política otimiza — e é por ele que a Bênção do Ferreiro
-            compensa em degraus onde ela parece cara: ela não muda a chance, muda para onde a falha
-            joga o item.
+          <Info titulo="As duas colunas de custo" alinhar="direita">
+            <strong>Nesta etapa</strong> é o que se espera gastar para vencer aquele degrau — não o
+            preço de uma tentativa, mas o de todas as que ele costuma exigir, mais o caminho de
+            volta quando a falha derruba o item. <strong>Falta gastar</strong> é a soma dessa
+            coluna daquele estado até o +{alvo}: o custo esperado dali até o fim, já contando as
+            falhas que ainda vão acontecer. É o número que a política otimiza — e é por ele que a
+            Bênção do Ferreiro compensa em degraus onde ela parece cara: ela não muda a chance, muda
+            para onde a falha joga o item.
           </Info>
         }
       >
@@ -70,12 +86,14 @@ export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; a
             <th className="pr-3 pb-2 font-medium">Decisão</th>
             <th className="pr-3 pb-2 text-right font-medium">Sucesso</th>
             <th className="pr-3 pb-2 font-medium">Na falha</th>
+            <th className="pr-3 pb-2 text-right font-medium">Nesta etapa</th>
             <th className="pb-2 text-right font-medium">Falta gastar</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-borda/40">
-          {politica.map((e) => {
+          {politica.map((e, i) => {
             const falha = destinoDaFalha(e);
+            const etapa = etapas[i]!;
             return (
               <tr key={e.de}>
                 <td className="py-1.5 pr-3 font-mono text-xs whitespace-nowrap tabular-nums">
@@ -106,6 +124,15 @@ export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; a
                   }
                 >
                   {falha.texto}
+                </td>
+                <td
+                  className="py-1.5 pr-3"
+                  title={`${zenyExato(etapa)} para sair do +${e.de} e ficar no +${e.de + 1}`}
+                >
+                  {/* O bronze do balcão, e não o dourado do acumulado: as duas
+                      colunas são custo, e ler qual barra é qual de relance
+                      depende de elas não terem a mesma cor. */}
+                  <Medida fracao={etapa / maiorEtapa} cor="bg-bronze" texto={zeny(etapa)} />
                 </td>
                 <td
                   className="py-1.5"
