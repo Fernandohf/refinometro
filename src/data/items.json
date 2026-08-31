@@ -1,7 +1,7 @@
 {
   "_fonte": "https://www.divine-pride.net/ (páginas públicas, servidor LATAM)",
   "_servidor": "LATAM",
-  "_geradoEm": "2026-08-27",
+  "_geradoEm": "2026-08-31",
   "_campos": ["id", "nome", "slots", "classe (categoria de refino, ou !motivo)"],
   "itens": [
     [13083,"[Aluguel] Adaga TE",0,"!nivel-desconhecido"],
