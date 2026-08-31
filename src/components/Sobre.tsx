@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { FAQ } from '../data/seo';
+import { FAQ, PAGINAS } from '../data/seo';
 import { BotaoDoPainel } from './ui';
 
 /**
@@ -48,6 +48,39 @@ export function Sobre() {
           </div>
         ))}
       </dl>
+
+      <Referencias />
     </section>
+  );
+}
+
+/**
+ * Os links para as tabelas de referência.
+ *
+ * Ficam à vista, e não atrás do botão, por duas razões que apontam para o mesmo
+ * lugar. Para quem lê: a pessoa que chegou aqui procurando "chance de refino
+ * +12" quer a tabela, não um orçamento, e escondê-la atrás de um clique é
+ * mandá-la de volta para o buscador. Para quem indexa: uma página que só o
+ * sitemap conhece é rastreada com má vontade e some do índice na primeira
+ * faxina — o que a mantém viva é link de dentro do site apontando para ela, e a
+ * calculadora é a página com mais autoridade para emprestar.
+ *
+ * `BASE_URL` é o que o Vite resolve: `/refinometro/` no build, `/` em dev. Um
+ * link escrito à mão como `/tabela-de-refino/` funcionaria em dev e cairia num
+ * 404 em produção, que é a espécie de erro que só aparece depois de publicado.
+ */
+function Referencias() {
+  return (
+    <p className="mt-3 border-t border-borda pt-3">
+      <span className="text-texto">Tabelas de referência:</span>{' '}
+      {PAGINAS.map((pagina, i) => (
+        <span key={pagina.slug}>
+          {i > 0 && ' · '}
+          <a className="text-realce hover:underline" href={`${import.meta.env.BASE_URL}${pagina.slug}/`}>
+            {pagina.rotulo}
+          </a>
+        </span>
+      ))}
+    </p>
   );
 }

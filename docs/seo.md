@@ -4,8 +4,9 @@ A calculadora só serve a quem chega até ela, e quem chega digita alguma varia�
 **"calculadora de refino ragnarok latam"** ou **"simulador de refino ragnarok"** num buscador.
 Ninguém procura por "Refinômetro": esse nome é a coisa que se aprende *depois*.
 
-Este documento é sobre o que a página faz para aparecer nessa busca, e sobre as duas coisas
-que ela não pode fazer sozinha.
+Este documento é sobre o que o site faz para aparecer nessa busca — a calculadora e as três
+páginas de referência que respondem as perguntas fechadas que ela responde mal — e sobre as duas
+coisas que ele não pode fazer sozinho.
 
 ## O problema de uma página que se monta no cliente
 
@@ -49,6 +50,43 @@ vem com aviso. Com um arquivo só, não há como divergirem.
 | Open Graph e `twitter:` | O cartão que o Discord e o WhatsApp desenham. Sem eles, um link colado no chat da guilda é uma linha de texto cinza. |
 | `application/ld+json` | Diz, sem depender de o rastreador acertar a leitura do HTML, que isto é um aplicativo web gratuito, em português, sobre Ragnarok Online, e que responde estas perguntas. |
 
+## As páginas de referência
+
+Um site de uma URL só disputa um punhado de termos. A calculadora responde bem a "quanto custa
+refinar", mas responde *mal* à pergunta fechada — "qual a chance do +12", "o Oridecon Perfeito
+aumenta a chance", "o Grau zera o refino?" —, porque para ver o número é preciso escolher um item,
+informar preços e ler um orçamento que ninguém pediu. Essas perguntas não tinham onde pousar.
+
+Agora têm três endereços, gerados no build a partir dos mesmos dados que o motor usa:
+
+| Página | Responde |
+| --- | --- |
+| [`/tabela-de-refino/`](https://fernandohf.github.io/refinometro/tabela-de-refino/) | A chance de cada nível, do +1 ao +20, por categoria — com minério comum, aumentado e em evento. |
+| [`/minerios/`](https://fernandohf.github.io/refinometro/minerios/) | O que cada minério faz, e a distinção que quase todo guia erra: aumentar a chance e proteger o item são coisas diferentes. |
+| [`/grau/`](https://fernandohf.github.io/refinometro/grau/) | As chances, os materiais e a regra que domina o planejamento: subir de Grau devolve o refino para +0. |
+
+Elas moram em [`src/paginas/`](../src/paginas/) e são **HTML cru, sem JavaScript nenhum** — CSS
+embutido, ~6 kB comprimidos, a página completa no primeiro byte. Não é economia de bytes: é que a
+resposta delas é uma tabela que não muda enquanto o wiki não mudar, e servir isso através de um
+bundle que monta a página no cliente devolveria exatamente o problema que o `#root` pré-preenchido
+contorna à mão na calculadora.
+
+Nada nelas é copiado. As chances saem de `chanceOf`, a mesma função que o motor consulta para
+montar o plano; as linhas de minério saem de `ORES`; e até os três grupos da página de minérios
+são *calculados* dos campos, em vez de escritos à mão. Uma tabela de referência copiada fica errada
+no dia em que a base é atualizada, e ninguém percebe — e uma tabela errada é pior que tabela
+nenhuma, porque quem a lê planeja uma campanha inteira em cima dela. Um teste confere célula a
+célula contra o motor ([`tests/paginas.test.ts`](../tests/paginas.test.ts)).
+
+Duas listas descrevem essas páginas, e isso é de propósito. Os **metadados** (slug, título,
+descrição) ficam em `src/data/seo.ts`, que a tela pode importar; o **conteúdo** fica em
+`src/paginas/`, que é módulo de build. É o que permite a calculadora linkar para as tabelas sem
+arrastar o HTML delas para o bundle — e é por isso que um teste amarra as duas listas: duas listas
+divergem, e a divergência aqui é um 404 anunciado no sitemap ou uma página que o Google nunca vê.
+
+Elas também linkam de volta, umas para as outras e para a calculadora. Página órfã — que só o
+sitemap conhece — é rastreada com má vontade e some do índice na primeira faxina.
+
 ## O cartão de link
 
 `public/og.png`, 1200×630, versionado. Ele é desenhado por
@@ -60,8 +98,10 @@ para que o PNG seja reproduzível.
 ## O sitemap, e o robots.txt que não existe
 
 O `sitemap.xml` é emitido pelo mesmo plugin, com `lastmod` na data do build — que é a verdade,
-já que o site é republicado inteiro a cada push na `main`. Para uma página só ele não serve para
-descoberta; serve para ter um endereço a entregar ao Search Console.
+já que o site é republicado inteiro a cada push na `main`. Ele lista a calculadora e as três
+páginas de referência; a calculadora vem com `priority` maior porque é ela que responde à busca
+principal. Para tão poucas páginas, todas ligadas por link, ele não serve para descoberta — serve
+para ter um endereço a entregar ao Search Console.
 
 Não há `robots.txt`, e não é esquecimento. O arquivo só é lido na **raiz do domínio** —
 `fernandohf.github.io/robots.txt` —, e essa raiz é servida por outro repositório
@@ -74,13 +114,18 @@ que se quer aqui.
 Tudo acima é a página se apresentando bem. Aparecer na busca depende de mais duas coisas, e
 nenhuma delas mora no código:
 
-1. **Enviar o sitemap ao [Google Search Console](https://search.google.com/search-console)** —
-   a propriedade é `https://fernandohf.github.io/refinometro/`, e a prova de posse dela já está
-   no repositório (ver abaixo); o que falta é registrar
-   `https://fernandohf.github.io/refinometro/sitemap.xml` na aba **Sitemaps**. É também o único
-   lugar onde dá para ver por quais termos a página já está aparecendo, e em que posição. O
+1. **Manter o sitemap registrado no
+   [Google Search Console](https://search.google.com/search-console)** — a propriedade é
+   `https://fernandohf.github.io/refinometro/`, a prova de posse já está no repositório (ver
+   abaixo), e o sitemap a registrar na aba **Sitemaps** é
+   `https://fernandohf.github.io/refinometro/sitemap.xml`. Ele passou a listar quatro endereços em
+   vez de um; o Google relê o sitemap sozinho, mas as três páginas novas só entram na fila depois
+   disso, e vale usar a **Inspeção de URL** para pedir a indexação de cada uma no dia em que
+   forem ao ar. O Search Console é também o único lugar onde dá para ver por quais termos cada
+   página está aparecendo, e em que posição — e agora dá para comparar as quatro. O
    [Bing Webmaster Tools](https://www.bing.com/webmasters) importa a propriedade do Google em um
-   clique.
+   clique, e para as páginas de referência ele importa mais que o normal: elas são HTML cru, que é
+   justamente o que o rastreador do Bing lê bem.
 
 2. **Links de fora.** É o que mais pesa e o que menos se controla: uma página nova sem nenhum
    link apontando para ela demora meses para sair da segunda página, por melhor que esteja o

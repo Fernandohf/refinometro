@@ -9,11 +9,36 @@
     "skipLibCheck": true,
     "composite": true,
     "types": ["node"],
+    "resolveJsonModule": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
   },
-  // `src/data/seo.ts` entra aqui porque o plugin `seo()` do vite.config o
-  // importa: num projeto `composite`, todo arquivo alcançado precisa estar
-  // listado. Ele é dado puro, sem DOM e sem React, justamente para caber
-  // nos dois lados.
-  "include": ["vite.config.ts", "src/data/seo.ts"]
+  // Este é o projeto do BUILD: o que o `vite.config.ts` alcança. Num projeto
+  // `composite`, todo arquivo alcançado precisa estar listado — então a lista
+  // abaixo é exatamente o que o plugin `seo()` importa, direta ou
+  // indiretamente, e nada mais.
+  //
+  // Ela é explícita, e não um `src/**/*`, por duas razões: manter fora daqui o
+  // que depende do DOM (a tela, o worker), já que este projeto compila sem a
+  // lib do DOM; e fazer com que importar a tela de dentro de `src/paginas/`
+  // falhe no `tsc` em vez de silenciosamente arrastar o React para o build das
+  // páginas estáticas.
+  //
+  // As páginas de referência leem as chances pelas MESMAS funções do motor que
+  // a calculadora usa (ver `src/paginas/`), e é daí que vem a parte de
+  // `src/engine/` desta lista.
+  "include": [
+    "vite.config.ts",
+    "src/paginas",
+    "src/format.ts",
+    "src/data/seo.ts",
+    "src/data/ores.ts",
+    "src/data/grade.ts",
+    "src/data/rotulos.ts",
+    "src/data/refineChances.json",
+    "src/data/gradeChances.json",
+    "src/engine/refine.ts",
+    "src/engine/pricing.ts",
+    "src/engine/linear.ts",
+    "src/engine/types.ts"
+  ]
 }
