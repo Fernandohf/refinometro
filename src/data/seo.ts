@@ -116,11 +116,116 @@ export const FAQ: readonly { pergunta: string; resposta: string }[] = [
   },
 ];
 
+/* ─────────────────────────────────────────────────────────── as outras páginas */
+
+/**
+ * Uma página do site, do ponto de vista de quem a indexa.
+ *
+ * A calculadora é uma só, mas o site não é mais uma página só: as tabelas de
+ * referência em `src/paginas/` respondem perguntas que a calculadora não
+ * responde — "qual é a chance do +12?" é uma consulta, não um orçamento — e
+ * cada pergunta dessas precisa de um endereço próprio para poder aparecer na
+ * busca. Um site de uma URL só disputa um punhado de termos; o resto da cauda
+ * longa não tem onde pousar.
+ *
+ * O que se declara aqui é só o que o buscador lê; o conteúdo mora com a página.
+ */
+export interface Pagina {
+  /** Caminho a partir da raiz, sem barras nas pontas. `''` é a calculadora. */
+  slug: string;
+  titulo: string;
+  descricao: string;
+}
+
+/** A calculadora, descrita como as outras páginas para caber no mesmo sitemap. */
+export const HOME: Pagina = { slug: '', titulo: SITE.titulo, descricao: SITE.descricao };
+
+/**
+ * O endereço público de um slug.
+ *
+ * Sempre com a barra final, inclusive nas páginas internas: o GitHub Pages
+ * serve `/tabela-de-refino/index.html` nos dois endereços, e sem a barra o
+ * canônico apontaria para o que redireciona em vez de para o que responde.
+ */
+export function enderecoDe(slug: string): string {
+  return slug ? `${SITE.url}${slug}/` : SITE.url;
+}
+
+/**
+ * As páginas de referência: o que o buscador lê sobre cada uma.
+ *
+ * Só os metadados moram aqui; o conteúdo mora em `src/paginas/`, que é um
+ * módulo do BUILD. A separação não é arrumação — é o que permite a tela
+ * LINKAR para estas páginas sem arrastar o HTML delas para o bundle da
+ * calculadora, já que `src/paginas/` carrega as tabelas inteiras em texto.
+ *
+ * E a tela precisa linkar: uma página que só o sitemap conhece é rastreada com
+ * má vontade e some do índice na primeira faxina. `rotulo` é o texto desse
+ * link — curto, porque ele aparece no meio de uma frase, e não como título.
+ */
+export const REFERENCIAS = {
+  tabelaDeRefino: {
+    slug: 'tabela-de-refino',
+    titulo: 'Tabela de Chances de Refino do Ragnarok Latam — Refinômetro',
+    descricao:
+      'A chance de sucesso de cada nível de refino, do +1 ao +20, por categoria de item, ' +
+      'com minério comum e com minério de chance aumentada. Dados do Browiki (LATAM).',
+    rotulo: 'tabela de chances de refino',
+  },
+  minerios: {
+    slug: 'minerios',
+    titulo: 'Minérios de Refino do Ragnarok Latam: qual usar em cada faixa',
+    descricao:
+      'Todos os minérios de refino do Ragnarok Latam: em que categoria e faixa cada um ' +
+      'serve, quais aumentam a chance, quais protegem da quebra e o que o NPC cobra.',
+    rotulo: 'minérios de refino',
+  },
+  grau: {
+    slug: 'grau',
+    titulo: 'Grau A, B, C e D no Ragnarok Latam: chances, materiais e custo',
+    descricao:
+      'Como funciona o Grau no Ragnarok Latam: a chance de cada degrau por refino, os ' +
+      'materiais de cada subida, a Bênção de Éter e por que subir de Grau zera o refino.',
+    rotulo: 'sistema de Grau',
+  },
+} as const satisfies Record<string, Pagina & { rotulo: string }>;
+
+/**
+ * As páginas de referência, na ordem em que aparecem no sitemap e no rodapé —
+ * da pergunta mais procurada para a mais específica.
+ */
+export const PAGINAS: readonly (Pagina & { rotulo: string })[] = Object.values(REFERENCIAS);
+
 /* ──────────────────────────────────────────────────────── o que vai no <head> */
 
 /** Escapa o que vai dentro de um atributo HTML. */
-function atributo(valor: string): string {
+export function atributo(valor: string): string {
   return valor.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * Escapa o que vai como texto entre tags.
+ *
+ * As páginas de `src/paginas/` montam HTML com nome de item e nome de material
+ * vindos dos dados, e um `&` num nome quebraria a marcação em silêncio.
+ */
+export function texto(valor: string): string {
+  return valor.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Empacota um JSON-LD na sua tag, com o `<` escapado.
+ *
+ * Todo `<` sai escapado na forma `\u003c`, que o JSON desfaz na leitura. Sem isso, um
+ * `</script>` escrito dentro de uma resposta fecharia esta tag no meio do JSON
+ * e levaria o resto da página junto.
+ */
+export function tagDeDados(dados: unknown): string {
+  return (
+    '<script type="application/ld+json">' +
+    JSON.stringify(dados).replace(/</g, '\\u003c') +
+    '</script>'
+  );
 }
 
 /**
@@ -174,19 +279,26 @@ export function dadosEstruturados(): string {
 }
 
 /**
- * O bloco inteiro que substitui o marcador `<!-- seo -->` do `index.html`.
+ * O `<head>` de uma página qualquer do site.
  *
  * `og:` e `twitter:` repetem título e descrição de propósito — é assim que os
- * dois protocolos funcionam —, mas repetem a MESMA constante, que é o ponto de
- * tudo isto morar num arquivo só.
+ * dois protocolos funcionam —, mas repetem o MESMO argumento, que é o ponto de
+ * tudo isto morar numa função só. O que muda de página para página são as três
+ * primeiras linhas e o dado estruturado; o resto é o site se identificando, e
+ * é igual em todas.
+ *
+ * O cartão de link é sempre o mesmo `og.png`. Uma imagem por página seria
+ * melhor, mas uma imagem GENÉRICA por página não seria: o cartão que o Discord
+ * desenha diz o nome do site, e isso é verdade em qualquer página dele.
  */
-export function cabecalhoSEO(): string {
+export function cabecalhoDePagina(pagina: Pagina, dados: unknown): string {
+  const url = enderecoDe(pagina.slug);
   const meta = (chave: 'name' | 'property', nome: string, conteudo: string) =>
     `<meta ${chave}="${nome}" content="${atributo(conteudo)}" />`;
 
   return [
-    `<title>${atributo(SITE.titulo)}</title>`,
-    meta('name', 'description', SITE.descricao),
+    `<title>${atributo(pagina.titulo)}</title>`,
+    meta('name', 'description', pagina.descricao),
     meta('name', 'author', SITE.autor),
 
     // `max-snippet:-1` e `max-image-preview:large` liberam o trecho longo e a
@@ -194,9 +306,9 @@ export function cabecalhoSEO(): string {
     // Europa é um resumo curto e imagem nenhuma.
     meta('name', 'robots', 'index, follow, max-snippet:-1, max-image-preview:large'),
 
-    // Canônico: o mesmo conteúdo responde em `/refinometro` e em
-    // `/refinometro/`, e sem esta linha os dois endereços competem entre si.
-    `<link rel="canonical" href="${atributo(SITE.url)}" />`,
+    // Canônico: o mesmo conteúdo responde com e sem a barra final, e sem esta
+    // linha os dois endereços competem entre si e dividem a autoridade.
+    `<link rel="canonical" href="${atributo(url)}" />`,
 
     meta('name', 'theme-color', SITE.corDoTema),
     meta('name', 'color-scheme', 'dark'),
@@ -204,9 +316,9 @@ export function cabecalhoSEO(): string {
     meta('property', 'og:type', 'website'),
     meta('property', 'og:site_name', SITE.nome),
     meta('property', 'og:locale', 'pt_BR'),
-    meta('property', 'og:url', SITE.url),
-    meta('property', 'og:title', SITE.titulo),
-    meta('property', 'og:description', SITE.descricao),
+    meta('property', 'og:url', url),
+    meta('property', 'og:title', pagina.titulo),
+    meta('property', 'og:description', pagina.descricao),
     meta('property', 'og:image', SITE.imagem),
     meta('property', 'og:image:type', 'image/png'),
     meta('property', 'og:image:width', '1200'),
@@ -214,36 +326,47 @@ export function cabecalhoSEO(): string {
     meta('property', 'og:image:alt', SITE.imagemAlt),
 
     meta('name', 'twitter:card', 'summary_large_image'),
-    meta('name', 'twitter:title', SITE.titulo),
-    meta('name', 'twitter:description', SITE.descricao),
+    meta('name', 'twitter:title', pagina.titulo),
+    meta('name', 'twitter:description', pagina.descricao),
     meta('name', 'twitter:image', SITE.imagem),
     meta('name', 'twitter:image:alt', SITE.imagemAlt),
 
-    // Todo `<` sai escapado na forma `\u003c`, que o JSON desfaz na
-    // leitura. Sem isso, um `</script>` escrito dentro de uma resposta
-    // fecharia esta tag no meio do JSON e levaria o resto da página junto.
-    '<script type="application/ld+json">' +
-      dadosEstruturados().replace(/</g, '\\u003c') +
-      '</script>',
+    tagDeDados(dados),
   ].join('\n    ');
+}
+
+/** O bloco que substitui o marcador `<!-- seo -->` do `index.html`. */
+export function cabecalhoSEO(): string {
+  return cabecalhoDePagina(HOME, JSON.parse(dadosEstruturados()) as unknown);
 }
 
 /**
  * O sitemap.
  *
- * Uma página só — o que ele resolve não é descoberta, e sim ter um endereço
- * para entregar ao Search Console e uma data de modificação que não dependa de
- * o rastreador adivinhar. `lastmod` é a data do build, e essa é a verdade: o
- * site é republicado inteiro a cada push na `main`.
+ * O que ele resolve não é descoberta — são poucas páginas, e todas se ligam
+ * por link — e sim ter um endereço para entregar ao Search Console e uma data
+ * de modificação que não dependa de o rastreador adivinhar. `lastmod` é a data
+ * do build, e essa é a verdade: o site é republicado inteiro a cada push na
+ * `main`.
+ *
+ * A calculadora vem com prioridade maior que as tabelas porque é ela que
+ * responde à busca principal; as tabelas existem para a cauda longa, e dizer
+ * ao rastreador que todas são igualmente centrais seria não dizer nada.
  */
-export function sitemap(hoje = new Date()): string {
+export function sitemap(paginas: readonly Pagina[] = [HOME], hoje = new Date()): string {
+  const data = hoje.toISOString().slice(0, 10);
+  const entradas = paginas.map(
+    (p) => `  <url>
+    <loc>${enderecoDe(p.slug)}</loc>
+    <lastmod>${data}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>${p.slug ? '0.7' : '1.0'}</priority>
+  </url>`,
+  );
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${SITE.url}</loc>
-    <lastmod>${hoje.toISOString().slice(0, 10)}</lastmod>
-    <changefreq>weekly</changefreq>
-  </url>
+${entradas.join('\n')}
 </urlset>
 `;
 }

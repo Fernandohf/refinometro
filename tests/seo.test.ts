@@ -3,7 +3,16 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { createElement } from 'react';
 
-import { cabecalhoSEO, dadosEstruturados, FAQ, SITE, sitemap } from '../src/data/seo';
+import {
+  cabecalhoSEO,
+  dadosEstruturados,
+  enderecoDe,
+  FAQ,
+  HOME,
+  PAGINAS,
+  SITE,
+  sitemap,
+} from '../src/data/seo';
 import { Sobre } from '../src/components/Sobre';
 import App from '../src/App';
 
@@ -153,10 +162,19 @@ describe('verificação de propriedade', () => {
 });
 
 describe('sitemap', () => {
+  const xml = sitemap([HOME, ...PAGINAS], new Date('2026-01-15T10:00:00Z'));
+
   it('lista a raiz do site com a data do build', () => {
-    const xml = sitemap(new Date('2026-01-15T10:00:00Z'));
     expect(xml).toContain(`<loc>${SITE.url}</loc>`);
     expect(xml).toContain('<lastmod>2026-01-15</lastmod>');
+  });
+
+  it('lista também as páginas de referência, e nenhuma a mais', () => {
+    // Uma página que o build emite mas o sitemap não lista é uma página que o
+    // Search Console não sabe existir; uma que o sitemap lista mas o build não
+    // emite é um 404 entregue ao Google de bandeja. As duas falham caladas.
+    for (const p of PAGINAS) expect(xml).toContain(`<loc>${enderecoDe(p.slug)}</loc>`);
+    expect(xml.match(/<loc>/g)).toHaveLength(1 + PAGINAS.length);
   });
 });
 

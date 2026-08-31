@@ -2,7 +2,8 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-import { cabecalhoSEO, sitemap } from './src/data/seo';
+import { cabecalhoSEO, HOME, PAGINAS, sitemap } from './src/data/seo';
+import { arquivosDePagina } from './src/paginas';
 
 /**
  * Preenche o `<!-- seo -->` do `index.html` e emite o `sitemap.xml`.
@@ -17,7 +18,7 @@ import { cabecalhoSEO, sitemap } from './src/data/seo';
  * para o ar, incluindo os dados estruturados — que dá para conferir no
  * Rich Results Test sem precisar publicar antes.
  */
-function seo(): Plugin {
+function seo(base: string): Plugin {
   const MARCADOR = '<!-- seo -->';
 
   return {
@@ -35,15 +36,50 @@ function seo(): Plugin {
       },
     },
 
+    /**
+     * As páginas de referência, servidas em dev também.
+     *
+     * Sem isto elas só existiriam depois de `npm run build`, e a única forma de
+     * conferir uma tabela seria publicando — que é como se erra uma tabela e só
+     * se descobre pelo Search Console três semanas depois.
+     */
+    configureServer(server) {
+      const paginas = new Map(
+        arquivosDePagina('/').map((a) => [`/${a.nome.replace(/index\.html$/, '')}`, a.html]),
+      );
+
+      server.middlewares.use((req, res, next) => {
+        // O endereço canônico tem a barra final; sem ela, o navegador resolveria
+        // os links relativos a partir do diretório errado.
+        const caminho = req.url?.split('?')[0] ?? '';
+        const html = paginas.get(caminho.endsWith('/') ? caminho : `${caminho}/`);
+        if (!html) return next();
+
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(html);
+      });
+    },
+
     generateBundle() {
-      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemap() });
+      // `base` é `/refinometro/` no build: os links internos das páginas de
+      // referência precisam do prefixo, ou apontariam para a raiz do domínio,
+      // que é de outro repositório.
+      for (const { nome, html } of arquivosDePagina(base)) {
+        this.emitFile({ type: 'asset', fileName: nome, source: html });
+      }
+
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sitemap.xml',
+        source: sitemap([HOME, ...PAGINAS]),
+      });
     },
   };
 }
 
 // `base` precisa bater com o nome do repositório no GitHub Pages
 // (https://<user>.github.io/refinometro/). Em dev fica na raiz.
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/refinometro/' : '/',
-  plugins: [react(), tailwindcss(), seo()],
-}));
+export default defineConfig(({ command }) => {
+  const base = command === 'build' ? '/refinometro/' : '/';
+  return { base, plugins: [react(), tailwindcss(), seo(base)] };
+});
