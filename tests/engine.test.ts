@@ -62,9 +62,9 @@ const input = (over: Partial<CalcInput> = {}): CalcInput => ({
   ...over,
 });
 
-describe('tabelas do Browiki', () => {
+describe('tabelas oficiais de chance', () => {
   it('reproduz os limites seguros documentados', () => {
-    // https://browiki.org/wiki/Refinamento — "limite de segurança"
+    // https://ro.gnjoyamericas.com/pt/news/probability/2 — a faixa de 100%
     expect(safeLimit('w1')).toBe(7);
     expect(safeLimit('w2')).toBe(6);
     expect(safeLimit('w3')).toBe(5);
@@ -103,7 +103,7 @@ describe('tabelas do Browiki', () => {
   });
 
   it('dá a cada sombrio o minério certo, e só ele', () => {
-    // Arma sombria refina com Oridecon; armadura sombria, com Elunium. Antes de
+    // A Manopla Sombria refina com Oridecon; o Equipamento Sombrio, com Elunium. Antes de
     // separar as duas categorias, o motor oferecia os dois para qualquer sombrio
     // e escolhia pelo preço — o que dava a estratégia errada.
     const arma = oresFor('shadowW', 0).map((o) => o.id);
@@ -205,11 +205,11 @@ describe('o que cada minério faz', () => {
     }
   });
 
-  it('registra onde discordar do Browiki muda número', () => {
-    // O Browiki joga todo minério especial na tabela alta. Onde o motor segue a
-    // descrição do item e diz "chance comum", as duas leituras podem dar números
-    // diferentes — e é bom saber exatamente onde, porque é aí que a divergência
-    // vale zeny e o plano precisa avisar.
+  it('registra onde discordar da tabela oficial muda número', () => {
+    // A tabela oficial joga todo minério especial na coluna alta. Onde o motor
+    // segue a descrição do item e diz "chance comum", as duas leituras podem dar
+    // números diferentes — e é bom saber exatamente onde, porque é aí que a
+    // divergência vale zeny e o plano precisa avisar.
     const divergem = new Set<string>();
     for (const ore of ORES) {
       if (!ore.especial || ore.chanceAumentada) continue;
@@ -225,29 +225,35 @@ describe('o que cada minério faz', () => {
     }
 
     // Os Perfeitos de Oridecon e Elunium pegam a faixa +8..+10, em que as duas
-    // tabelas são bem diferentes (20% x 40% na tentativa do +8, numa arma nv4).
-    // Os de Bradium e Carnium ficam do +11 para cima, onde as tabelas quase
-    // sempre coincidem — só a Arma nv3 em evento escapa.
+    // colunas são bem diferentes (20% x 40% na tentativa do +8, numa arma nv4).
+    // Os de Bradium e Carnium ficam do +11 para cima, onde a tabela oficial
+    // repete a coluna comum na especial — lá a divergência não custa nada.
     expect([...divergem].sort()).toEqual([
-      'bradium-perfeito w3',
       'elunium-perfeito a1',
       'elunium-perfeito shadowA',
       'oridecon-perfeito shadowW',
+      'oridecon-perfeito w1',
+      'oridecon-perfeito w2',
       'oridecon-perfeito w3',
       'oridecon-perfeito w4',
     ]);
   });
 
-  it('avisa quando o plano depende da divergência entre Browiki e Divine Pride', () => {
+  it('dá ao Perfeito a chance comum, como o jogo confirmou', () => {
+    // A tabela oficial agrupa todo especial na coluna alta; a descrição do item só
+    // promete proteção. Conferido in-game em 2026-09-04: vale a descrição, e só os
+    // Enriquecidos aumentam a chance. O motor já lia assim, então o que mudou foi o
+    // aviso de "as fontes discordam", que saiu junto com a dúvida.
+    const acoes = actionsAt(7, opts({ kind: 'w4', usarBencaoFerreiro: false }));
+    const perfeito = acoes.find((a) => a.ore.id === 'oridecon-perfeito')!;
+    expect(perfeito.chance).toBe(chanceOf('w4', 8, false, false));
+
     const r = calcular(
-      input({ kind: 'w3', refinoAtual: 10, refinoAlvo: 12, evento: true, usarBencaoFerreiro: false }),
+      input({ kind: 'w4', refinoAtual: 7, refinoAlvo: 9, usarBencaoFerreiro: false }),
       { tempoMs: 0 },
     );
-    const usaBradiumPerfeito = r.fases
-      .flatMap((f) => f.trechos)
-      .some((t) => t.minerioItemId === 6226);
-    expect(usaBradiumPerfeito).toBe(true);
-    expect(r.avisos.some((a) => a.texto.includes('as fontes discordam'))).toBe(true);
+    expect(r.fases.flatMap((f) => f.trechos).some((t) => t.minerioItemId === 6240)).toBe(true);
+    expect(r.avisos.some((a) => a.texto.includes('as fontes discordam'))).toBe(false);
   });
 
   it('descarta a ação cara quando outra faz exatamente o mesmo', () => {
@@ -367,24 +373,50 @@ describe('refino abaixo do limite seguro', () => {
 });
 
 describe('taxa do refinador', () => {
-  it('cobra por categoria, conforme a tabela do iROwiki', () => {
-    expect(TAXA_REFINO.w1).toBe(50);
-    expect(TAXA_REFINO.w4).toBe(20_000);
-    expect(TAXA_REFINO.a1).toBe(2_000);
-    expect(TAXA_REFINO.a2).toBe(30_000);
+  it('cobra por categoria de item, com as nove conferidas no balcão', () => {
+    // Levantadas uma a uma no NPC em 2026-09-04. O iROwiki, que servia de fonte
+    // antes, errava sete das nove — nenhum valor dele sobreviveu.
+    expect(TAXA_REFINO.w1).toBe(1_000);
+    expect(TAXA_REFINO.w2).toBe(2_000);
+    expect(TAXA_REFINO.w3).toBe(10_000);
+    expect(TAXA_REFINO.w4).toBe(10_000);
+    expect(TAXA_REFINO.w5).toBe(75_000);
+    expect(TAXA_REFINO.a1).toBe(10_000);
+    expect(TAXA_REFINO.a2).toBe(45_000);
+    expect(TAXA_REFINO.shadowW).toBe(10_000);
+    expect(TAXA_REFINO.shadowA).toBe(10_000);
   });
 
-  it('isenta os minérios de Cash Shop, e só eles', () => {
-    // "If the player is using Enriched / HD ... from the Kafra Shop, the fee is
-    // 0z". A isenção segue `joyCoins`, não `especial`: os Enriquecidos de Éter
-    // também são especiais, mas vêm do NPC e nada indica que sejam isentos.
+  it('isenta minério de Cash Shop nas armas nv1 a nv4, e só lá', () => {
+    // A isenção existe e é assimétrica: Oridecon Enriquecido sai por 0z de taxa em
+    // qualquer arma, e Elunium Enriquecido paga os 10k cheios em qualquer equipamento.
+    // Não é o que o iROwiki descreve, é o que o NPC cobra.
     const oridecon = ORE_BY_ID.get('oridecon')!;
-    const enriquecido = ORE_BY_ID.get('oridecon-enriquecido')!;
-    const eterEnriquecido = ORE_BY_ID.get('eteridecon-enriquecido')!;
+    const orideconEnriquecido = ORE_BY_ID.get('oridecon-enriquecido')!;
+    const eluniumEnriquecido = ORE_BY_ID.get('elunium-enriquecido')!;
+    const eterideconEnriquecido = ORE_BY_ID.get('eteridecon-enriquecido')!;
 
+    expect(taxaDaTentativa('w1', orideconEnriquecido)).toBe(0);
+    expect(taxaDaTentativa('w4', orideconEnriquecido)).toBe(0);
     expect(taxaDaTentativa('w4', oridecon)).toBe(TAXA_REFINO.w4);
-    expect(taxaDaTentativa('w4', enriquecido)).toBe(0);
-    expect(taxaDaTentativa('w5', eterEnriquecido)).toBe(TAXA_REFINO.w5);
+    expect(taxaDaTentativa('a1', eluniumEnriquecido)).toBe(TAXA_REFINO.a1);
+    // Os dois sombrios pagam a mesma taxa e usam a mesma coluna de chances, e mesmo
+    // assim só a Manopla isenta: é o par que mostra que a linha é arma x equipamento.
+    expect(taxaDaTentativa('shadowW', orideconEnriquecido)).toBe(0);
+    expect(taxaDaTentativa('shadowA', eluniumEnriquecido)).toBe(TAXA_REFINO.shadowA);
+    // Os Enriquecidos de Éter são especiais, mas vêm do NPC, não de JoyCoins: pagam.
+    expect(taxaDaTentativa('w5', eterideconEnriquecido)).toBe(TAXA_REFINO.w5);
+  });
+
+  it('não isenta ninguém no Equipamento nv1', () => {
+    const acoes = actionsAt(8, opts({ kind: 'a1', usarBencaoFerreiro: false }));
+    const usados = acoes.map((a) => a.ore.id);
+    expect(usados).toContain('elunium');
+    expect(usados).toContain('elunium-enriquecido');
+    expect(usados).toContain('elunium-perfeito');
+    for (const acao of acoes) {
+      expect(acao.taxa, acao.ore.id).toBe(TAXA_REFINO.a1);
+    }
   });
 
   it('conta a taxa de refino por tentativa de verdade, não por tentativa média', () => {
@@ -394,9 +426,7 @@ describe('taxa do refinador', () => {
     const o = opts({ kind: 'w4', precoItem: 30_000_000 });
     const plan = solveRefine(0, 10, o);
 
-    const isentas = plan.politica
-      .slice(0, 10)
-      .filter((p) => p.acao.taxa === 0).length;
+    const isentas = plan.politica.slice(0, 10).filter((p) => p.acao.taxa === 0).length;
     expect(isentas).toBeGreaterThan(0); // a estratégia usa minério de Cash Shop
     expect(plan.recursos.taxas).toBeLessThan(plan.recursos.tentativas * TAXA_REFINO.w4);
     expect(plan.recursos.taxas).toBeGreaterThan(0);
@@ -414,9 +444,9 @@ describe('taxa do refinador', () => {
     expect(comum.custo).toBe(100_000 + TAXA_REFINO.w4);
     expect(cashShop.custo).toBe(150_000);
 
-    // O Enriquecido custa 50k a mais no mercado, mas economiza 20k de taxa: a
-    // diferença real é 30k, e é essa que o otimizador precisa enxergar.
-    expect(cashShop.custo - comum.custo).toBe(30_000);
+    // O Enriquecido custa 50k a mais no mercado, mas economiza os 10k de taxa: a
+    // diferença real é 40k, e é essa que o otimizador precisa enxergar.
+    expect(cashShop.custo - comum.custo).toBe(40_000);
   });
 });
 
@@ -592,35 +622,32 @@ describe('campanha de grau', () => {
     }
   });
 
-  it('deixa a tabela decidir a partir de que refino cada degrau é possível', () => {
-    // As duas wikis listam chance de Grau desde o +9, embora o texto do Browiki
-    // fale em +11. Seguimos as tabelas: D vale do +9, C do +10, B e A do +11.
-    expect(REFINO_MINIMO_GRAU).toBe(9);
+  it('só existe a partir do +11, em todos os degraus', () => {
+    // A tabela oficial começa no +11, e o NPC recusa o item abaixo disso
+    // (conferido in-game). Antes o motor seguia as tabelas de wiki, que listavam
+    // chance desde o +9, e chegava a propor Grau D no +9 — plano que o jogo não
+    // aceita.
+    expect(REFINO_MINIMO_GRAU).toBe(11);
 
-    expect(gradeChanceOf('w5', 9, 'toD', false)).toBeGreaterThan(0);
-    expect(gradeChanceOf('w5', 9, 'toC', false)).toBeNull();
-    expect(gradeChanceOf('w5', 10, 'toC', false)).toBeGreaterThan(0);
-    expect(gradeChanceOf('w5', 10, 'toB', false)).toBeNull();
-    expect(gradeChanceOf('w5', 11, 'toA', false)).toBeGreaterThan(0);
+    for (const step of ['toD', 'toC', 'toB', 'toA'] as const) {
+      expect(gradeChanceOf('w5', 9, step, false), `+9 ${step}`).toBeNull();
+      expect(gradeChanceOf('w5', 10, step, false), `+10 ${step}`).toBeNull();
+      expect(gradeChanceOf('w5', 11, step, false), `+11 ${step}`).toBeGreaterThan(0);
+      expect(gradeChanceOf('a2', 11, step, false), `+11 ${step} (equip)`).toBeGreaterThan(0);
+    }
   });
 
-  it('prefere tentar o grau cedo, com chance baixa, a pagar o refino até o +11', () => {
-    // Com o processo SEGURO a falha não destrói nada: chance baixa só significa
-    // repetir o material. Então 10% no +9 pode vencer 70% no +11 quando o trecho
-    // +9→+11 é caro — e numa arma nv5 ele é, porque todo minério acima do +10
-    // quebra o item. Trocar isso por uma regra fixa de "+11 sempre" custaria
-    // dinheiro real, e é por isso que a decisão fica com o otimizador.
+  it('nunca tenta o grau abaixo do +11, nem quando sairia mais barato', () => {
+    // Com o processo seguro a falha não destrói nada, então chance baixa custa
+    // só repetição de material — e um Grau D a 10% no +9 chegava a vencer os 70%
+    // do +11, porque o trecho +9→+11 de uma arma nv5 é caríssimo. Era um plano
+    // que o jogo não aceita, e hoje nem a tabela nem o piso o permitem.
     const o = opts({ kind: 'w5', precoItem: 50_000_000 });
-    const campanha = solveGradeCampaign('none', 'D', 0, o);
-    const degrau = campanha.degraus[0]!;
+    const campanha = solveGradeCampaign('none', 'A', 0, o);
 
-    expect(degrau.refino).toBe(9);
-    expect(degrau.seguro).toBe(true);
-    expect(degrau.chance).toBeCloseTo(0.1, 6);
-
-    // E precisa ser mais barato que a alternativa de subir até o +11 primeiro.
-    const custoNo11 = solveRefine(0, 11, o).custoEsperado;
-    expect(degrau.custoEsperado).toBeLessThan(custoNo11);
+    for (const degrau of campanha.degraus) {
+      expect(degrau.refino, degrau.step.key).toBeGreaterThanOrEqual(11);
+    }
   });
 
   it('bate com a simulação na campanha completa', () => {
@@ -964,11 +991,12 @@ describe('simular com o que já se tem', () => {
     );
   });
 
-  it('fecha a conta em zero quando o estoque cobre tudo', () => {
-    // Equipamento Sombrio não paga taxa de refino e usa minério que se compra
-    // pronto, sem balcão de NPC no meio. Com material e cópias de sobra não
-    // resta zeny nenhum a pagar — é o teste mais duro do abatimento: qualquer
-    // parcela do custo que o estoque não soubesse explicar apareceria aqui.
+  it('fecha a conta na taxa do refinador quando o estoque cobre o resto', () => {
+    // Equipamento Sombrio usa minério que se compra pronto, sem balcão de NPC no
+    // meio, e nenhum minério dele é isento. Com material e cópias de sobra, o que
+    // sobra a pagar é exatamente a taxa: um múltiplo redondo de 10.000z. É o teste
+    // mais duro do abatimento — qualquer parcela que o estoque não soubesse
+    // explicar apareceria aqui como um resto quebrado.
     const r = calcular(input({ kind: 'shadowA', refinoAlvo: 9, precoItem: 5_000_000 }), {
       tempoMs: 300,
       execucoes: 1_000,
@@ -979,8 +1007,16 @@ describe('simular com o que já se tem', () => {
       itens: Object.fromEntries(c.materiais.map((m) => [m.itemId, 1e9])),
       copias: 1_000,
     });
-    expect(v.zenyNecessario.p99).toBe(0);
-    expect(v.chance).toBe(1);
+    expect(v.zenyNecessario.p99).toBeGreaterThan(0);
+    expect(v.zenyNecessario.p99 % TAXA_REFINO.shadowA).toBe(0);
+    expect(v.chance).toBe(0); // sem zeny nenhum, nem a taxa dá para pagar
+
+    const comZeny = avaliarEstoque(c, {
+      zeny: v.zenyNecessario.p99,
+      itens: Object.fromEntries(c.materiais.map((m) => [m.itemId, 1e9])),
+      copias: 1_000,
+    });
+    expect(comZeny.chance).toBeGreaterThanOrEqual(0.99);
   });
 
   it('conta as cópias do item que ainda faltam comprar', () => {

@@ -659,8 +659,8 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
   );
   const custoReposicao = quebras * plano.input.precoItem;
   const tentativas = Math.round(plano.recursos.tentativas);
-  // A taxa não é `tentativas x valor fixo`: ela muda com o minério e some nos de
-  // Cash Shop, então vem somada do motor.
+  // A taxa não é `tentativas x valor fixo`: ela some nos minérios de Cash Shop das
+  // armas nv1 a nv4, então vem somada do motor.
   const taxas = Math.ceil(plano.simulacao?.taxas[margem] ?? plano.recursos.taxas);
   const total = lista.total + custoReposicao + taxas;
 

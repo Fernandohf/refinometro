@@ -65,8 +65,8 @@ export interface ResourceUsage {
   /** Número esperado de tentativas de refino. */
   tentativas: number;
   /**
-   * Zeny esperado só em taxa do refinador. Não é `tentativas x taxa`: a taxa
-   * muda conforme o minério da tentativa, e some nos minérios de Cash Shop.
+   * Zeny esperado só em taxa do refinador. Não é `tentativas x taxa`: ela some nos
+   * minérios de Cash Shop das armas nv1 a nv4.
    */
   taxas: number;
 }

@@ -17,7 +17,7 @@ export const CATEGORIAS: { key: ItemKind; rotulo: string; curto: string }[] = [
   { key: 'w5', rotulo: 'Arma nível 5', curto: 'Arma nv5' },
   { key: 'a1', rotulo: 'Armadura / Equipamento nível 1', curto: 'Equip. nv1' },
   { key: 'a2', rotulo: 'Armadura / Equipamento nível 2', curto: 'Equip. nv2' },
-  { key: 'shadowW', rotulo: 'Arma Sombria', curto: 'Arma Sombria' },
+  { key: 'shadowW', rotulo: 'Manopla Sombria', curto: 'Manopla Sombria' },
   { key: 'shadowA', rotulo: 'Equipamento Sombrio', curto: 'Equip. Sombrio' },
 ];
 

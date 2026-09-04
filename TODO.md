@@ -218,4 +218,54 @@
     que existia solta em quatro arquivos.
   - Saiu o teste 'veste a pele do cliente': ele guardava exatamente a pele que foi removida. Os
     outros três testes desta leva (arte e nome do jogo, cadeia fechada, Sankey) continuam — eles
-    cobrem feature, não tema.
+    cobrem feature, não tema.- [x] Trocar o Browiki pela divulgação oficial de chances do servidor, e corrigir o que ela
+      desmentiu.
+  - A fonte das chances passou a ser a **divulgação oficial da GNJOY Americas**, a operadora do
+    LATAM: [refino](https://ro.gnjoyamericas.com/pt/news/probability/2) e
+    [grau](https://ro.gnjoyamericas.com/pt/news/probability/27). O pipeline foi reescrito
+    (`scripts/fetch-gnjoy.mjs` e `scripts/parse-gnjoy.mjs`, nos mesmos `npm run data:fetch` /
+    `data:parse`); `data-raw/*.wiki` deu lugar a `data-raw/gnjoy-*.html`, que é a região do
+    artigo sem os atributos `style` — o texto e as tabelas intactos, sem os 900 KB de folha de
+    estilo inline.
+  - Oito chances mudaram: Sombrio na tentativa do +10 (10% → 9%) e Arma nv3 em evento do +11 ao
+    +16 (35/30/25 → 40/35/30). Erros pequenos, mas eram erros.
+  - **Grau só a partir do +11**, conferido in-game e confirmado pela tabela oficial, que não tem
+    linha abaixo disso. O motor seguia as tabelas de wiki, que listavam chance desde o +9, e
+    chegava a propor Grau D no +9 pelo processo seguro — 22% mais barato numa campanha de arma
+    nv5, e ilegal no jogo. `REFINO_MINIMO_GRAU` foi para 11 e o aviso que existia para esse caso
+    saiu junto: o plano não tem mais como cair nele. O parser recusa a tabela se ela deixar de
+    começar no +11, para os dois não se separarem em silêncio.
+  - A tabela oficial também diz que o **Oridecon Enriquecido e o Perfeito servem em armas nv1 a
+    nv4**, não só nv3 e nv4 — o que explica por que a tabela de minério especial tem coluna de
+    Arma nv1 e nv2.
+  - **A taxa do refinador não isenta minério de Cash Shop.** O motor seguia o iROwiki nisso
+    (`joyCoins ⇒ taxa 0`); in-game o NPC cobra a mesma taxa com Elunium, Enriquecido e Perfeito.
+    A isenção saiu, e com ela o campo `joyCoins`, que não dizia nada que `npc: null` já não
+    dissesse. Os Enriquecidos ficaram uma taxa por tentativa mais caros e pararam de competir de
+    graça com o minério comum.
+  - **A tabela de taxas foi inteira ao balcão**, categoria por categoria, e o iROwiki errava
+    sete dos nove valores — nenhum sobreviveu. Ficou: arma nv1 1.000z, nv2 2.000z, nv3 10.000z,
+    nv4 10.000z, nv5 75.000z, equipamento nv1 10.000z, nv2 45.000z, sombrio 10.000z. A taxa
+    **não muda com o refino do item**, o que fecha a dúvida de H11. O iROwiki deixou de ser
+    citado como fonte no rodapé do app: não sobrou número dele lá.
+  - A isenção do Cash Shop existe, mas **separa arma de equipamento**, e isso ninguém documenta:
+    arma nv1 a nv4 e Manopla Sombria com Oridecon Enriquecido pagam 0z de taxa; equipamento nv1 e
+    Equipamento Sombrio com Elunium Enriquecido ou Perfeito pagam os 10.000z cheios. O par de
+    sombrios é o que fecha a leitura — mesma taxa, mesma coluna de chances, e só a Manopla isenta,
+    então não é diferença de balcão nem de faixa. O `joyCoins` e o `taxaDaTentativa()` que tinham
+    sido removidos na primeira leva voltaram, agora com a regra certa (`ISENTA_CASH_SHOP`).
+  - `shadowW` deixou de se chamar "Arma Sombria" na tela: o nome no jogo, e na tabela oficial, é
+    **Manopla Sombria**.
+  - O que sobrou sem medir está listado em [Os dados](docs/dados.md#o-que-ainda-não-foi-conferido),
+    com o que cada teste exige — os dois pendentes travam por falta de um item no estado certo
+    (grau D/C/B em mãos) ou por serem evento raro, não por falta de quem teste.
+  - **A divergência do "especial ≠ chance maior" fechou a favor da ficha do item**: in-game, só
+    os Enriquecidos de Oridecon e Elunium aumentam a chance, e nas categorias de Éter o especial
+    aumenta — que é exatamente o que o motor lia da descrição, contra o agrupamento da tabela
+    oficial. O aviso de "as fontes discordam" saiu do plano; o teste que registra ONDE as duas
+    leituras dariam números diferentes ficou.
+  - Custo do grau: **sem grau → D custa 150.000z (seguro: 750.000z)**, não os 100.000z/500.000z
+    do Browiki. Os outros três degraus continuam com o número do wiki e passaram a ser hipótese
+    registrada (H10) — o único que deu para medir estava errado em 50%.
+  - Bradium e Carnium: quem jogou não viu a quebra rara que o Hazy Forest descreve. Segue fora do
+    cálculo, e o aviso passou a dizer isso em vez de "nenhuma fonte confirma".

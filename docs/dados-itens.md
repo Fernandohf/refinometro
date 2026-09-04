@@ -143,7 +143,7 @@ a "Armadura de Caça" (15247) passa por todas as regras acima e ganharia um plan
 completo. A própria descrição do jogo desmente isso, e ela é fonte melhor que qualquer regra
 nossa, então `negaRefino` é checado antes de tudo.
 
-Os sombrios são duas categorias, não uma: arma sombria refina com Oridecon e armadura sombria
+Os sombrios são duas categorias, não uma: a Manopla Sombria refina com Oridecon e o Equipamento Sombrio
 com Elunium, embora ambas usem a mesma coluna de chances.
 
 As duas exceções que enganam: um acessório *sombrio* refina, ao contrário do comum; e um

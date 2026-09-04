@@ -1,33 +1,58 @@
-# Chances e custos — Browiki
+# Chances e custos — a divulgação oficial
 
-As tabelas de chance, os minérios, as penalidades de falha e os custos de Grau saem do
-Browiki e ficam versionados no repositório.
+As tabelas de chance de refino e de grau saem da **divulgação oficial da GNJOY Americas**, que
+é a operadora do Ragnarok Latam, e ficam versionadas no repositório. Os minérios (o que cada um
+faz na falha) e os custos de NPC continuam vindo do Browiki: a página oficial publica chances,
+não custos.
 
 ```bash
-npm run data:fetch   # baixa o wikitext bruto para data-raw/
+npm run data:fetch   # baixa as tabelas oficiais para data-raw/
 npm run data:parse   # gera src/data/refineChances.json e gradeChances.json
 ```
 
 O parser falha alto se o formato da tabela mudar, em vez de gerar números errados em
-silêncio. Se o Browiki reorganizar as páginas, `npm run data:parse` avisa.
+silêncio: ele casa cada tabela pela legenda ("Tabela 3: Minério Especial (Fora do período do
+Evento de Refino)"), exige as 20 linhas de refino e recusa a tabela de Grau se ela deixar de
+começar no +11 — que é o valor assumido em `REFINO_MINIMO_GRAU`.
 
-Fontes: [Refinamento](https://browiki.org/wiki/Refinamento) · [Grau](https://browiki.org/wiki/Grau)
+Fontes: [Refinamento](https://ro.gnjoyamericas.com/pt/news/probability/2) ·
+[Grau](https://ro.gnjoyamericas.com/pt/news/probability/27)
 
-Como conferência, as tabelas de minério foram comparadas com o
-[Hazy Forest](https://hazyforest.com/equipment:refine), wiki não-oficial do kRO — fonte de
-terceiro nível, aqui só como segunda opinião. Bateram em tudo, inclusive na parte que parecia
-errada: para Arma nv5 e Equipamento nv2, **todo minério acima do +10 destrói o item**, até os
-Perfeitos. É o inverso do padrão dos níveis 1–4, e é assim mesmo.
+O que fica em `data-raw/` é a região do artigo com os atributos `style` removidos — o texto e a
+estrutura das tabelas saem intactos, e some só a folha de estilo inline que faria o arquivo
+passar de 900 KB sem acrescentar um dado.
+
+## Por que a fonte deixou de ser o Browiki
+
+Até 2026-09 as tabelas vinham do [Browiki](https://browiki.org/wiki/Refinamento), o wiki do
+LATAM. Trocar por quem opera o servidor mexeu em oito números, e cada um deles era um erro de
+verdade:
+
+| Onde | Browiki | Oficial |
+| --- | --- | --- |
+| Sombrio, tentativa do +10 | 10% | 9% |
+| Arma nv3 em evento, +11 e +12 | 35% | 40% |
+| Arma nv3 em evento, +13 e +14 | 30% | 35% |
+| Arma nv3 em evento, +15 e +16 | 25% | 30% |
+
+E, no Grau, o Browiki listava chances a partir do +9 — linhas que a tabela oficial não tem. Ver
+[Grau só a partir do +11](#grau-só-a-partir-do-11).
+
+A tabela oficial também é quem diz que o **Oridecon Enriquecido e o Perfeito servem em armas
+nv1 a nv4**, não só nv3 e nv4. Isso explica uma coisa que antes não fechava: as colunas de Arma
+nv1 e nv2 na tabela de minério especial só existem porque há um especial que as refina.
+
+Uma surpresa das tabelas, que a leitura confirma: para Arma nv5 e Equipamento nv2, **todo
+minério acima do +10 destrói o item**, até os Perfeitos. É o inverso do padrão dos níveis 1–4, e
+é assim mesmo.
 
 ## As divergências registradas
 
-Quatro divergências entre as fontes ficaram registradas.
+### "Especial" não quer dizer "chance maior" — e o jogo deu razão à ficha
 
-### "Especial" não quer dizer "chance maior"
-
-O Browiki põe todos os minérios especiais na mesma tabela de chances aumentadas. As descrições
-dos itens no Divine Pride dizem outra coisa, e com uma consistência que não parece descuido:
-quem aumenta a chance **anuncia isso**, e quem só protege descreve só a proteção.
+A tabela oficial põe todos os minérios especiais na mesma coluna de chances aumentadas. As
+descrições dos itens no Divine Pride dizem outra coisa, e com uma consistência que não parece
+descuido: quem aumenta a chance **anuncia isso**, e quem só protege descreve só a proteção.
 
 | Minério | O que a descrição LATAM promete | Efeito |
 | --- | --- | --- |
@@ -42,38 +67,42 @@ de verdade: numa Arma nv4, a tentativa do +8 vale 20% com Oridecon Perfeito, nã
 Perfeito para de aparecer acompanhado de Bênção do Ferreiro — as duas protegiam a mesma coisa, e
 o Enriquecido, mais caro por unidade, sai na frente por dobrar a chance.
 
-**É o único ponto em que o motor não segue o Browiki**, e é deliberado: aqui a pergunta não é
-"como a mecânica funciona" e sim "o que este item faz", que é exatamente onde o datamine ganha
-de um agrupamento de tabela feito à mão. Onde as duas leituras dão números diferentes, um aviso
-aparece na tela dizendo que aquele trecho depende da divergência. `npm run descricoes` imprime
-as descrições dos 22 minérios, em todos os servidores, para reconferir quando o texto do jogo
-mudar.
+**É o único ponto em que o motor não segue a fonte oficial** — e foi conferido in-game em
+2026-09-04: em Oridecon e Elunium, só o Enriquecido aumenta a chance; nas categorias de Éter
+(Arma nv5 e Equipamento nv2) o especial aumenta, como a descrição deles anuncia. A leitura da
+ficha estava certa, e o aviso de "as fontes discordam" que aparecia na tela saiu junto com a
+dúvida.
+
+A escolha de projeto que sobreviveu é a que vale registrar: aqui a pergunta não é "como a
+mecânica funciona" e sim "o que este item faz", que é exatamente onde o datamine ganha de um
+agrupamento de tabela. `npm run descricoes` imprime as descrições dos 22 minérios, em todos os
+servidores, para reconferir quando o texto do jogo mudar.
+
+A diferença entre as duas leituras só valia zeny do +7 ao +10, com Oridecon e Elunium Perfeito:
+do +11 para cima a tabela oficial repete a coluna comum na especial.
 
 ### Faixa do Carnium de Éter
 
-A descrição LATAM diz "+16 até +20", mas o Browiki, o texto coreano do mesmo item e a descrição
-do gêmeo de arma (Bradium de Éter) dizem "+11 até +20". Três fontes contra uma tradução que
-repete a faixa do *Carnium de Éter Perfeito*: o motor fica com +11..+20.
+A descrição LATAM diz "+16 até +20", mas a tabela oficial, o Browiki, o texto coreano do mesmo
+item e a descrição do gêmeo de arma (Bradium de Éter) dizem "+11 até +20". Quatro fontes contra
+uma tradução que repete a faixa do *Carnium de Éter Perfeito*: o motor fica com +11..+20.
 
 ### Bradium e Carnium
 
-O Hazy Forest diz que, além da queda de 3 refinos, existe uma chance **rara** de destruir o
-item. O Browiki e a descrição do item no LATAM só citam a queda, e as duas mandam mais que uma
-wiki de kRO — então a quebra rara **não é modelada**. Fica como nota de rodapé no plano, para
-quem quiser margem: se ela existir de fato no LATAM, o custo real é um pouco maior que o
-calculado.
+O [Hazy Forest](https://hazyforest.com/equipment:refine), wiki não-oficial do kRO, diz que além
+da queda de 3 refinos existe uma chance **rara** de destruir o item. O Browiki e a descrição do
+item no LATAM só citam a queda, e quem jogou não viu isso acontecer — então a quebra rara **não
+é modelada**. Fica como nota de rodapé no plano, para quem quiser margem: "não vi acontecer" não
+é a mesma coisa que "não acontece", e se ela existir por aqui o custo real é um pouco maior.
 
-### Grau abaixo do +11
+## Grau só a partir do +11
 
-O texto do Browiki afirma que o processo exige o item em +11, mas a tabela de chances da própria
-página lista valores desde o +9. É o Browiki contra ele mesmo, e só por isso vale abrir uma
-terceira fonte: o [Hazy Forest](https://hazyforest.com/equipment:grade) traz a mesma tabela
-desde o +9, sem citar exigência nenhuma. Entre um texto e duas tabelas que concordam, o motor
-segue as tabelas: Grau D vale a partir do +9, C do +10, B e A do +11 (`REFINO_MINIMO_GRAU`).
-Isso não é detalhe: com o processo seguro, a falha não destrói nada, então chance baixa custa só
-repetição de material — e tentar o Grau D logo no +9 sai **22% mais barato** que subir até o +11
-antes, numa campanha completa de arma nv5. Quando o plano aposta nisso, um aviso aparece; falta
-confirmar in-game.
+A tabela oficial de Grau começa no +11, e o NPC recusa o item abaixo disso — **conferido
+in-game em 2026-09-04**. Isso fecha uma questão que ficou aberta por um tempo, e que valia
+dinheiro: as tabelas do Browiki e do Hazy Forest listavam chance desde o +9, então o motor
+propunha tentar o Grau D logo no +9 com o processo seguro, o que saía 22% mais barato numa
+campanha completa de arma nv5. Era um plano que o jogo não aceita, e o `REFINO_MINIMO_GRAU`
+subiu para 11.
 
 ---
 

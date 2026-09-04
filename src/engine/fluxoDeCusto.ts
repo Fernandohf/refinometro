@@ -36,7 +36,7 @@ export type MargemKey = keyof Percentis;
  *   mercado — a calculadora escolhe a via mais barata sozinha.
  * - `refino` é a taxa do refinador: o que se paga por **tentativa no
  *   equipamento**. Não depende de fornecedor nenhum, cresce com o número de
- *   tentativas e some nos minérios de Cash Shop.
+ *   tentativas e some nos minérios de Cash Shop das armas nv1 a nv4.
  *
  * Juntá-los escondia que um se resolve comprando melhor e o outro não se
  * resolve de jeito nenhum.
@@ -116,8 +116,8 @@ export function fluxoDeCusto(plano: ResultadoPlano, margem: MargemKey): FluxoDeC
   const quebras = Math.ceil(
     plano.simulacao ? plano.simulacao.quebras[margem] : plano.recursos.itensQuebrados,
   );
-  // A taxa não é `tentativas x valor fixo`: muda com o minério e some nos de
-  // Cash Shop, então vem somada do motor.
+  // A taxa não é `tentativas x valor fixo`: ela some nos minérios de Cash Shop das
+  // armas nv1 a nv4, então vem somada do motor.
   const taxas = Math.ceil(plano.simulacao?.taxas[margem] ?? plano.recursos.taxas);
 
   const folhas: FolhaCusto[] = [];

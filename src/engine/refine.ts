@@ -88,8 +88,8 @@ export function actionsAt(de: number, opts: RefineOptions): RefineAction[] {
     const custoMinerio = oreCost(ore, opts.precos);
     if (!Number.isFinite(custoMinerio)) continue; // sem preço nem receita: não dá pra usar
 
-    // A taxa do refinador depende do minério, então entra por ação e não como
-    // uma constante da campanha: minério de Cash Shop é isento.
+    // A taxa depende do minério, então entra por ação e não como constante da
+    // campanha: minério de Cash Shop é isento nas armas nv1 a nv4.
     const taxa = taxaDaTentativa(opts.kind, ore);
 
     // Sem Bênção: a penalidade do minério vale.

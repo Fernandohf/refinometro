@@ -1,13 +1,16 @@
 // Catálogo de minérios de refino.
 //
-// Faixas, penalidades e receitas: https://browiki.org/wiki/Refinamento (seção "Minérios"), que
-// é a fonte preferida do projeto por ser o wiki do próprio LATAM.
+// Faixas de refino e alvo de cada minério: https://ro.gnjoyamericas.com/pt/news/probability/2
+// (tabela 7), a divulgação oficial da GNJOY Americas — a operadora do LATAM. Penalidades e
+// receitas de NPC não aparecem lá e continuam vindo do https://browiki.org/wiki/Refinamento
+// (seção "Minérios").
 //
 // A exceção é o EFEITO de cada minério (aumenta a chance? protege da quebra?), conferido um a um
 // na descrição LATAM do item no Divine Pride — https://www.divine-pride.net/database/item/<id>.
-// O Browiki agrupa todos os "especiais" numa tabela de chances só, e isso esconde que nem todo
-// especial aumenta a chance; a ficha do Divine Pride é datamine do cliente, então sobre "o que
-// este item faz" ela ganha de um agrupamento feito à mão. Ver o campo `chanceAumentada`.
+// A tabela oficial agrupa todos os "especiais" numa coluna de chances só, e isso esconde que nem
+// todo especial aumenta a chance; a ficha do Divine Pride é datamine do cliente, então sobre "o
+// que este item faz" ela ganha de um agrupamento de tabela — e foi ela que o jogo confirmou.
+// Ver o campo `chanceAumentada`.
 //
 // `npm run descricoes` imprime as descrições lado a lado para reconferir.
 //
@@ -18,8 +21,9 @@
  * Categoria do equipamento — define qual coluna da tabela de chances usar.
  *
  * Os sombrios são divididos em arma e armadura embora compartilhem a mesma
- * coluna de chances: as chances são iguais, mas os minérios não. Arma sombria
- * refina com Oridecon; armadura sombria, com Elunium.
+ * coluna de chances: as chances são iguais, mas os minérios não. A Manopla
+ * Sombria (`shadowW`) refina com Oridecon; o Equipamento Sombrio (`shadowA`),
+ * com Elunium. A taxa do refinador também os separa — ver `ISENTA_CASH_SHOP`.
  */
 export type ItemKind = 'w1' | 'w2' | 'w3' | 'w4' | 'w5' | 'a1' | 'a2' | 'shadowW' | 'shadowA';
 
@@ -69,12 +73,24 @@ export interface Ore {
    * - só chance: Oridecon e Elunium Enriquecido — que continuam DESTRUINDO o item;
    * - só proteção: Oridecon, Elunium, Bradium e Carnium Perfeito;
    * - as duas: todos os de Éter marcados "com maior chance".
+   *
+   * **Confirmado in-game em 2026-09-04**: em Oridecon e Elunium, só o Enriquecido
+   * aumenta a chance; nas categorias de Éter (Arma nv5 e Equipamento nv2) o especial
+   * aumenta. Era a última divergência aberta com a tabela oficial, que agrupa tudo numa
+   * coluna só — a leitura da descrição do item estava certa.
    */
   chanceAumentada: boolean;
   penalidade: FailureMode;
-  /** Custo no NPC da refinaria, quando existe. `null` = só via JoyCoins/mercado. */
+  /**
+   * Custo no NPC da refinaria, quando existe. `null` = não é fabricável: só sai de
+   * JoyCoins ou da mão de outro jogador, e o preço vem do mercado.
+   */
   npc: { zeny: number; materiais: MaterialCost[] } | null;
-  /** Só é obtido com JoyCoins (cash shop) — preço é de mercado, não fixo. */
+  /**
+   * Vem do Cash Shop (JoyCoins). Além do preço ser de revenda entre jogadores, é
+   * este campo que isenta a taxa do refinador nas armas nv1 a nv4 — ver
+   * `taxaDaTentativa`.
+   */
   joyCoins?: boolean;
 }
 
@@ -160,7 +176,11 @@ export const ORES: Ore[] = [
     id: 'oridecon-enriquecido',
     itemId: 7620,
     nome: 'Oridecon Enriquecido',
-    kinds: ['w3', 'w4', 'shadowW'],
+    // A tabela oficial dá "Manopla Sombria / Arma nv. 1~4" aos dois Oridecons especiais,
+    // enquanto o Oridecon comum para no nv3. Não é descuido: a tabela de chances especiais
+    // publica colunas para Arma nv1 e nv2, que só existem porque há um minério especial que
+    // as refina.
+    kinds: ['w1', 'w2', 'w3', 'w4', 'shadowW'],
     refinaDe: [0, 9],
     especial: true,
     chanceAumentada: true,
@@ -172,7 +192,7 @@ export const ORES: Ore[] = [
     id: 'oridecon-perfeito',
     itemId: 6240,
     nome: 'Oridecon Perfeito',
-    kinds: ['w3', 'w4', 'shadowW'],
+    kinds: ['w1', 'w2', 'w3', 'w4', 'shadowW'],
     refinaDe: [7, 9],
     especial: true,
     // "Um Oridecon perfeito, que garante a segurança no refinamento do seu
@@ -378,38 +398,62 @@ export function ehSombrio(kind: ItemKind): boolean {
 /**
  * Taxa em zeny que o refinador cobra por tentativa, por categoria de item.
  *
- * FONTE DE TERCEIRO NÍVEL, não confirmada no LATAM: nem o Browiki nem a ficha
- * do item publicam esse valor, e sem ele a conta ignoraria um custo que existe.
- * Vem do https://irowiki.org/wiki/Refinement_System (seção "Reagents and Cost"),
- * que é de iRO — usado por falta de fonte LATAM, e não por preferência.
+ * É a única tabela do projeto sem fonte publicada — a divulgação oficial da GNJOY traz
+ * as chances, não os custos —, e por isso foi levantada no balcão do NPC, categoria por
+ * categoria, em 2026-09-04. **Todas as nove foram conferidas in-game.** O
+ * https://irowiki.org/wiki/Refinement_System, que servia de fonte antes, errava sete das
+ * nove: nenhum valor dele sobreviveu à conferência, e é por isso que ele não é mais
+ * citado aqui.
  *
- * Sombrios não aparecem na tabela, e a taxa deles fica em 0 até alguém conferir
- * in-game: chutar um valor sairia caro no lugar errado, porque a taxa entra em
- * TODA tentativa e é ela que decide, na margem, qual minério compensa.
+ * A taxa **não muda com o refino do item**: é a mesma do +0 ao +19 (conferido).
  */
 export const TAXA_REFINO: Record<ItemKind, number> = {
-  w1: 50,
-  w2: 200,
-  w3: 5_000,
-  w4: 20_000,
-  w5: 50_000,
-  a1: 2_000,
-  a2: 30_000,
-  shadowW: 0,
-  shadowA: 0,
+  w1: 1_000,
+  w2: 2_000,
+  w3: 10_000,
+  w4: 10_000,
+  w5: 75_000,
+  a1: 10_000,
+  a2: 45_000,
+  // Os dois sombrios cobram como Equipamento nv1, cada um conferido no seu balcão.
+  shadowW: 10_000,
+  shadowA: 10_000,
 };
 
 /**
- * Quanto o NPC cobra por uma tentativa com este minério.
+ * Categorias em que minério de Cash Shop sai com a taxa isenta.
  *
- * Minério comprado no Cash Shop isenta a taxa: "If the player is using Enriched
- * Oridecon / Enriched Elunium / HD Oridecon / HD Elunium from the Kafra Shop,
- * the fee is 0z". Por isso a condição é `joyCoins`, e não `especial` — os
- * Enriquecidos e Perfeitos de Éter também são especiais, mas saem do NPC, e nada
- * indica que a isenção valha para eles.
+ * A isenção existe, mas não é geral: **a linha que a separa é arma × equipamento**.
+ * Refinar Arma nv1 a nv4 ou Manopla Sombria com Oridecon Enriquecido custa 0z de taxa;
+ * refinar Equipamento nv1 ou Equipamento Sombrio com Elunium Enriquecido — ou Perfeito
+ * — custa os 10.000z cheios. O mesmo tipo de minério isenta na arma e não isenta no
+ * equipamento, e é o par de sombrios que fecha a leitura: mesma taxa, mesma coluna de
+ * chances, e mesmo assim só a Manopla isenta.
+ *
+ * Não é o que o iROwiki descreve ("If the player is using Enriched Oridecon / Enriched
+ * Elunium / HD Oridecon / HD Elunium from the Kafra Shop, the fee is 0z", sem ressalva
+ * de categoria), e nenhuma fonte explica a assimetria — mas é o que o NPC cobra, nas
+ * cinco categorias em que dá para testar.
+ *
+ * A Arma nv5 não está na lista porque a pergunta não existe lá: o especial dela é
+ * fabricado no NPC, não comprado com JoyCoins, e cobra a taxa cheia (conferido com
+ * Eteridecon Enriquecido). Mesma coisa no Equipamento nv2.
+ */
+const ISENTA_CASH_SHOP: readonly ItemKind[] = ['w1', 'w2', 'w3', 'w4', 'shadowW'];
+
+/**
+ * Quanto o NPC cobra de taxa por uma tentativa com este minério.
+ *
+ * Depende do minério, e não só da categoria, por causa da isenção acima — por isso a
+ * taxa entra por AÇÃO no motor, e o total de taxas de uma campanha não é
+ * `tentativas x valor fixo`.
+ *
+ * Toda a tabela foi medida no balcão do NPC em 2026-09-04, categoria por categoria e
+ * minério por minério.
  */
 export function taxaDaTentativa(kind: ItemKind, ore: Ore): number {
-  return ore.joyCoins ? 0 : TAXA_REFINO[kind];
+  if (ore.joyCoins && ISENTA_CASH_SHOP.includes(kind)) return 0;
+  return TAXA_REFINO[kind];
 }
 
 export const ORE_BY_ID: ReadonlyMap<string, Ore> = new Map(ORES.map((o) => [o.id, o]));
