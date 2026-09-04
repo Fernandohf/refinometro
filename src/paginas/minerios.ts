@@ -172,12 +172,23 @@ function tabelaDeBencao(): string {
 
 /** A taxa que o refinador cobra por tentativa, por categoria. */
 function tabelaDeTaxas(): string {
-  const linhas: Celula[][] = CATEGORIAS.map((c) => [
-    c.rotulo,
-    TAXA_REFINO[c.key as ItemKind] > 0 ? zenyExato(TAXA_REFINO[c.key as ItemKind]) : 'não confirmada',
-  ]);
+  const linhas: Celula[][] = CATEGORIAS.map((c) => {
+    const kind = c.key as ItemKind;
+    const arma = kind !== 'a1' && kind !== 'a2' && kind !== 'shadowA';
+    return [
+      c.rotulo,
+      zenyExato(TAXA_REFINO[kind]),
+      // A isenção só existe onde há minério de Cash Shop para a categoria: nas de
+      // Éter o especial é fabricado no NPC, e a pergunta não chega a existir.
+      kind === 'w5' || kind === 'a2' ? '—' : arma ? '0z' : zenyExato(TAXA_REFINO[kind]),
+    ];
+  });
 
-  return tabela('Taxa do refinador por tentativa', ['Categoria', 'Zeny por tentativa'], linhas);
+  return tabela(
+    'Taxa do refinador por tentativa',
+    ['Categoria', 'Minério comum', 'Minério de Cash Shop'],
+    linhas,
+  );
 }
 
 export const MINERIOS: PaginaDeConteudo = {
@@ -187,7 +198,7 @@ export const MINERIOS: PaginaDeConteudo = {
     'Em que categoria e em que faixa de refino cada minério serve, o que acontece com o item ' +
     'quando a tentativa falha, quais realmente aumentam a chance e quais só protegem — e o ' +
     'que o NPC da refinaria cobra por cada um.',
-  fonte: { nome: 'Browiki — Refinamento', url: 'https://browiki.org/wiki/Refinamento' },
+  fonte: { nome: 'GNJOY Americas — Refinamento', url: 'https://ro.gnjoyamericas.com/pt/news/probability/2' },
 
   perguntas: [
     {
@@ -223,9 +234,11 @@ export const MINERIOS: PaginaDeConteudo = {
     {
       pergunta: 'A taxa do refinador é cobrada mesmo quando a tentativa falha?',
       resposta:
-        'É cobrada por tentativa, dando certo ou não, e depende da categoria do equipamento. ' +
-        'Minério comprado no Cash Shop isenta a taxa. Ela é pequena perto do preço do minério ' +
-        'nas faixas altas, mas é ela que decide, na margem, qual minério compensa.',
+        'É cobrada por tentativa, dando certo ou não, e depende da categoria do equipamento — ' +
+        'de 1.000z numa Arma nível 1 a 75.000z numa Arma nível 5. Não muda com o refino do ' +
+        'item. Nas armas, minério comprado no Cash Shop isenta a taxa; nos equipamentos, não. ' +
+        'Ela é pequena perto do preço do minério nas faixas altas, mas é ela que decide, na ' +
+        'margem, qual minério compensa.',
     },
   ],
 
@@ -270,6 +283,12 @@ export const MINERIOS: PaginaDeConteudo = {
             'quem informa.',
         ),
         tabelaDeReceitas(),
+        p(
+          'As receitas e o que cada falha faz com o item vêm do ' +
+            `${externo('https://browiki.org/wiki/Refinamento', 'Browiki — Refinamento')}, o ` +
+            'wiki do Latam: a divulgação oficial da operadora publica as chances e a faixa de ' +
+            'cada minério, mas não os custos de balcão.',
+        ),
       ),
 
       secao(
@@ -287,16 +306,23 @@ export const MINERIOS: PaginaDeConteudo = {
         'Taxa do refinador',
         'taxa',
         p(
-          'Cobrada em toda tentativa, dando certo ou não. Minério comprado no Cash Shop é ' +
-            'isento dela.',
+          'Cobrada em toda tentativa, dando certo ou não, e sempre a mesma em qualquer refino ' +
+            'do item.',
         ),
         tabelaDeTaxas(),
         p(
-          'Estes valores são a única parte desta página que <strong>não</strong> vem de uma ' +
-            'fonte do Latam: nem o Browiki nem a ficha do item publicam a taxa, e ela vem do ' +
-            `${externo('https://irowiki.org/wiki/Refinement_System', 'iROwiki')}, que é de ` +
-            'outro servidor. Entram assim, com este aviso, porque ignorar um custo que existe ' +
-            'seria pior. A taxa dos Sombrios fica em zero até alguém conferir no jogo.',
+          'A isenção do Cash Shop separa <strong>arma de equipamento</strong>: refinar uma arma ' +
+            'com Oridecon Enriquecido sai por 0z de taxa — inclusive a Manopla Sombria —, e ' +
+            'refinar um equipamento com Elunium Enriquecido paga a taxa cheia. Manopla e ' +
+            'Equipamento Sombrio cobram a mesma taxa e usam a mesma tabela de chances, e mesmo ' +
+            'assim só a Manopla isenta.',
+        ),
+        p(
+          'Estes valores são a única parte desta página que <strong>não</strong> vem de fonte ' +
+            'publicada: a divulgação oficial traz as chances, não os custos. Foram medidos no ' +
+            'balcão do NPC, categoria por categoria. As Armas nível 5 e os Equipamentos nível 2 ' +
+            'não têm minério de Cash Shop — o especial deles é fabricado no NPC, e paga taxa ' +
+            'cheia.',
         ),
       ),
     ].join('\n\n      '),

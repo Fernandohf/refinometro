@@ -209,9 +209,14 @@ describe('as tabelas contra os dados', () => {
   });
 
   it('distingue "não existe" de "zero por cento"', () => {
-    // O Grau A não é 0% no +10: ele é impossível ali, e as duas coisas se
-    // planejam de formas completamente diferentes.
+    // Equipamento Sombrio não é 0% no +11: ele para no +10, e as duas coisas se
+    // planejam de formas completamente diferentes. Na tabela isso é o travessão.
+    expect(tabelaDeRefino).toContain('<span class="vazio">—</span>');
+
+    // No Grau a mesma distinção não cabe numa célula: abaixo do +11 não há linha
+    // nenhuma, porque o processo não existe. Aí quem diz isso é a prosa.
     const grau = paginas.find((p) => p.conteudo.pagina.slug === 'grau')!.html;
-    expect(grau).toContain('<span class="vazio">—</span>');
+    expect(grau).not.toContain('<th scope="row">+10</th>');
+    expect(grau).toContain('<strong>não existe</strong>');
   });
 });

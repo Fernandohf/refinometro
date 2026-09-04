@@ -8,7 +8,7 @@
 
   Os números NÃO são copiados para cá: saem de `chanceOf`, a mesma função que o
   motor consulta para montar o plano. É a única forma de a página não passar a
-  mentir na primeira vez que o Browiki mudar um valor e a base for atualizada.
+  mentir na primeira vez que a fonte mudar um valor e a base for atualizada.
 */
 
 import { REFERENCIAS } from '../data/seo';
@@ -17,6 +17,8 @@ import { ehSombrio, type ItemKind } from '../data/ores';
 import { chanceOf, maxRefine, safeLimit } from '../engine/refine';
 import { porcento } from '../format';
 import { externo, p, secao, tabela, type Celula, type PaginaDeConteudo } from './documento';
+
+const OFICIAL_REFINO = 'https://ro.gnjoyamericas.com/pt/news/probability/2';
 
 /**
  * As colunas da tabela.
@@ -86,7 +88,7 @@ export const TABELA_DE_REFINO: PaginaDeConteudo = {
     'A chance de a tentativa dar certo em cada nível de refino, do +1 ao +20, para cada ' +
     'categoria de equipamento — com minério comum, com minério de chance aumentada e ' +
     'durante o evento de refino. São os mesmos números que a calculadora usa.',
-  fonte: { nome: 'Browiki — Refinamento', url: 'https://browiki.org/wiki/Refinamento' },
+  fonte: { nome: 'GNJOY Americas — Refinamento', url: 'https://ro.gnjoyamericas.com/pt/news/probability/2' },
 
   perguntas: [
     {
@@ -121,9 +123,9 @@ export const TABELA_DE_REFINO: PaginaDeConteudo = {
     {
       pergunta: 'Estas chances valem em outro servidor de Ragnarok?',
       resposta:
-        'Não necessariamente. A tabela é a do Ragnarok Latam, tirada do Browiki, que é o wiki ' +
-        'do próprio servidor. Outros servidores publicam tabelas diferentes, e um número ' +
-        'trocado muda o custo esperado de uma campanha em ordens de grandeza.',
+        'Não necessariamente. A tabela é a do Ragnarok Latam, publicada pela GNJOY Americas, ' +
+        'que é a operadora do servidor. Outros servidores publicam tabelas diferentes, e um ' +
+        'número trocado muda o custo esperado de uma campanha em ordens de grandeza.',
     },
   ],
 
@@ -178,10 +180,10 @@ export const TABELA_DE_REFINO: PaginaDeConteudo = {
         'De onde vêm estes números',
         'fonte',
         p(
-          `Todos vêm do ${externo('https://browiki.org/wiki/Refinamento', 'Browiki — Refinamento')}, ` +
-            'que é o wiki do próprio Ragnarok Latam, e são lidos direto da base do projeto pela ' +
-            'mesma função que o motor da calculadora consulta. Não há uma cópia desta tabela ' +
-            'escrita à mão nesta página: se a base mudar, a página muda no build seguinte.',
+          `Todos vêm da ${externo(OFICIAL_REFINO, 'divulgação oficial de chances da GNJOY Americas')}, ` +
+            'a operadora do Ragnarok Latam, e são lidos direto da base do projeto pela mesma ' +
+            'função que o motor da calculadora consulta. Não há uma cópia desta tabela escrita ' +
+            'à mão nesta página: se a base mudar, a página muda no build seguinte.',
         ),
         p(
           'A chance é só metade da conta. A outra metade é o preço do minério, a taxa do ' +

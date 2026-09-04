@@ -170,7 +170,7 @@ export const REFERENCIAS = {
     titulo: 'Tabela de Chances de Refino do Ragnarok Latam — Refinômetro',
     descricao:
       'A chance de sucesso de cada nível de refino, do +1 ao +20, por categoria de item, ' +
-      'com minério comum e com minério de chance aumentada. Dados do Browiki (LATAM).',
+      'com minério comum e com minério de chance aumentada. Dados oficiais do LATAM.',
     rotulo: 'tabela de chances de refino',
   },
   minerios: {

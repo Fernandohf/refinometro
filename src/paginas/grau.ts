@@ -26,6 +26,8 @@ import { ROTULO_GRAU } from '../data/rotulos';
 import { porcento, zenyExato } from '../format';
 import { externo, p, secao, tabela, type Celula, type PaginaDeConteudo } from './documento';
 
+const OFICIAL_GRAU = 'https://ro.gnjoyamericas.com/pt/news/probability/27';
+
 type TabelaDeGrau = Record<string, Record<GradeStepKey, number | null>>;
 const CHANCES = gradeChances.chances as unknown as Record<string, TabelaDeGrau>;
 
@@ -125,7 +127,7 @@ export const GRAU: PaginaDeConteudo = {
     'A chance de cada degrau de Grau conforme o refino do item, os materiais e o zeny de cada ' +
     'subida, quanto a Bênção de Éter empurra a chance — e a regra que decide tudo: cada ' +
     'subida de Grau devolve o refino do item para +0.',
-  fonte: { nome: 'Browiki — Grau', url: 'https://browiki.org/wiki/Grau' },
+  fonte: { nome: 'GNJOY Americas — Grau', url: 'https://ro.gnjoyamericas.com/pt/news/probability/27' },
 
   perguntas: [
     {
@@ -144,10 +146,9 @@ export const GRAU: PaginaDeConteudo = {
     {
       pergunta: 'A partir de que refino dá para tentar subir de Grau?',
       resposta:
-        'Pelas tabelas de chance, o Grau D é possível a partir do +9, o Grau C a partir do +10 ' +
-        'e os Graus B e A a partir do +11. O texto do Browiki afirma que o item precisa estar ' +
-        'em +11 para qualquer degrau, o que contradiz a tabela da própria página; aqui valem ' +
-        'as tabelas, que concordam com as de outra fonte.',
+        'Do +11, em qualquer degrau. Abaixo disso o processo não existe: a tabela oficial não ' +
+        'lista chance nenhuma antes do +11, e o NPC recusa o item. Não adianta levar um item ' +
+        '+9 ou +10 achando que a chance é só menor — não há tentativa a fazer.',
     },
     {
       pergunta: 'Qual é a diferença entre o processo normal e o seguro?',
@@ -190,18 +191,19 @@ export const GRAU: PaginaDeConteudo = {
         'chances',
         p(
           'A mesma tabela vale para Arma nível 5 e Armadura nível 2: o Grau não distingue as ' +
-            'duas. O travessão marca o degrau que não é possível naquele refino — o que é ' +
-            'diferente de ser possível com chance zero.',
+            'duas. Ela começa no +11 porque o processo <strong>não existe</strong> antes disso ' +
+            '— o que é diferente de existir com chance zero: não há tentativa a fazer, e o NPC ' +
+            'recusa o item.',
         ),
         tabelaDeChances('weapon', 'Chance de subir de Grau, fora de evento'),
         p('Durante o evento, cada degrau ganha 10 pontos percentuais de chance:'),
         tabelaDeChances('weaponEvent', 'Chance de subir de Grau, durante o evento'),
         p(
-          `As tabelas listam valores a partir do +${REFINO_MINIMO_GRAU}, enquanto o texto do ` +
-            'Browiki afirma que o item precisa estar em +11. A contradição é da própria fonte, ' +
-            'e aqui valem as tabelas — que concordam com as do ' +
-            `${externo('https://hazyforest.com/equipment:grade', 'Hazy Forest')}. Se o NPC ` +
-            'recusar a tentativa abaixo do +11 no jogo, é o texto que está certo.',
+          `O piso de +${REFINO_MINIMO_GRAU} é da ` +
+            `${externo(OFICIAL_GRAU, 'divulgação oficial da GNJOY Americas')}, a operadora do ` +
+            'servidor, e foi conferido no jogo: o NPC recusa item abaixo do +11. Wikis de fã ' +
+            'listavam chances a partir do +9, e planejar por elas leva a um plano que o jogo ' +
+            'não aceita.',
         ),
       ),
 
