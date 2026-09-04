@@ -124,9 +124,9 @@ aceitável, `L = 0`). Defina o MDP `(S, A, P, c)` — na formulação padrão de
 
 Duas escolhas de modelagem merecem registro porque mudam a resposta:
 
-1. **A taxa entra por ação, não como constante da campanha.** Minério de Cash Shop é isento
-   (`joyCoins ⇒ τ = 0`), e é isso que faz o Oridecon Enriquecido competir de igual para igual com
-   o Oridecon comum numa arma nv4.
+1. **A taxa entra por ação, não como constante da campanha.** Minério de Cash Shop é isento nas
+   armas nv1 a nv4 (`joyCoins ⇒ τ = 0` lá, e só lá), e é isso que faz o Oridecon Enriquecido
+   competir de igual para igual com o Oridecon comum numa arma nv4.
 2. **A reposição volta ao +0, não ao refino corrente.** Repor no refino atual criaria um atalho
    com custo finito e progresso grátis, e o otimizador aprenderia a quebrar de propósito. Como
    `V₀` é o preço do item sem refino, o par (custo, destino) é consistente.
@@ -450,10 +450,12 @@ onde cada degrau começa é a tabela, através dos `null`. O espaço de busca fi
 preparo. Como todo degrau depois do primeiro parte do +0 e todos avaliam os mesmos candidatos, um
 cache `de→para` por campanha (`CacheRefino`) evita resolver a mesma cadeia dezenas de vezes.
 
-Repare no que **não** foi assumido: a regra de bolso "sempre suba até o +11 antes de tentar o
-grau" não está no código. Ela às vezes é falsa — quando o trecho +9→+11 é caro o bastante, tentar
-o Grau D no +9 com 10% de chance sai mais barato — e é exatamente esse tipo de troca que o
-Corolário 6.3 deixa o otimizador resolver sozinho.
+Hoje a tabela oficial só publica chance do +11 para cima, então o piso da busca é o +11
+(`REFINO_MINIMO_GRAU`) e o Corolário 6.3 escolhe entre +11 e +16, os dois patamares de chance
+distintos. Vale registrar o que ele **não** assume: a regra de bolso "suba o mínimo e tente" não
+está no código, e a estrutura continua valendo se um dia a tabela ganhar linhas — foi assim que o
+motor chegou a propor Grau D no +9, quando as tabelas de wiki listavam chance ali. O plano era
+mais barato no papel e ilegal no jogo; quem o desfez foi a fonte, não uma regra fixa no código.
 
 ---
 
@@ -821,8 +823,7 @@ Reunidas num lugar só, na ordem em que apareceram:
 | H6 | Critério neutro ao risco (minimizar `𝔼[C]`) | §2.3, §8.6 | Os percentis não são os da política que os minimizaria |
 | H7 | Recursos só são consumidos, nunca obtidos jogando | todo o modelo | Farmar minério muda a moeda do problema |
 | H8 | Tempo não tem valor (sem desconto entre tentativas) | §2.1 | O SSP com desconto daria outra política |
-| H9 | Taxa do refinador de Equipamento Sombrio = 0 | `TAXA_REFINO` | Subestima o custo de Sombrios; valor não conferido in-game |
-| H10 | Grau é possível a partir do +9 (tabelas), não do +11 (texto do Browiki) | `REFINO_MINIMO_GRAU` | Alguns planos de grau "cedo" seriam ilegais in-game |
+| H9 | Os três degraus de grau acima do D custam o que o Browiki diz | `GRADE_STEPS` | O único degrau medido estava errado em 50%; campanhas de grau alto sairiam subestimadas |
 
 Fora do modelo por decisão de escopo: cartas, encantamentos, Pergaminhos/Cubos/Martelos de Refino
 (que pulam direto para um refino fixo) e qualquer valor de revenda do item refinado além de
@@ -916,4 +917,4 @@ de 72,7%) foram obtidos com os preços padrão de
     <https://en.wikipedia.org/wiki/M-matrix>
 
 **Fontes dos dados do jogo** (chances, receitas, taxas) estão documentadas em
-[Os dados](dados.md): Browiki, Divine Pride e iROwiki.
+[Os dados](dados.md): GNJOY Americas, Browiki, Divine Pride e o balcão do NPC.

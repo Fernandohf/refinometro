@@ -74,9 +74,10 @@ export const FAQ: readonly { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Os números valem para o Ragnarok Latam?',
     resposta:
-      'Valem. As chances, os minérios e as penalidades de falha vêm do Browiki, que é o ' +
-      'wiki do próprio servidor, e os itens vêm do Divine Pride no servidor LATAM. Em outro ' +
-      'servidor as chances mudam, e o resultado muda junto.',
+      'Valem. As chances de refino e de grau vêm da divulgação oficial da GNJOY Americas, que ' +
+      'é a operadora do servidor; os minérios e as penalidades de falha vêm do Browiki, o wiki ' +
+      'do LATAM; e os itens vêm do Divine Pride no servidor LATAM. Em outro servidor as chances ' +
+      'mudam, e o resultado muda junto.',
   },
   {
     pergunta: 'Qual é a diferença entre a calculadora e o simulador?',

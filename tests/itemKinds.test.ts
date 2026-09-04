@@ -106,7 +106,7 @@ describe('o que não refina', () => {
 });
 
 describe('sombrios', () => {
-  it('separa arma sombria de armadura sombria', () => {
+  it('separa a Manopla Sombria do Equipamento Sombrio', () => {
     // As duas usam a mesma coluna de chances, mas minérios diferentes: a arma
     // refina com Oridecon e a armadura com Elunium.
     for (const [tipo, subtipo] of [

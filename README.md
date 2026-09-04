@@ -108,7 +108,7 @@ O detalhe todo mora em [docs/](docs/):
 | [A matemática](docs/matematica.md) | A especificação formal: o MDP, as demonstrações e o erro de cada aproximação |
 | [A interface](docs/interface.md) | Material Design 3, o botão informativo e a lista de compras |
 | [Os dados](docs/dados.md) | A ordem das fontes, e por que ela é essa |
-| [Chances e custos](docs/dados-chances.md) | As tabelas do Browiki e as quatro divergências registradas |
+| [Chances e custos](docs/dados-chances.md) | As tabelas oficiais da GNJOY e as divergências registradas |
 | [Itens](docs/dados-itens.md) | A base do Divine Pride: varredura, armadilhas e o que não é refinável |
 | [Preços](docs/dados-precos.md) | A cotação do mercado LATAM, e por que a média de 30 dias não serve |
 | [Publicação](docs/publicacao.md) | Os dois workflows do GitHub Actions |

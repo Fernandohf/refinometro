@@ -5,7 +5,7 @@ vem, qual fonte ganha quando duas discordam, e onde está o detalhe de cada uma.
 
 | Documento | O que tem lá |
 | --- | --- |
-| [Chances e custos](dados-chances.md) | As tabelas do Browiki, o parser e as quatro divergências registradas |
+| [Chances e custos](dados-chances.md) | As tabelas oficiais da GNJOY, o parser e as divergências registradas |
 | [Itens](dados-itens.md) | A base do Divine Pride: varredura semanal, armadilhas do scraper e o que não é refinável |
 | [Preços](dados-precos.md) | A cotação do mercado LATAM, a mediana ponderada e por que a média de 30 dias não serve |
 
@@ -18,18 +18,28 @@ O alvo é o **Ragnarok Latin America**, e é isso que decide o que serve de refe
 não valem todas o mesmo, e a ordem abaixo é a regra do projeto — quando duas discordam, ganha a
 de cima, e a discordância vira um aviso na tela em vez de sumir na conta.
 
-1. **[Browiki](https://browiki.org/wiki/Refinamento)** — o wiki do próprio servidor
-   ("O fã site brasileiro de *Ragnarök Online Latin America*"). É a referência preferida para
-   mecânica: chances, minérios, penalidades, custos de NPC, Grau.
-2. **[Divine Pride](https://www.divine-pride.net/), servidor LATAM** — datamine do cliente do
+1. **[Divulgação de chances da GNJOY Americas](https://ro.gnjoyamericas.com/pt/news/probability/2)**
+   — a operadora do servidor publicando as próprias probabilidades. É a fonte das chances de
+   refino e de grau, e de quais minérios servem a cada categoria. Não publica custos.
+2. **[Browiki](https://browiki.org/wiki/Refinamento)** — o wiki do LATAM ("O fã site brasileiro
+   de *Ragnarök Online Latin America*"). É a referência para o que a página oficial não cobre:
+   penalidades de falha, receitas e custos de NPC, materiais de Grau. Onde ele contradiz a
+   divulgação oficial, perde — foi o que aconteceu com oito chances e com o Grau no +9, ver
+   [Chances e custos](dados-chances.md#por-que-a-fonte-deixou-de-ser-o-browiki).
+3. **[Divine Pride](https://www.divine-pride.net/), servidor LATAM** — datamine do cliente do
    jogo, não texto escrito à mão, e por isso mais confiável sobre o que um item **é**: id, nome,
    categoria, faixa de refino, descrição. A ressalva é que a descrição é uma string do cliente:
    ela pode estar desatualizada ou traduzida errado (o Carnium de Éter é um caso — ver
    [Chances e custos](dados-chances.md#as-divergências-registradas)).
-3. **Outros wikis** ([iROwiki](https://irowiki.org/wiki/Refinement_System),
-   [Hazy Forest](https://hazyforest.com/equipment:refine)) — servem só onde as duas de cima não
-   dizem nada, e o que vier de lá fica marcado como não confirmado no LATAM. Não é fonte para
-   contradizer o Browiki.
+4. **O jogo, conferido no balcão** — quando nenhuma das três publica o número, ou quando o que
+   elas publicam pode ser conferido. É de onde vem a tabela inteira de taxa do refinador, o custo
+   do primeiro degrau de grau, e a confirmação de que o NPC de Grau recusa item abaixo do +11.
+   Onde o balcão contradiz um wiki, ganha o balcão.
+5. **Outros wikis** ([iROwiki](https://irowiki.org/wiki/Refinement_System),
+   [Hazy Forest](https://hazyforest.com/equipment:refine)) — servem só onde nada acima diz nada,
+   e o que vier de lá fica marcado como não confirmado no LATAM. Não é fonte para contradizer as
+   de cima, e hoje nenhum número do projeto vem daqui: o iROwiki era a fonte da taxa do
+   refinador até ela ser medida no jogo, e errava sete das nove categorias.
 
 Preço tem uma quarta fonte, de outra natureza: a
 [consulta de preço de mercado](https://ro.gnjoylatam.com/pt/intro/shop-search/market-price) do
@@ -37,59 +47,107 @@ site oficial, que publica o histórico de transações das lojas de jogador. Ela
 cálculo — a cotação que entra na conta é a sua, sempre. Ela decide o número que está no campo
 antes de você digitar o seu, e é atualizada por `npm run precos`. Ver [Preços](dados-precos.md).
 
-Hoje só um número está no nível 3 — a taxa que o refinador cobra por tentativa, que nenhuma
-fonte do LATAM publica. Na base de itens, o **nome** é sempre o do LATAM (item sem tradução nem
-entra na busca); só a *categoria* de um item recém-lançado pode vir do cartão em inglês, porque
-nível de arma e posição não mudam de servidor.
+Hoje quase nada está no nível 5: a taxa do refinador saiu de lá para o nível 4 quando foi
+medida, e o que sobra de terceiro é o custo de três degraus de grau, que ninguém conferiu. Na
+base de itens, o **nome** é
+sempre o do LATAM (item sem tradução nem entra na busca); só a *categoria* de um item
+recém-lançado pode vir do cartão em inglês, porque nível de arma e posição não mudam de
+servidor.
 
-## Taxa do refinador — fora do LATAM
+## Taxa do refinador — medida no balcão
 
-Único número do projeto que vem de um wiki de outro servidor, e por falta de opção. O NPC cobra
-um valor em zeny por tentativa, além do minério; nem o Browiki nem a ficha do item no jogo
-publicam quanto. O [iROwiki](https://irowiki.org/wiki/Refinement_System) publica, e é de lá que
-sai a tabela em [`src/data/ores.ts`](../src/data/ores.ts). Ignorar a taxa seria pior que usar a
-de iRO — ela entra em toda tentativa e decide, na margem, qual minério compensa —, então ela
-entra marcada como não confirmada, no rodapé do app e aqui:
+O NPC cobra um valor em zeny por tentativa, além do minério, e ninguém publica quanto: nem a
+divulgação oficial (que traz chances, não custos), nem o Browiki, nem a ficha do item. É o único
+lugar do projeto sem fonte publicada — então foi levantado no jogo, categoria por categoria, em
+2026-09-04.
 
-| Categoria | Taxa de Refino por tentativa |
-| --- | --- |
-| Arma nv1 | 50z |
-| Arma nv2 | 200z |
-| Arma nv3 | 5.000z |
-| Arma nv4 | 20.000z |
-| Arma nv5 | 50.000z |
-| Equipamento nv1 | 2.000z |
-| Equipamento nv2 | 30.000z |
+| Categoria | Taxa por tentativa | Com minério de Cash Shop |
+| --- | --- | --- |
+| Arma nv1 | 1.000z | **0z** |
+| Arma nv2 | 2.000z | **0z** |
+| Arma nv3 | 10.000z | **0z** |
+| Arma nv4 | 10.000z | **0z** |
+| Arma nv5 | 75.000z | não tem minério de Cash Shop |
+| Manopla Sombria | 10.000z | **0z** |
+| Equipamento nv1 | 10.000z | 10.000z |
+| Equipamento nv2 | 45.000z | não tem minério de Cash Shop |
+| Equipamento Sombrio | 10.000z | 10.000z |
 
-**Minério comprado no Cash Shop isenta a taxa** — Enriquecido e Perfeito de Oridecon, Elunium,
-Bradium e Carnium saem por 0z. Por isso a taxa é calculada por *ação*, não por campanha: ela
-entra no custo que o otimizador compara, então um Enriquecido 50k mais caro que o Oridecon é,
-na prática, só 30k mais caro numa arma nv4. Pela mesma razão o total de taxas **não** é
-`tentativas × valor fixo`; ele vem somado do motor, tentativa a tentativa.
+Todas as nove foram medidas no NPC, com minério comum e, onde ele existe, com o de Cash Shop.
 
-Duas coisas ficaram como estão, à espera de confirmação in-game:
+O [iROwiki](https://irowiki.org/wiki/Refinement_System) servia de fonte para essa tabela até
+agora, e **errou sete das nove**: Arma nv1 (50z), nv2 (200z), nv3 (5.000z), nv4 (20.000z), nv5
+(50.000z), Equipamento nv1 (2.000z), nv2 (30.000z). Sombrio ele nem listava, e o projeto usava 0.
+Nenhum valor dele sobreviveu à conferência, e é por isso que ele deixou de ser citado como fonte
+aqui.
 
-- **Sombrios não aparecem na tabela** e estão com taxa 0. Chutar sairia caro no lugar errado,
-  já que a taxa entra em toda tentativa.
-- A isenção segue `joyCoins` (Cash Shop), não `especial`. Os Enriquecidos e Perfeitos **de
-  Éter** também são especiais, mas são fabricados no NPC, e nada na fonte indica que sejam
-  isentos — então pagam.
+**A taxa não muda com o refino do item**: é a mesma do +0 ao +19, conferido.
 
-Na prática a taxa pesa pouco: 0,01% do custo num equipamento nv1 até +10, ~2% numa campanha de
-Grau A. O que ela muda de verdade é a escolha na margem.
+### A isenção do Cash Shop separa arma de equipamento
 
-Ao contrário das tabelas do Browiki, esta foi transcrita à mão — o iROwiki fica atrás do
-Cloudflare e devolve 403 para qualquer script (a leitura saiu pelo
-[Wayback Machine](https://web.archive.org/web/2026/https://irowiki.org/wiki/Refinement_System)).
-Não há parser para avisar se a fonte mudar; quem confere é `npm test`, que trava os valores.
+Refinar uma **arma** com Oridecon Enriquecido custa **0z de taxa** — nv1 a nv4 e também a Manopla
+Sombria. Refinar um **equipamento** com Elunium Enriquecido, ou Perfeito, custa a taxa cheia —
+nv1 e Sombrio. O mesmo tipo de minério isenta de um lado e não isenta do outro.
+
+O par de sombrios é o que fecha a leitura: Manopla e Equipamento Sombrio cobram os mesmos
+10.000z, usam a mesma coluna de chances, e mesmo assim só a Manopla sai por 0z com o
+Enriquecido. Não é diferença de balcão nem de faixa: é arma × equipamento.
+
+O iROwiki descreve a isenção sem ressalva de categoria ("If the player is using Enriched Oridecon
+/ Enriched Elunium / HD Oridecon / HD Elunium from the Kafra Shop, the fee is 0z"), e nenhuma
+fonte explica a diferença — mas é o que o NPC cobra. As categorias de Éter ficam fora da questão:
+o especial delas é fabricado no NPC, não comprado com JoyCoins, e paga taxa cheia (conferido com
+Eteridecon Enriquecido na arma nv5 e Eterium Enriquecido no equipamento nv2).
+
+É por isso que a taxa é calculada por **ação**, e não por campanha: ela entra no custo que o
+otimizador compara, então numa arma nv4 um Enriquecido 50k mais caro que o Oridecon é, na
+prática, só 40k mais caro. Pela mesma razão o total de taxas **não** é `tentativas × valor
+fixo`; ele vem somado do motor, tentativa a tentativa.
+
+Na prática a taxa pesa pouco no total: 0,3% do custo de um equipamento nv1 até o +10 e ~3% numa
+campanha de Grau A, com os preços de partida. O que ela muda de verdade é a escolha na margem.
+
+Esta tabela foi transcrita à mão, ao contrário das de chance: não há parser para avisar se ela
+mudar, e quem trava os valores é o `npm test`.
 
 Itens fabricáveis no NPC podem ficar em 0: a calculadora cota pela receita e escolhe
 sozinha a via mais barata entre comprar pronto e fabricar.
 
+## Custos de Grau — meio medidos
+
+O zeny de cada processo de grau vem do [Browiki](https://browiki.org/wiki/Grau), e só o primeiro
+degrau deu para conferir no NPC: **sem grau → D custa 150.000z no normal e 750.000z no seguro**,
+contra os 100.000z e 500.000z que o wiki diz. Os outros três degraus continuam com o número do
+wiki e ficam **suspeitos** — o único que deu para medir estava errado.
+
+O que a medição confirmou foi a *estrutura*: o processo seguro custa 5× o normal e consome 5× o
+material. As receitas dos materiais de grau (`GRADE_RECIPES`) vêm do mesmo lugar e carregam a
+mesma ressalva.
+
+## O que ainda não foi conferido
+
+A lista fechada do que hoje **não** tem número medido nem fonte do LATAM. Cada item diz o que
+precisa para ser testado, porque é isso que trava: quem levantou o resto não tinha em mãos um
+item no estado necessário.
+
+| O que falta | Onde entra | Precisa de |
+| --- | --- | --- |
+| Custo dos degraus **D → C**, **C → B** e **B → A** | `GRADE_STEPS` | um item de Arma nv5 ou Equipamento nv2 **já com grau D, C ou B**, para abrir a janela do NPC |
+| Bradium e Carnium destroem o item numa falha rara? | `penalidade` dos dois | volume de tentativas do +11 para cima, não uma consulta — é um evento raro |
+
+Os três degraus de grau estão com o valor do [Browiki](https://browiki.org/wiki/Grau), e o único
+degrau que deu para medir (o D) estava errado em 50% — então esses três são **estimativas
+suspeitas**, e uma campanha de Grau A pode custar mais do que a tela diz. É a hipótese H9 em
+[A matemática do motor](matematica.md#11-hipóteses-do-modelo-e-o-que-elas-deixam-de-fora).
+
+Não é preciso ser conclusivo para ajudar: abrir a janela do NPC e ler o valor já resolve a
+primeira linha.
+
 ## Proveniência e licença dos dados
 
 O código está sob a [licença MIT](../LICENSE). Os **dados** não são meus e seguem a licença de
-quem os publicou: `data-raw/*.wiki` é wikitext copiado do [Browiki](https://browiki.org), e
+quem os publicou: `data-raw/gnjoy-*.html` são as tabelas publicadas pela
+[GNJOY Americas](https://ro.gnjoyamericas.com/pt/news/probability/2), e
 `src/data/items.json` vem das páginas públicas do
 [Divine Pride](https://www.divine-pride.net/). Ragnarok Online é da Gravity; este é um projeto
 de fã, sem vínculo com a Gravity, a GNJOY Latam ou o Divine Pride.

@@ -23,7 +23,7 @@ caminho.
 | Documento | O que tem lá |
 | --- | --- |
 | [Os dados](dados.md) | A ordem das fontes, a taxa do refinador e a proveniência de cada arquivo. |
-| [Chances e custos](dados-chances.md) | As tabelas do Browiki, o parser e as quatro divergências registradas. |
+| [Chances e custos](dados-chances.md) | As tabelas oficiais da GNJOY, o parser e as divergências registradas. |
 | [Itens](dados-itens.md) | A base do Divine Pride: varredura semanal, armadilhas do scraper e o que não é refinável. |
 | [Preços](dados-precos.md) | A cotação do mercado LATAM e por que a média de 30 dias não serve. |
 

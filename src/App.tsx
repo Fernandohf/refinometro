@@ -653,21 +653,41 @@ function Rodape() {
       </div>
 
       <p className="mt-1.5">
-        Chances e minérios do Browiki, itens do Divine Pride (LATAM), taxa do refinador do iROwiki.
-        Os preços são seus. Projeto de fã, sem vínculo com a Gravity.
+        Chances da divulgação oficial do servidor, minérios do Browiki, itens do Divine Pride
+        (LATAM), taxas conferidas no balcão do NPC. Os preços são seus. Projeto de fã, sem
+        vínculo com a Gravity.
       </p>
 
       <div hidden={!aberto} className="mt-4 space-y-4">
       <section>
         <p className="mb-3">
           O alvo é o <strong className="text-texto">Ragnarok Latin America</strong>, e as fontes
-          seguem essa ordem: o Browiki, que é o wiki do próprio servidor; o Divine Pride no
-          servidor LATAM, que é datamine do cliente do jogo; e, só onde nenhum dos dois diz nada,
-          um wiki de fora — sempre marcado como não confirmado por aqui.
+          seguem essa ordem: a divulgação de chances da GNJOY Americas, que é a operadora do
+          servidor; o Browiki, que é o wiki do LATAM; o Divine Pride no servidor LATAM, que é
+          datamine do cliente do jogo; e, só onde nenhum dos três diz nada, o que der para
+          conferir no jogo — ou um wiki de fora, sempre marcado como não confirmado por aqui.
         </p>
         <dl className="space-y-2">
           <Fonte
-            o_que="Chances e minérios"
+            o_que="Chances de refino e de grau"
+            href="https://ro.gnjoyamericas.com/pt/news/probability/2"
+            nome="GNJOY Americas — Refinamento"
+          >
+            {' '}
+            e{' '}
+            <a
+              className="text-realce hover:underline"
+              href="https://ro.gnjoyamericas.com/pt/news/probability/27"
+            >
+              GNJOY Americas — Grau
+            </a>
+            . É a <strong className="text-texto">divulgação oficial da operadora</strong>: a chance
+            de cada nível, com e sem evento, e quais minérios servem a cada categoria. É ela que diz
+            que o grau só existe a partir do +11.
+          </Fonte>
+
+          <Fonte
+            o_que="Minérios e custos de NPC"
             href="https://browiki.org/wiki/Refinamento"
             nome="Browiki — Refinamento"
           >
@@ -676,20 +696,23 @@ function Rodape() {
             <a className="text-realce hover:underline" href="https://browiki.org/wiki/Grau">
               Browiki — Grau
             </a>
-            . Daí saem as chances de cada nível, os minérios, as penalidades de falha e o que o NPC
-            cobra pelos materiais. Onde a ficha do item no jogo contradiz o Browiki sobre o que um
-            minério faz, vale a ficha — e o plano avisa no trecho em que isso muda o número.
+            . A página oficial publica chances, não custos: as penalidades de falha e o que o NPC
+            cobra pelos materiais vêm do wiki do LATAM. Onde a ficha do item no jogo contradiz o
+            Browiki sobre o que um minério faz, vale a ficha — e o plano avisa no trecho em que
+            isso muda o número.
           </Fonte>
 
           <Fonte
             o_que="Taxa do refinador"
-            href="https://irowiki.org/wiki/Refinement_System"
-            nome="iROwiki (iRO)"
+            href="https://ro.gnjoylatam.com/"
+            nome="o balcão do NPC"
           >
             {' '}
-            — <strong className="text-texto">fora do LATAM</strong>, e por falta de opção: nenhuma
-            fonte daqui publica quanto o NPC cobra por tentativa. Ignorar a taxa também seria
-            errado, então ela entra com esses valores e este aviso. Não foi conferida in-game.
+            — ninguém publica quanto o refinador cobra por tentativa, então as{' '}
+            <strong className="text-texto">nove categorias foram conferidas no jogo</strong>: de
+            1.000z na arma nv1 a 75.000z na arma nv5, sempre a mesma taxa em qualquer refino. Nas
+            armas, minério de Cash Shop sai por 0z; nos equipamentos, não — lá o Enriquecido paga
+            a taxa cheia.
           </Fonte>
 
           <Fonte

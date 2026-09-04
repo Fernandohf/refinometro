@@ -6,16 +6,18 @@ nunca mexeu no projeto, comece por aqui. O caminho geral está em
 
 ## Sem escrever código
 
-**Confirmar um número in-game.** É o que mais falta ao projeto. Três coisas estão no ar hoje,
-esperando alguém que jogue:
+**Confirmar um número in-game.** É o que mais falta ao projeto, e rende: a tabela de taxa do
+refinador foi levantada assim, e derrubou os nove valores que vinham de um wiki de fora. Sobraram
+duas coisas, e as duas travaram por falta de um item no estado certo — não por falta de vontade:
 
-- **Grau a partir do +9.** O motor segue as tabelas (Grau D vale do +9), contra o texto do
-  Browiki, que diz +11. Se você tentar um Grau D com o item em +9 e o NPC aceitar — ou
-  recusar —, isso resolve a questão. → [Chances e custos](dados-chances.md#grau-abaixo-do-11)
-- **A taxa do refinador em Sombrios.** Hoje está 0 por falta de fonte. Quanto o NPC cobra por
-  tentativa num equipamento sombrio? → [Os dados](dados.md#taxa-do-refinador--fora-do-latam)
+- **Quanto custa cada degrau de grau?** Só o primeiro foi medido (sem grau → D: 150.000z no
+  normal, 750.000z no seguro), e o wiki errava os dois. D → C, C → B e B → A ainda vêm do wiki, e
+  para conferir é preciso ter em mãos uma Arma nv5 ou Equipamento nv2 **já com grau D, C ou B**.
+  É só abrir a janela do NPC e ler o valor. → [Os dados](dados.md#o-que-ainda-não-foi-conferido)
 - **Bradium e Carnium quebram?** O Hazy Forest diz que há uma chance rara de destruir o item;
-  o Browiki e a descrição do LATAM só citam a queda de 3 refinos, e o motor segue os dois.
+  o Browiki e a descrição do LATAM só citam a queda de 3 refinos, e quem jogou não viu acontecer.
+  Fica de fora do cálculo, mas "não vi" não é "não acontece" — aqui não adianta uma consulta, só
+  volume de tentativas do +11 para cima.
   → [Chances e custos](dados-chances.md#bradium-e-carnium)
 
 Abra uma issue contando o que você viu, com print se der. Não precisa ser conclusivo — dez

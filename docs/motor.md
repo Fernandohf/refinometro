@@ -37,8 +37,8 @@ derrubar 3, então a melhor escolha em cada nível depende do custo esperado dos
 inclusive dos que ficam _abaixo_ de onde você começou. O motor resolve isso como um processo de
 decisão de Markov e de forma exata (sistema linear, não iteração truncada); a política que sai é
 o que a tela mostra como estratégia por faixa. A taxa do refinador entra por tentativa, e não
-como constante da campanha: minério de Cash Shop é isento, e é isso que faz o Enriquecido
-competir de igual para igual com o Oridecon numa arma nv4.
+como constante da campanha: nas armas nv1 a nv4 o minério de Cash Shop é isento, e é isso que faz
+o Enriquecido competir de igual para igual com o Oridecon.
 
 **Quebrar custa, e devolve o item ao +0** → §2.1. Quando a falha destrói o equipamento, o modelo
 cobra `precoItem` — o preço do item **sem refino** — e recomeça do +0. Repor no refino atual

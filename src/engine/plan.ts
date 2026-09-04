@@ -2,7 +2,6 @@ import { GRADE_ORDER, type Grade } from '../data/grade';
 import { BLESSING_ITEM_ID, blessingCost, ehSombrio, type FailureMode, type ItemKind } from '../data/ores';
 import { ETHER_BLESSING_ITEM_ID } from '../data/grade';
 import {
-  chanceOf,
   maxRefine,
   RefineImpossivel,
   safeLimit,
@@ -522,33 +521,13 @@ function gerarAvisos(
     });
   }
 
-  // Minério especial que NÃO aumenta a chance, numa tentativa em que as duas
-  // tabelas do Browiki dariam números diferentes. É onde a descrição do item
-  // (Divine Pride) e o agrupamento do Browiki se contradizem com consequência
-  // em zeny.
-  const divergentes = fases
-    .flatMap((f) => f.trechos)
-    .filter(
-      (t) =>
-        t.minerioEspecial &&
-        !t.chanceAumentada &&
-        chanceOf(input.kind, t.para, true, input.evento) !==
-          chanceOf(input.kind, t.para, false, input.evento),
-    );
-  if (divergentes.length > 0) {
-    const quais = [...new Set(divergentes.map((t) => t.minerio))].join(', ');
-    const faixas = divergentes.map((t) => `+${t.de}→+${t.para}`).join(', ');
-    avisos.push({
-      nivel: 'atencao',
-      texto:
-        `O plano usa ${quais} em ${faixas}, e aí as fontes discordam. O Browiki joga todo minério ` +
-        `especial na mesma tabela de chances aumentadas, mas a descrição desse minério no jogo só ` +
-        `promete não destruir o item e derrubar 1 refino — nada sobre chance, ao contrário da do ` +
-        `Enriquecido, que diz "aumenta as chances de sucesso" com todas as letras. O motor segue a ` +
-        `descrição do item e usa a chance comum; se in-game valer a aumentada, este trecho sai mais ` +
-        `barato do que o previsto aqui.`,
-    });
-  }
+  // O aviso de "as fontes discordam" morava aqui: minério especial que não aumenta a
+  // chance, numa tentativa em que a coluna comum e a aumentada dão números diferentes.
+  // A divergência era entre a tabela oficial (que agrupa todo especial na coluna alta) e
+  // a descrição do item no jogo (que só promete proteção). Conferido in-game em
+  // 2026-09-04: vale a descrição, que é o que o motor já usava. Sem divergência, sem
+  // aviso — o teste que registra ONDE as duas leituras dariam números diferentes
+  // continua em tests/engine.test.ts.
 
   const usaBradiumOuCarnium = fases
     .flatMap((f) => f.trechos)
@@ -557,19 +536,7 @@ function gerarAvisos(
     avisos.push({
       nivel: 'info',
       texto:
-        'O plano usa Bradium ou Carnium sem Bênção. O Browiki e a descrição do item no jogo dizem que a falha só derruba 3 refinos, e é isso que a conta usa. Uma wiki de kRO registra também uma chance RARA de destruir o item; nenhuma fonte do LATAM confirma nem dá o número, então ele fica de fora — se existir por aqui, o custo real é um pouco maior.',
-    });
-  }
-
-  // O piso do +9 vem das tabelas, contra o texto do Browiki que exige +11 (ver
-  // REFINO_MINIMO_GRAU). Enquanto isso não for confirmado in-game, o plano só
-  // avisa quando de fato depende da divergência.
-  const grausAbaixoDe11 = fases.filter((f) => f.grau && f.grau.refino < 11);
-  if (grausAbaixoDe11.length > 0) {
-    const quais = grausAbaixoDe11.map((f) => `${f.rotulo} no +${f.grau!.refino}`).join(', ');
-    avisos.push({
-      nivel: 'atencao',
-      texto: `O plano tenta o grau abaixo do +11 (${quais}). As tabelas do Browiki e do Hazy Forest listam chance a partir do +9, mas o texto do Browiki diz que o NPC exige +11. Se ele recusar o item, suba até o +11 antes de tentar.`,
+        'O plano usa Bradium ou Carnium sem Bênção. O Browiki e a descrição do item no jogo dizem que a falha só derruba 3 refinos, e é isso que a conta usa. Uma wiki de kRO registra também uma chance RARA de destruir o item; ninguém viu isso acontecer no LATAM e nenhuma fonte daqui dá o número, então ele fica de fora — se existir por aqui, o custo real é um pouco maior.',
     });
   }
 

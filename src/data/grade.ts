@@ -1,5 +1,6 @@
 // Sistema de Grau (Grade D / C / B / A).
-// Fonte: https://browiki.org/wiki/Grau
+// Fonte: https://ro.gnjoyamericas.com/pt/news/probability/27 (divulgação oficial da GNJOY
+// Americas, a operadora do LATAM).
 //
 // Só Armas nível 5 e Armaduras nível 2 têm Grau.
 //
@@ -15,7 +16,7 @@ export type Grade = 'none' | 'D' | 'C' | 'B' | 'A';
 /** Ordem dos graus, do menor para o maior. */
 export const GRADE_ORDER: Grade[] = ['none', 'D', 'C', 'B', 'A'];
 
-/** Chave usada nas tabelas de chance geradas a partir do wiki. */
+/** Chave usada nas tabelas de chance geradas a partir da página oficial. */
 export type GradeStepKey = 'toD' | 'toC' | 'toB' | 'toA';
 
 export interface GradeStep {
@@ -36,30 +37,39 @@ const AMETISTA = { itemId: 1000327, nome: 'Ametista de Éter' };
 const AMBAR = { itemId: 1000328, nome: 'Âmbar de Éter' };
 
 /**
- * Refino mínimo a partir do qual faz sentido procurar uma tentativa de grau.
+ * Refino mínimo para tentar o grau. Abaixo dele o processo simplesmente não existe.
  *
- * O Browiki se contradiz: o texto da página afirma que o item precisa estar em
- * +11, mas a tabela de chances da MESMA página lista valores a partir do +9.
- * Como a fonte preferida não fecha sozinha, aqui vale abrir uma de terceiro
- * nível para desempatar: o Hazy Forest (https://hazyforest.com/equipment:grade)
- * traz a mesma tabela desde o +9 sem citar exigência nenhuma. Entre um texto e
- * duas tabelas que concordam entre si, seguimos as tabelas.
+ * A tabela oficial começa no +11, e o NPC recusa o item abaixo disso — conferido
+ * in-game em 2026-09-04. Foi um ponto que ficou em aberto por um tempo: o Browiki
+ * listava chances a partir do +9, o que fazia o motor propor Grau D logo no +9 e
+ * economizar (no papel) 22% numa campanha de arma nv5. Era plano ilegal, e as duas
+ * fontes concordam em desfazê-lo.
  *
- * Este valor é só o piso da busca: quem realmente decide é a tabela, que traz
- * `null` onde o degrau não é possível. Hoje isso significa D a partir do +9, C a
- * partir do +10 e B/A a partir do +11.
- *
- * TODO: confirmar in-game. Se o NPC recusar abaixo do +11, basta subir para 11.
+ * A tabela continua mandando: ela traz `null` onde o degrau não é possível, e este
+ * valor é só o piso da busca.
  */
-export const REFINO_MINIMO_GRAU = 9;
+export const REFINO_MINIMO_GRAU = 11;
 
+/**
+ * A página oficial publica as CHANCES, não os custos.
+ *
+ * O degrau "sem grau → D" foi conferido no NPC em 2026-09-04: 150.000z no processo
+ * normal e 750.000z no seguro. O Browiki dizia 100.000z e 500.000z — errou os dois, e
+ * manteve só a estrutura (o seguro custa 5x o normal, com 5x o material).
+ *
+ * Os outros três degraus continuam com o número do https://browiki.org/wiki/Grau, que
+ * é a única fonte que existe para eles, e ficam **suspeitos**: o único que deu para
+ * medir estava errado. As receitas dos materiais (GRADE_RECIPES) vêm do mesmo lugar e
+ * carregam a mesma ressalva.
+ */
 export const GRADE_STEPS: GradeStep[] = [
   {
     key: 'toD',
     de: 'none',
     para: 'D',
-    normal: { zeny: 100_000, material: { ...AQUAMARINA, qtd: 1 } },
-    seguro: { zeny: 500_000, material: { ...AQUAMARINA, qtd: 5 } },
+    // Conferido in-game em 2026-09-04.
+    normal: { zeny: 150_000, material: { ...AQUAMARINA, qtd: 1 } },
+    seguro: { zeny: 750_000, material: { ...AQUAMARINA, qtd: 5 } },
     bencaosPorPonto: 1,
   },
   {

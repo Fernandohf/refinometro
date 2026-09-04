@@ -26,7 +26,7 @@ Toda participação segue o [Código de conduta](CODE_OF_CONDUCT.md).
 Duas conferências que economizam a viagem:
 
 - **O número está mesmo errado, ou é a fonte que discorda?** Quatro divergências conhecidas
-  entre o Browiki e o Divine Pride já estão documentadas e resolvidas de propósito, em
+  entre a tabela oficial e o Divine Pride já estão documentadas e resolvidas de propósito, em
   [Chances e custos](docs/dados-chances.md#as-divergências-registradas). Se a sua for uma
   delas, o que ajuda é confirmação in-game — é exatamente o que falta lá.
 - **É preço, ou é a sua cotação?** Os preços do campo são um palpite lido do mercado oficial;
@@ -84,7 +84,7 @@ Não são necessários para rodar o site — os arquivos gerados já estão no r
 
 | Comando | O que atualiza | Documentação |
 | --- | --- | --- |
-| `npm run data:fetch` / `data:parse` | Chances e custos, do Browiki | [Chances e custos](docs/dados-chances.md) |
+| `npm run data:fetch` / `data:parse` | Chances, da divulgação oficial da GNJOY | [Chances e custos](docs/dados-chances.md) |
 | `npm run data:items` | A base de itens, do Divine Pride | [Itens](docs/dados-itens.md) |
 | `npm run precos` | A cotação inicial dos minérios | [Preços](docs/dados-precos.md) |
 | `npm run descricoes` | Imprime as descrições dos 22 minérios, para reconferir | [Chances e custos](docs/dados-chances.md) |
@@ -96,7 +96,7 @@ Não são necessários para rodar o site — os arquivos gerados já estão no r
 
 ```
 scripts/     coleta e conversão dos dados de origem
-data-raw/    wikitext bruto do Browiki, versionado
+data-raw/    tabelas oficiais da GNJOY, versionadas
 src/data/    tabelas geradas, catálogos escritos à mão (minérios, grau, preços)
              e a classificação de itens (itemKinds.ts)
 src/engine/  o cálculo: Markov, simulação, otimização de estratégia

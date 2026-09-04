@@ -1,6 +1,6 @@
 {
-  "_fonte": "https://browiki.org/wiki/Grau",
-  "_geradoEm": "2026-08-21",
+  "_fonte": "https://ro.gnjoyamericas.com/pt/news/probability/27",
+  "_geradoEm": "2026-09-04",
   "_degraus": [
     "toD",
     "toC",
@@ -9,18 +9,6 @@
   ],
   "chances": {
     "weapon": {
-      "9": {
-        "toD": 0.1,
-        "toC": null,
-        "toB": null,
-        "toA": null
-      },
-      "10": {
-        "toD": 0.2,
-        "toC": 0.2,
-        "toB": null,
-        "toA": null
-      },
       "11": {
         "toD": 0.7,
         "toC": 0.6,
@@ -83,18 +71,6 @@
       }
     },
     "weaponEvent": {
-      "9": {
-        "toD": 0.2,
-        "toC": null,
-        "toB": null,
-        "toA": null
-      },
-      "10": {
-        "toD": 0.3,
-        "toC": 0.3,
-        "toB": null,
-        "toA": null
-      },
       "11": {
         "toD": 0.8,
         "toC": 0.7,
@@ -157,18 +133,6 @@
       }
     },
     "armor": {
-      "9": {
-        "toD": 0.1,
-        "toC": null,
-        "toB": null,
-        "toA": null
-      },
-      "10": {
-        "toD": 0.2,
-        "toC": 0.2,
-        "toB": null,
-        "toA": null
-      },
       "11": {
         "toD": 0.7,
         "toC": 0.6,
@@ -231,18 +195,6 @@
       }
     },
     "armorEvent": {
-      "9": {
-        "toD": 0.2,
-        "toC": null,
-        "toB": null,
-        "toA": null
-      },
-      "10": {
-        "toD": 0.3,
-        "toC": 0.3,
-        "toB": null,
-        "toA": null
-      },
       "11": {
         "toD": 0.8,
         "toC": 0.7,
