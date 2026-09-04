@@ -710,9 +710,11 @@ function Rodape() {
             {' '}
             — ninguém publica quanto o refinador cobra por tentativa, então as{' '}
             <strong className="text-texto">nove categorias foram conferidas no jogo</strong>: de
-            1.000z na arma nv1 a 75.000z na arma nv5, sempre a mesma taxa em qualquer refino. Nas
-            armas, minério de Cash Shop sai por 0z; nos equipamentos, não — lá o Enriquecido paga
-            a taxa cheia.
+            1.000z na arma nv1 a 75.000z na arma nv5, sempre a mesma taxa em qualquer refino até o
+            +9. Nas armas, minério de Cash Shop sai por 0z; nos equipamentos, não — lá o
+            Enriquecido paga a taxa cheia. Do{' '}
+            <strong className="text-texto">+10 para cima a taxa não foi conferida</strong>, e a
+            conta assume que ela continua a mesma.
           </Fonte>
 
           <Fonte

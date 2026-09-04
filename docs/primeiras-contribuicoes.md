@@ -8,8 +8,12 @@ nunca mexeu no projeto, comece por aqui. O caminho geral está em
 
 **Confirmar um número in-game.** É o que mais falta ao projeto, e rende: a tabela de taxa do
 refinador foi levantada assim, e derrubou os nove valores que vinham de um wiki de fora. Sobraram
-duas coisas, e as duas travaram por falta de um item no estado certo — não por falta de vontade:
+três coisas, e todas travaram por falta de um item no estado certo — não por falta de vontade:
 
+- **Quanto o refinador cobra do +10 para cima?** A tabela de taxas foi medida com minério da
+  faixa +0 a +9; ninguém tentou com Bradium, Carnium, os de Éter da faixa alta ou os Perfeitos.
+  Basta ter um item no +10 e abrir a janela de refino para ler o valor — não precisa refinar.
+  → [Os dados](dados.md#o-que-a-medição-não-alcançou-a-faixa-do-10-para-cima)
 - **Quanto custa cada degrau de grau?** Só o primeiro foi medido (sem grau → D: 150.000z no
   normal, 750.000z no seguro), e o wiki errava os dois. D → C, C → B e B → A ainda vêm do wiki, e
   para conferir é preciso ter em mãos uma Arma nv5 ou Equipamento nv2 **já com grau D, C ou B**.
