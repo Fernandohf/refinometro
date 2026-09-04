@@ -235,10 +235,11 @@ export const MINERIOS: PaginaDeConteudo = {
       pergunta: 'A taxa do refinador é cobrada mesmo quando a tentativa falha?',
       resposta:
         'É cobrada por tentativa, dando certo ou não, e depende da categoria do equipamento — ' +
-        'de 1.000z numa Arma nível 1 a 75.000z numa Arma nível 5. Não muda com o refino do ' +
-        'item. Nas armas, minério comprado no Cash Shop isenta a taxa; nos equipamentos, não. ' +
-        'Ela é pequena perto do preço do minério nas faixas altas, mas é ela que decide, na ' +
-        'margem, qual minério compensa.',
+        'de 1.000z numa Arma nível 1 a 75.000z numa Arma nível 5. Não muda conforme o refino do ' +
+        'item, ao menos até o +9, que é até onde estes valores foram conferidos. Nas armas, ' +
+        'minério comprado no Cash Shop isenta a taxa; nos equipamentos, não. Ela é pequena perto ' +
+        'do preço do minério nas faixas altas, mas é ela que decide, na margem, qual minério ' +
+        'compensa.',
     },
   ],
 
@@ -306,8 +307,8 @@ export const MINERIOS: PaginaDeConteudo = {
         'Taxa do refinador',
         'taxa',
         p(
-          'Cobrada em toda tentativa, dando certo ou não, e sempre a mesma em qualquer refino ' +
-            'do item.',
+          'Cobrada em toda tentativa, dando certo ou não, e a mesma em qualquer refino do item ' +
+            'até o +9.',
         ),
         tabelaDeTaxas(),
         p(
@@ -323,6 +324,12 @@ export const MINERIOS: PaginaDeConteudo = {
             'balcão do NPC, categoria por categoria. As Armas nível 5 e os Equipamentos nível 2 ' +
             'não têm minério de Cash Shop — o especial deles é fabricado no NPC, e paga taxa ' +
             'cheia.',
+        ),
+        p(
+          'A medição cobriu a faixa do <strong>+0 ao +9</strong>: todo minério testado é dessa ' +
+            'faixa. Com Bradium, Carnium, os de Éter da faixa alta e os Perfeitos que só valem ' +
+            'do +10 para cima, ninguém conferiu — ali estes valores são o que a calculadora ' +
+            'assume, não o que alguém leu no balcão.',
         ),
       ),
     ].join('\n\n      '),

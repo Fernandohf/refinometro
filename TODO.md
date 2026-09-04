@@ -256,9 +256,13 @@
     sido removidos na primeira leva voltaram, agora com a regra certa (`ISENTA_CASH_SHOP`).
   - `shadowW` deixou de se chamar "Arma Sombria" na tela: o nome no jogo, e na tabela oficial, é
     **Manopla Sombria**.
+  - A medição das taxas cobriu a faixa do +0 ao +9: todo minério testado é dessa faixa. Do +10
+    para cima — Bradium, Carnium, os de Éter da faixa alta e os Perfeitos — a calculadora
+    extrapola, e isso virou hipótese registrada (H10). Cai justamente onde a campanha fica cara:
+    75.000z por tentativa numa arma nv5, num trecho de 8% de chance.
   - O que sobrou sem medir está listado em [Os dados](docs/dados.md#o-que-ainda-não-foi-conferido),
-    com o que cada teste exige — os dois pendentes travam por falta de um item no estado certo
-    (grau D/C/B em mãos) ou por serem evento raro, não por falta de quem teste.
+    com o que cada teste exige — os três pendentes travam por falta de um item no estado certo
+    (um +10 em mãos, um item já com grau) ou por serem evento raro, não por falta de quem teste.
   - **A divergência do "especial ≠ chance maior" fechou a favor da ficha do item**: in-game, só
     os Enriquecidos de Oridecon e Elunium aumentam a chance, e nas categorias de Éter o especial
     aumenta — que é exatamente o que o motor lia da descrição, contra o agrupamento da tabela

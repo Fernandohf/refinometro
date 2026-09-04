@@ -400,12 +400,16 @@ export function ehSombrio(kind: ItemKind): boolean {
  *
  * É a única tabela do projeto sem fonte publicada — a divulgação oficial da GNJOY traz
  * as chances, não os custos —, e por isso foi levantada no balcão do NPC, categoria por
- * categoria, em 2026-09-04. **Todas as nove foram conferidas in-game.** O
- * https://irowiki.org/wiki/Refinement_System, que servia de fonte antes, errava sete das
- * nove: nenhum valor dele sobreviveu à conferência, e é por isso que ele não é mais
- * citado aqui.
+ * categoria, em 2026-09-04. As nove categorias foram conferidas, e o
+ * https://irowiki.org/wiki/Refinement_System, que servia de fonte antes, errava sete
+ * delas: nenhum valor dele sobreviveu, e é por isso que ele não é mais citado aqui.
  *
- * A taxa **não muda com o refino do item**: é a mesma do +0 ao +19 (conferido).
+ * **A medição cobre só a faixa do +0 ao +9.** Todo minério testado é dessa faixa
+ * (Fracon, Emveretarcon, Oridecon, Elunium, Eteridecon, Eterium e os especiais deles);
+ * nenhuma tentativa foi feita com Bradium, Carnium, os de Éter da faixa alta ou os
+ * Perfeitos que só valem do +10 para cima. Lá dentro a taxa **não muda com o refino**
+ * (conferido); do +10 em diante o motor assume que continua a mesma, e é uma suposição,
+ * não um dado — ver `docs/dados.md`, "O que ainda não foi conferido".
  */
 export const TAXA_REFINO: Record<ItemKind, number> = {
   w1: 1_000,
@@ -435,6 +439,10 @@ export const TAXA_REFINO: Record<ItemKind, number> = {
  * de categoria), e nenhuma fonte explica a assimetria — mas é o que o NPC cobra, nas
  * cinco categorias em que dá para testar.
  *
+ * A isenção foi testada com Oridecon Enriquecido e Elunium Enriquecido/Perfeito, todos
+ * da faixa do +0 ao +9. Que o Bradium Perfeito e o Carnium Perfeito sigam a mesma regra
+ * do +10 para cima é extrapolação: os dois também são de JoyCoins, mas ninguém conferiu.
+ *
  * A Arma nv5 não está na lista porque a pergunta não existe lá: o especial dela é
  * fabricado no NPC, não comprado com JoyCoins, e cobra a taxa cheia (conferido com
  * Eteridecon Enriquecido). Mesma coisa no Equipamento nv2.
@@ -448,8 +456,8 @@ const ISENTA_CASH_SHOP: readonly ItemKind[] = ['w1', 'w2', 'w3', 'w4', 'shadowW'
  * taxa entra por AÇÃO no motor, e o total de taxas de uma campanha não é
  * `tentativas x valor fixo`.
  *
- * Toda a tabela foi medida no balcão do NPC em 2026-09-04, categoria por categoria e
- * minério por minério.
+ * O que foi medido, minério a minério, é a faixa do +0 ao +9. Do +10 para cima esta
+ * função responde por extrapolação: mesma taxa de categoria, mesma regra de isenção.
  */
 export function taxaDaTentativa(kind: ItemKind, ore: Ore): number {
   if (ore.joyCoins && ISENTA_CASH_SHOP.includes(kind)) return 0;

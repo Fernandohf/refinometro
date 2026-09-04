@@ -824,6 +824,7 @@ Reunidas num lugar só, na ordem em que apareceram:
 | H7 | Recursos só são consumidos, nunca obtidos jogando | todo o modelo | Farmar minério muda a moeda do problema |
 | H8 | Tempo não tem valor (sem desconto entre tentativas) | §2.1 | O SSP com desconto daria outra política |
 | H9 | Os três degraus de grau acima do D custam o que o Browiki diz | `GRADE_STEPS` | O único degrau medido estava errado em 50%; campanhas de grau alto sairiam subestimadas |
+| H10 | Do +10 para cima a taxa do refinador é a mesma da faixa medida (+0 a +9) | `TAXA_REFINO` | Erra o custo justo onde a campanha fica cara, e a escolha de minério na margem |
 
 Fora do modelo por decisão de escopo: cartas, encantamentos, Pergaminhos/Cubos/Martelos de Refino
 (que pulam direto para um refino fixo) e qualquer valor de revenda do item refinado além de

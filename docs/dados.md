@@ -73,7 +73,8 @@ lugar do projeto sem fonte publicada — então foi levantado no jogo, categoria
 | Equipamento nv2 | 45.000z | não tem minério de Cash Shop |
 | Equipamento Sombrio | 10.000z | 10.000z |
 
-Todas as nove foram medidas no NPC, com minério comum e, onde ele existe, com o de Cash Shop.
+Todas as nove foram medidas no NPC, com minério comum e, onde ele existe, com o de Cash Shop —
+**na faixa do +0 ao +9**. Ver a ressalva logo abaixo.
 
 O [iROwiki](https://irowiki.org/wiki/Refinement_System) servia de fonte para essa tabela até
 agora, e **errou sete das nove**: Arma nv1 (50z), nv2 (200z), nv3 (5.000z), nv4 (20.000z), nv5
@@ -81,7 +82,22 @@ agora, e **errou sete das nove**: Arma nv1 (50z), nv2 (200z), nv3 (5.000z), nv4 
 Nenhum valor dele sobreviveu à conferência, e é por isso que ele deixou de ser citado como fonte
 aqui.
 
-**A taxa não muda com o refino do item**: é a mesma do +0 ao +19, conferido.
+**A taxa não muda com o refino do item** dentro da faixa medida: é a mesma do +0 ao +9,
+conferido.
+
+### O que a medição não alcançou: a faixa do +10 para cima
+
+Todo minério testado é da faixa do +0 ao +9 — Fracon, Emveretarcon, Oridecon, Elunium,
+Eteridecon, Eterium e os especiais deles. **Nenhuma tentativa foi feita com Bradium, Carnium,
+Bradium de Éter, Carnium de Éter, nem com os Perfeitos que só valem do +10 para cima**
+(Bradium Perfeito, Carnium Perfeito, Eteridecon Perfeito, Eterium Perfeito e os de Éter
+perfeitos).
+
+Do +10 em diante, portanto, a calculadora **extrapola**: assume a mesma taxa da categoria e a
+mesma regra de isenção. É uma suposição razoável — a taxa não variou em nada dentro da faixa
+medida —, mas é suposição, e ela cai justamente onde a campanha fica cara. Nas categorias de
+Éter isso pesa: 75.000z por tentativa numa arma nv5, num trecho em que cada tentativa tem 8% de
+chance.
 
 ### A isenção do Cash Shop separa arma de equipamento
 
@@ -132,16 +148,18 @@ item no estado necessário.
 
 | O que falta | Onde entra | Precisa de |
 | --- | --- | --- |
+| A taxa do refinador **do +10 para cima** — com Bradium, Carnium, os de Éter da faixa alta e os Perfeitos | `TAXA_REFINO`, `taxaDaTentativa` | um item no +10 ou acima; é só abrir a janela do refino e ler o valor |
 | Custo dos degraus **D → C**, **C → B** e **B → A** | `GRADE_STEPS` | um item de Arma nv5 ou Equipamento nv2 **já com grau D, C ou B**, para abrir a janela do NPC |
 | Bradium e Carnium destroem o item numa falha rara? | `penalidade` dos dois | volume de tentativas do +11 para cima, não uma consulta — é um evento raro |
 
 Os três degraus de grau estão com o valor do [Browiki](https://browiki.org/wiki/Grau), e o único
 degrau que deu para medir (o D) estava errado em 50% — então esses três são **estimativas
-suspeitas**, e uma campanha de Grau A pode custar mais do que a tela diz. É a hipótese H9 em
+suspeitas**, e uma campanha de Grau A pode custar mais do que a tela diz. A taxa acima do +10 é
+extrapolada da faixa medida. As duas são hipóteses registradas em
 [A matemática do motor](matematica.md#11-hipóteses-do-modelo-e-o-que-elas-deixam-de-fora).
 
-Não é preciso ser conclusivo para ajudar: abrir a janela do NPC e ler o valor já resolve a
-primeira linha.
+Não é preciso ser conclusivo para ajudar: abrir a janela do NPC e ler o valor já resolve as duas
+primeiras linhas.
 
 ## Proveniência e licença dos dados
 
