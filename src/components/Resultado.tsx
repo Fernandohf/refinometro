@@ -221,6 +221,8 @@ export function Resultado({
           )}
         </div>
 
+        <SemRisco plano={plano} margem={margem} />
+
         {sim && (
           <Distribuicao
             custo={sim.custo}
@@ -254,6 +256,102 @@ export function Resultado({
           página é uma só, e as três abas são os três jeitos de continuar a
           pergunta — como eu faço, o que eu compro, dá com o que eu tenho. */}
       <Abas rotulo="O que ver do plano" value={ativa} onChange={setAba} abas={abas} />
+    </div>
+  );
+}
+
+/**
+ * O plano que não pode destruir o item, posto ao lado deste.
+ *
+ * O motor minimiza a MÉDIA, e o número grande da tela é um PERCENTIL. Aceitar a
+ * quebra sempre baixa a média — o otimizador ganha ações, nunca perde —, mas o
+ * que ele compra com isso é cauda: campanhas em que o item explode no +10 e a
+ * escalada recomeça do zero. Num percentil alto essa cauda pode custar mais do
+ * que a média economizou, e aí o plano seguro é o mais barato dos dois JUSTAMENTE
+ * na margem que a página recomenda usar.
+ *
+ * Sem este bloco, marcar "posso perder o item" — que só deveria abrir caminhos —
+ * conseguia PIORAR o orçamento exibido, sem nenhum sinal de que o plano melhor
+ * estava a um clique de distância. Ver `AlternativaSegura`, no motor.
+ */
+function SemRisco({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
+  const alt = plano.alternativa;
+  if (!alt) return null;
+
+  const margemInfo = MARGENS.find((m) => m.key === margem)!;
+  const extraMedia = alt.custoEsperado - plano.custoEsperado;
+
+  const aqui = plano.simulacao?.custo[margem] ?? null;
+  const la = alt.custo?.[margem] ?? null;
+
+  // Dois percentis saídos de amostragens diferentes não empatam nem quando os
+  // planos são igualmente bons. Abaixo de 1% a diferença é ruído da simulação, e
+  // anunciá-la como economia faria o texto trocar de lado a cada recálculo.
+  const maisBarato = aqui !== null && la !== null && la < aqui * 0.99;
+
+  const linhas: { rotulo: string; aqui: string; la: string }[] = [];
+  if (aqui !== null && la !== null) {
+    linhas.push({ rotulo: `Orçamento (${margemInfo.rotulo.toLowerCase()})`, aqui: zeny(aqui), la: zeny(la) });
+  }
+  linhas.push({
+    rotulo: 'Custo médio',
+    aqui: zeny(plano.custoEsperado),
+    la: zeny(alt.custoEsperado),
+  });
+  linhas.push({
+    rotulo: 'Itens destruídos',
+    aqui: quantidade(plano.itensQuebrados),
+    la: quantidade(alt.itensQuebrados),
+  });
+
+  return (
+    <div
+      className={
+        'mt-4 rounded-xl p-3.5 ' +
+        (maisBarato ? 'bg-atencao-container text-no-atencao-container' : 'bg-superficie-baixa')
+      }
+    >
+      <div className="md-rotulo-p flex items-center gap-1">
+        {maisBarato
+          ? 'Nesta margem, o plano sem risco de quebra sai mais barato'
+          : 'Dá para fazer isto sem nenhum risco de quebrar o item'}
+        <Info titulo="Plano sem risco de quebra">
+          O mesmo alvo resolvido sem nenhuma tentativa que possa destruir o equipamento. A
+          calculadora escolhe a estratégia de menor custo MÉDIO, e aceitar a quebra sempre baixa a
+          média — mas paga por ela com campanhas desastrosas, que é o que os percentis altos medem.
+          Quando o orçamento do plano seguro é o menor dos dois, é ele que responde à pergunta que
+          a página faz.
+        </Info>
+      </div>
+
+      <dl className="mt-2.5 space-y-1">
+        {linhas.map((l) => (
+          <div key={l.rotulo} className="md-corpo-m flex items-baseline gap-2">
+            <dt className="min-w-0 flex-1 truncate opacity-80">{l.rotulo}</dt>
+            <dd className="tabular-nums opacity-80">{l.aqui}</dd>
+            <dd aria-hidden className="opacity-50">
+              →
+            </dd>
+            <dd className="tabular-nums font-semibold">{l.la}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <p className="md-corpo-m mt-2.5">
+        {maisBarato ? (
+          <>
+            Aceitar a quebra economiza {zeny(extraMedia)} na média, mas engorda a cauda: nas
+            campanhas ruins o item explode e a escalada recomeça do +0. Neste orçamento, o plano
+            seguro é o mais barato dos dois.
+          </>
+        ) : (
+          <>
+            A média sobe {zeny(extraMedia)}, e em troca nenhuma tentativa pode destruir o
+            equipamento.
+          </>
+        )}{' '}
+        Desmarque <strong>“posso perder o item”</strong> para ver esse plano por inteiro.
+      </p>
     </div>
   );
 }

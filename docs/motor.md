@@ -26,6 +26,8 @@ mesma sequência:
 5. **Simula**, se o alvo couber no orçamento de tempo, só para extrair os percentis. → §8
 6. **Gera os avisos**, lendo o plano já pronto: risco de quebra, processo de grau normal,
    Bradium sem Bênção, grau abaixo do +11, simulação curta ou truncada.
+7. **Resolve o alvo restrito**, se pedirem a comparação e o plano arriscar o item, para a tela
+   poder mostrar o que a proteção custaria na margem escolhida. → §5.3
 
 O passo 4 é deliberadamente independente do 5. Todo número de material que a tela mostra como
 média vem da álgebra, não da amostragem — inclusive quando a simulação nem chega a rodar.
@@ -53,6 +55,15 @@ resolve o problema só dali para cima. Numa Arma nv4 o piso é o +7; numa nv5 é
 Eteridecon derruba 3 refinos mas nunca quebra; num Sombrio não existe piso, e o alvo é recusado
 com essa explicação. Quanto a garantia custa varia demais para virar regra de bolso, então o
 motor resolve o mesmo alvo dos dois jeitos e põe a diferença num aviso.
+
+**E o caminho de volta: quando a proteção sai mais barata** → §5.3. Aceitar a quebra nunca sobe o
+custo **médio** — é o conjunto de ações que cresce, e a prova está lá. Só que o número grande da
+tela não é a média, é um percentil: o que a relaxação compra é média, e o que ela paga é cauda.
+Num `p90` o plano seguro pode ser o mais barato dos dois, e era possível marcar "posso perder o
+item" — uma opção que só abre caminhos — e ver o orçamento PIORAR sem explicação. Por isso, quando
+o plano escolhido arrisca o item, o motor resolve também o alvo restrito e o devolve em
+`Resultado.alternativa`, com custo médio e percentis, para a tela comparar os dois na margem
+escolhida. Custa uma campanha inteira a mais, então quem pede é o passe preciso, no Worker.
 
 **Grau: três decisões acopladas** → §6. Em que refino tentar, processo seguro ou normal, e
 quantos pontos de chance comprar com Bênção de Éter. Como o sucesso zera o refino, subir além do
