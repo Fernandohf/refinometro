@@ -24,7 +24,7 @@ import {
   solveRefine,
   type RefineOptions,
 } from '../src/engine/refine';
-import { percentis, simulateCampaign } from '../src/engine/simulate';
+import { chanceAte, percentis, simulateCampaign } from '../src/engine/simulate';
 import {
   avaliarEstoque,
   emMateriais,
@@ -766,6 +766,31 @@ describe('resultado completo', () => {
     expect(p95).toBeLessThanOrEqual(p99);
     // Cauda longa à direita: é exatamente por isso que planejar pela média falha.
     expect(r.custoEsperado).toBeGreaterThan(p50);
+  });
+
+  it('lê a distribuição ao contrário: que fatia cabe num orçamento qualquer', () => {
+    // É a conta que o cursor faz sobre a curva de custo. Ela precisa fechar com
+    // os percentis nos dois sentidos — se a busca binária errar por um, a tela
+    // dirá uma chance que o motor não sustenta.
+    const r = calcular(input({ refinoAlvo: 12 }), { execucoes: 20_000 });
+    const custos = Float64Array.from(r.simulacao!.amostras.custo).sort();
+    const { p50, p90, p99 } = r.simulacao!.custo;
+
+    expect(chanceAte(custos, p50)).toBeCloseTo(0.5, 2);
+    expect(chanceAte(custos, p90)).toBeCloseTo(0.9, 2);
+    expect(chanceAte(custos, p99)).toBeCloseTo(0.99, 2);
+    // Fora das pontas não há campanha nenhuma: nada custa menos que a campanha
+    // mais barata, e o pior caso simulado cobre a amostra inteira.
+    expect(chanceAte(custos, custos[0]! - 1)).toBe(0);
+    expect(chanceAte(custos, custos[custos.length - 1]!)).toBe(1);
+
+    // O valor lido entra na conta, não fica de fora dela: num custo repetido —
+    // e num alvo barato quase todo custo é repetido, porque cada quebra soma o
+    // preço de um item inteiro — a fatia tem de incluir as campanhas que
+    // custaram exatamente aquilo.
+    const repetido = Float64Array.from([1, 2, 2, 2, 5]);
+    expect(chanceAte(repetido, 2)).toBe(0.8);
+    expect(chanceAte(repetido, 1.9)).toBe(0.2);
   });
 
   it('soma preço de entrada e custo do caminho no valor justo', () => {

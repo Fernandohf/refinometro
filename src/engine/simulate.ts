@@ -448,6 +448,32 @@ export function quantil(amostras: Float64Array, q: number): number {
 }
 
 /**
+ * Que fatia da amostra custou até `v` — o inverso de `quantil`.
+ *
+ * `quantil` responde "quanto custa cobrir 90%?"; esta responde "90% de quê?"
+ * para um valor qualquer, que é o que a curva de custo pergunta quando alguém
+ * aponta um ponto dela que não é nenhuma das cinco margens.
+ *
+ * Recebe a amostra **já ordenada**, ao contrário de `quantil`: quem lê pergunta
+ * a cada movimento do cursor, e ordenar 5 mil custos por pixel percorrido
+ * custaria mil vezes mais que a busca binária que responde.
+ *
+ * Nos alvos baratos o resultado salta de degrau em degrau, e o salto é a
+ * verdade: entre dois blocos de custo há valores que não podem acontecer, então
+ * não existe campanha nenhuma a acumular ali.
+ */
+export function chanceAte(ordenado: Float64Array, v: number): number {
+  let baixo = 0;
+  let alto = ordenado.length;
+  while (baixo < alto) {
+    const meio = (baixo + alto) >>> 1;
+    if (ordenado[meio]! <= v) baixo = meio + 1;
+    else alto = meio;
+  }
+  return baixo / ordenado.length;
+}
+
+/**
  * O menor valor que deixa pelo menos a fração `q` da amostra abaixo dele — daí
  * o `ceil`: cortar em 0,9 devolve um número que cobre 90% das campanhas, nunca
  * 89,98%.
