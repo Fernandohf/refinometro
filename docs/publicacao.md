@@ -63,6 +63,20 @@ gravariam o mesmo arquivo, e a segunda a comitar apagaria o que a primeira achou
 Detalhe da varredura em si — custo, incremental e travas de segurança — em
 [Itens](dados-itens.md#por-que-a-base-é-varrida-e-não-consultada-ao-vivo).
 
+## Preços — `.github/workflows/precos.yml`
+
+Recota os materiais no mercado do LATAM **todo dia** (09:00 UTC) e comita `src/data/precos.json`
+quando algum preço mudou. Mesma forma do anterior — testes antes do commit, deploy chamado à mão,
+`concurrency` para não haver duas cotações escrevendo o mesmo arquivo.
+
+Diário, e não semanal, porque é o que a cotação pede: a base de itens muda quando o jogo muda, o
+preço muda quando o mercado se mexe. O Pó de Éter foi de 59.100 para 146.000 em dez dias, e com
+cotação semanal metade desse tempo o campo abriria com um número que ninguém mais cobra.
+
+O script tem as próprias travas — recusa gravar se mais de um quarto das consultas falhar ou se
+menos de oito cotações passarem na conferência —, e elas importam mais aqui do que num disparo
+manual: ninguém está olhando. Ver [Preços](dados-precos.md).
+
 ---
 
 Ver também: [Os dados](dados.md) · [Como contribuir](../CONTRIBUTING.md)

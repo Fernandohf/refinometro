@@ -1,0 +1,86 @@
+name: Atualizar os preços
+
+# Recota os materiais no mercado do LATAM e comita src/data/precos.json quando
+# algum preço mudou.
+#
+# Todo dia, e não toda semana como a base de itens, porque é isso que a cotação
+# pede: a base de itens muda quando o jogo muda, o preço muda quando o mercado
+# se mexe. O Pó de Éter foi de 59.100 para 146.000 em dez dias — com cotação
+# semanal, metade desse tempo o campo abriria com um número que ninguém mais
+# cobra. Ver `docs/dados-precos.md`.
+#
+# Se nada mudou, não há commit e nada sobe.
+#
+# O deploy é chamado à mão no fim, e isso é obrigatório: push feito com o
+# GITHUB_TOKEN não dispara outros workflows (o GitHub corta aí para evitar
+# recursão), então o `on: push` do deploy.yml ficaria mudo. `workflow_dispatch` é
+# justamente a exceção dessa regra, e por isso funciona.
+on:
+  schedule:
+    # 09:00 UTC, 06:00 em Brasília. A janela de 1 dia do site é móvel, então a
+    # hora não muda o que ela cobre; o que a madrugada evita é publicar em cima
+    # de quem está usando o site.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+# Nunca duas cotações ao mesmo tempo: as duas gravariam o mesmo arquivo, e a
+# segunda a comitar apagaria o que a primeira leu.
+concurrency:
+  group: precos
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  # Para chamar o deploy.yml depois de comitar.
+  actions: write
+
+jobs:
+  cotar:
+    runs-on: ubuntu-latest
+    # São três varreduras do formulário inteiro, com pausa entre as consultas;
+    # dá poucos minutos. A folga é para o dia em que o site estiver lento e as
+    # tentativas se acumularem.
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # O script já se recusa a gravar se mais de um quarto das consultas falhar
+      # ou se menos de oito cotações passarem na conferência — o modo de falha
+      # que importa é o site mudar de formato e a tabela sair vazia, que não
+      # parece quebrada, parece mercado parado.
+      - name: Cotar no mercado do LATAM
+        run: npm run precos
+
+      # O arquivo é entrada da interface: linha sem volume, data no futuro ou
+      # preço vindo de um dia de meia dúzia de vendas passa por aqui antes de
+      # virar o valor que abre o campo.
+      - run: npm test
+
+      - name: Comitar se mudou
+        id: commit
+        run: |
+          if git diff --quiet -- src/data/precos.json; then
+            echo "Nenhum preço mudou — nada a comitar."
+            exit 0
+          fi
+
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/data/precos.json
+          git commit -m "Preços: cotação de $(date -u +%F)"
+          git push
+          echo "mudou=sim" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar a cotação nova
+        if: steps.commit.outputs.mudou == 'sim'
+        run: gh workflow run deploy.yml --ref "${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ github.token }}

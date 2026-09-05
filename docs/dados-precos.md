@@ -8,14 +8,18 @@ O que muda é a qualidade do palpite que já vem no campo. O site oficial public
 de transações** das lojas de jogador, por servidor e por janela de 1, 7 ou 30 dias:
 
 ```bash
-npm run precos                        # FREYA, média de 30 dias conferida contra a de 7
+npm run precos                        # FREYA, 30 dias conferidos contra 7, e o dia por cima
 npm run precos -- --servidor=NIDHOGG  # NIDHOGG ou YGGDRASIL
 npm run precos -- --tolerancia=2      # aceitar mais divergência entre as janelas
 npm run precos -- --simular           # mostra a tabela e não grava
 ```
 
-A tabela marca cada linha com a origem: `ok` e `~` vieram da média das janelas, `med` da mediana
-ponderada, e `!!`, `?` e `—` foram recusados.
+A tabela marca cada linha com a origem: `ok` e `~` vieram da média das janelas, `dia` da média do
+último dia, `med` da mediana ponderada, e `!!`, `?` e `—` foram recusados.
+
+A cotação roda sozinha **todo dia** pela Action `precos.yml`, que comita o arquivo quando algum
+preço mudou e chama o deploy em seguida (ver [Publicação](publicacao.md)). Diário, e não semanal
+como a base de itens: a base muda quando o jogo muda, o preço muda quando o mercado se mexe.
 
 O script regrava `src/data/precos.json`, que é de onde os preços saem.
 [`defaultPrices.ts`](../src/data/defaultPrices.ts) lê esse arquivo e o aplica por cima de uma
@@ -28,9 +32,15 @@ de sumir, e é a data velha que denuncia isso. Cada linha guarda também o volum
 número e de onde ele veio:
 
 ```json
-[6635, 3770000, "2026-08-26", 112146, "janelas"]
+[6635, 3390000, "2026-09-05", 170189, "janelas"]
 [6223,    1990, "2026-08-26",   1116, "mediana"]
+[1000322, 146000, "2026-09-05", 65834, "diaria"]
 ```
+
+O volume é sempre o que sustenta aquele número, e cada origem tira o dela de um lugar: `janelas`
+conta as transações do mês, `mediana` as unidades do histórico sobre as quais a mediana foi
+tirada, e `diaria` as transações **daquele dia**. Escrever o mês ao lado de um preço de um dia
+diria que o preço é mais firme do que ele é.
 
 Duas travas antes de gravar: se mais de um quarto das consultas falhar, ou se menos de oito
 cotações passarem na conferência, o script sai com erro e preserva o arquivo. É o modo de falha
@@ -70,9 +80,49 @@ arquivo, 4.000, era mais honesto que a "média de 30 dias" do site.
 Daí a regra: a média de 30 dias só é aceita se a de 7 concordar com ela dentro da tolerância.
 Não é sofisticado, mas separa preço de anedota.
 
+## O erro do outro lado: o preço que andou
+
+A regra acima cuida do item raso, onde uma venda solta decide a média. O erro contrário mora no
+item líquido, e o Pó de Éter é o caso: com uma alta no mercado, a média de 30 dias continua certa
+sobre o mês e velha sobre hoje, porque carrega com peso de mês o preço de antes da alta. Medido em
+05/09/2026, em FREYA:
+
+| item | transações (30d) | média 30d | média 7d | transações (1d) | média 1d |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Pó de Éter | 1.380.959 | 104.070 | 158.304 | 66.127 | **145.677** |
+| Oridecon | 103.524 | 27.217 | 22.039 | 3.025 | **22.069** |
+| Elunium | 266.023 | 21.985 | 28.350 | 13.024 | **18.491** |
+
+O arquivo trazia o Pó de Éter a 59.100. O mercado estava cobrando 146.000 — duas vezes e meia.
+
+O Oridecon mostra a outra metade do argumento: ele nem subiu. O mês dele é que está errado, e é aí
+que a defesa da janela longa cai. Ela **não** é mais robusta por ser longa — junta trinta vezes
+mais transações, mas junta também trinta vezes mais vendas fora da curva, e nem 103 mil transações
+impediram o mês de fechar 24% acima do que a semana e o dia cobraram. O que protege uma média é o
+volume *dentro* da janela.
+
+Daí a regra, com duas condições que precisam valer juntas:
+
+- **mais de mil transações no dia** — o mesmo número que separa cotação de anedota nas outras
+  janelas, porque a linha não muda de lugar por a janela ser mais curta. Neste mercado mil negócios
+  em 24 horas é volume alto de verdade: dos 34 materiais do formulário, oito chegam lá, e o Pó de
+  Éter faz isso sessenta vezes.
+- **o dia a mais de 15% da janela longa** — abaixo disso o item está parado, e a média longa é o
+  número melhor: mesmo preço, muito mais transações, menos ruído. Acima, o preço andou, e a média
+  longa está descrevendo um mercado que não existe mais.
+
+Ela vem **antes** da mediana, de propósito. Item que oscila muito faz as duas janelas discordarem e
+cai em `instável`; a mediana então o cotaria pelo preço em que metade do volume *do mês* passou —
+que é justamente o preço velho. Para quem tem mercado grosso todo dia, o dia é a resposta melhor.
+
+O que o piso não cobre, e vale dizer: um dia com mil transações **e** uma venda no teto da
+plataforma (10.000.000, que aparece no `max` de vários itens) sai com a média ~15% alta, e a regra
+publicaria isso. É o preço de partida de um campo que o jogador edita, dura um dia, e custa menos
+que o erro do lado oposto — publicar o preço do mês passado todo dia, para sempre.
+
 ## A segunda opinião: mediana ponderada pelo volume
 
-O que a regra acima recusa não vira chute direto — ganha uma segunda chance. O site guarda um
+O que a conferência entre as janelas recusa não vira chute direto — ganha uma segunda chance. O site guarda um
 **histórico dia a dia** com min, máx, média e o volume de cada dia. Com o volume dá para perguntar
 outra coisa: *em que preço metade das unidades foi negociada*. O Carnium, dia a dia:
 
@@ -119,9 +169,10 @@ O que nem a mediana salva cai para a cotação anterior, se houver, e daí para 
 
 Três coisas que a consulta não cobre, e que valem saber antes de confiar no número:
 
-- **Bradium e Carnium de Éter**, e as versões Perfeitas dos dois, não tiveram uma única
-  transação em 30 dias. Ficam sem preço, cotados pela receita de NPC — que é o comportamento
-  correto, não uma lacuna.
+- **Bradium e Carnium de Éter**, e as versões Perfeitas dos dois, passam meses com uma transação
+  ou nenhuma. Quando não têm nenhuma ficam sem preço, cotados pela receita de NPC, que é o
+  comportamento correto; quando têm uma, é uma venda só decidindo o número, e a marca `~` é tudo
+  que separa isso de uma cotação.
 - **Oridecon e Elunium Enriquecido** não são vendidos avulsos, só em `Cx ... [10]`. O preço
   unitário sai da caixa dividida por 10, e é uma cotação pior que as outras: são poucas caixas
   negociadas, e quem compra a caixa fechada não paga o mesmo por unidade.

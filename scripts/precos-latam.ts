@@ -1,7 +1,7 @@
 // Cota os materiais de refino pelo histórico de transações do site do LATAM e
 // regrava `src/data/precos.json`, que é de onde saem os preços de partida.
 //
-//   npm run precos                          FREYA, 7d contra 30d
+//   npm run precos                          FREYA, 7d contra 30d, 1d por cima
 //   npm run precos -- --servidor=NIDHOGG    outro servidor
 //   npm run precos -- --tolerancia=2        aceitar mais divergência entre as janelas
 //   npm run precos -- --simular             só mostra a tabela, não grava
@@ -35,6 +35,30 @@
 //
 // Daí a regra: a média de 30 dias só é aceita se a de 7 dias concordar com ela
 // dentro de `--tolerancia`. Não é sofisticado, mas separa preço de anedota.
+//
+// ------------------------------------------------------------- o erro oposto
+//
+// A regra acima cuida do item raso, onde uma venda solta decide a média. O erro
+// contrário mora no item líquido: a média de 30 dias continua certa sobre o mês
+// e errada sobre hoje, porque carrega com peso de mês o preço de antes da alta.
+// Medido em 05/09/2026, FREYA:
+//
+//                  transações 30d    média 30d    média 7d    transações 1d   média 1d
+//   Pó de Éter          1.380.959      104.070     158.304           66.127    145.677
+//   Oridecon              103.524       27.217      22.039            3.025     22.069
+//
+// O Pó de Éter subiu 40% e o mês ainda não sabe. O Oridecon nem subiu: o mês
+// dele é que está errado, e é aí que a defesa da janela longa cai. Ela não é
+// mais robusta por ser longa — junta trinta vezes mais transações, mas junta
+// também trinta vezes mais vendas fora da curva, e nem 103 mil transações
+// impediram o mês de fechar 24% acima do que a semana e o dia cobraram. O que
+// protege uma média é o volume DENTRO da janela, e mil transações num dia
+// protegem tanto quanto mil num mês.
+//
+// Daí `VOLUME_DIARIO` e `OSCILACAO`: volume suficiente para a média do dia não
+// ser anedota, e distância suficiente entre o dia e a janela longa para valer
+// trocar o número mais estável pelo número de agora. Item líquido e parado
+// continua cotado pela janela longa — mesmo preço, muito mais transações.
 //
 // Para quem a regra recusa há uma segunda opinião. O histórico dia a dia — que
 // só existe atrás de uma Server Action, ver `serieDiaria` — traz o VOLUME de
@@ -74,6 +98,34 @@ const PRECOS_JSON = resolve(dirname(fileURLToPath(import.meta.url)), '../src/dat
 
 /** Abaixo disto, a cotação sai marcada: agrega poucas transações. */
 const LIQUIDEZ_MINIMA = 1_000;
+
+/** A janela de um dia, que é de onde sai a média diária. Não é configurável. */
+const DIARIA: Periodo = 1;
+
+/**
+ * Transações num único dia para a média daquele dia valer como cotação.
+ *
+ * É de propósito o mesmo número de `LIQUIDEZ_MINIMA`: a linha entre cotação e
+ * anedota não muda de lugar por a janela ser mais curta. Neste mercado mil
+ * negócios em 24 horas é volume alto de verdade — dos 34 materiais do
+ * formulário, oito chegam lá, e o Pó de Éter faz isso sessenta vezes.
+ *
+ * O que o piso não cobre: um dia com mil transações E uma venda no teto da
+ * plataforma (10.000.000, que aparece no `max` de vários itens) sai com a média
+ * ~15% alta, e a regra a publicaria. É o preço de partida de um campo que o
+ * jogador edita, dura um dia, e vale menos que o erro do lado oposto — publicar
+ * o preço do mês passado todo dia, para sempre.
+ */
+const VOLUME_DIARIO = LIQUIDEZ_MINIMA;
+
+/**
+ * Distância entre o dia e o mês para o dia valer mais que o mês.
+ *
+ * Abaixo disto o item está parado, e a média longa é o número melhor: ela vê o
+ * mesmo preço com trinta vezes mais transações. Acima, o preço andou, e a média
+ * longa está descrevendo um mercado que não existe mais.
+ */
+const OSCILACAO = 1.15;
 
 /**
  * Piso de cotações aceitas para o arquivo poder ser regravado.
@@ -183,15 +235,25 @@ async function varrerJanela(periodo: Periodo): Promise<Map<number, Cotacao>> {
   return porId;
 }
 
-console.log(`Cotando ${alvos.length} materiais em ${servidor}, janelas de ${curto} e ${longo} dias.\n`);
+console.log(
+  `Cotando ${alvos.length} materiais em ${servidor}, janelas de ${DIARIA}, ${curto} e ${longo} dias.\n`,
+);
 const janelas = {
+  diario: await varrerJanela(DIARIA),
   curto: await varrerJanela(curto),
   longo: await varrerJanela(longo),
 };
 
 // ------------------------------------------------------------------- veredito
 
-type Veredito = 'ok' | 'raso' | 'mediana' | 'instavel' | 'sem contraprova' | 'sem dados';
+type Veredito =
+  | 'ok'
+  | 'raso'
+  | 'diaria'
+  | 'mediana'
+  | 'instavel'
+  | 'sem contraprova'
+  | 'sem dados';
 
 interface Linha {
   itemId: number;
@@ -201,6 +263,7 @@ interface Linha {
   via?: string;
   curto?: Cotacao;
   longo?: Cotacao;
+  diario?: Cotacao;
   veredito: Veredito;
   /** Só existe quando o veredito aceita o número. */
   sugerido?: number;
@@ -214,10 +277,12 @@ interface Linha {
  * De onde saiu o preço.
  *
  * - `janelas`: a média do site na janela longa, conferida contra a curta.
+ * - `diaria`: a média do último dia, para o material de volume muito alto cujo
+ *   preço andou o bastante para a média longa estar descrevendo outro mercado.
  * - `mediana`: mediana ponderada pelo volume sobre o histórico dia a dia, usada
  *   só onde a conferência entre as janelas recusou o número.
  */
-type Origem = 'janelas' | 'mediana';
+type Origem = 'janelas' | 'diaria' | 'mediana';
 
 /**
  * Arredonda para três algarismos significativos.
@@ -280,6 +345,47 @@ const linhas: Linha[] = alvos.map(({ itemId, nome, grupo }): Linha => {
   };
 });
 
+// ------------------------------------------- primeira correção: a média do dia
+//
+// A conferência entre as janelas cuida do item raso, onde uma venda solta decide
+// a média. Aqui é o problema contrário: no item de volume muito alto a média de
+// 30 dias está certa sobre o mês e velha sobre hoje — ela carrega, com peso de
+// mês, o preço de antes da alta. O Pó de Éter fechou 30 dias em 104.070 no dia
+// em que o mercado estava cobrando 145.677.
+//
+// Duas condições, e as duas importam. Volume, porque a média do dia é tão crua
+// quanto a do mês e só o número de transações a protege do extremo. E distância
+// entre o dia e o número longo, porque item líquido e parado é melhor cotado
+// pelo mês: mesmo preço, trinta vezes mais transações, menos ruído.
+//
+// Vem antes da mediana de propósito. Item que oscila muito faz as duas janelas
+// discordarem, cai em `instavel`, e a mediana do histórico o cotaria pelo preço
+// em que metade do volume DO MÊS passou — que é justamente o preço velho. Para
+// quem tem mercado grosso todo dia, o dia é a resposta melhor.
+
+for (const l of linhas) {
+  const d = cotar(l.itemId, janelas.diario);
+  if (!d) continue;
+  l.diario = d.c;
+  if (d.c.transacoes < VOLUME_DIARIO) continue;
+
+  const dia = arredondar(d.c.media);
+  if (l.sugerido != null) {
+    const razao = dia / l.sugerido;
+    // Parado: a janela longa vê o mesmo preço com muito mais transações.
+    if (razao < OSCILACAO && razao > 1 / OSCILACAO) continue;
+  }
+  l.sugerido = dia;
+  l.veredito = 'diaria';
+  l.origem = 'diaria';
+}
+
+const pelaDiaria = linhas.filter((l) => l.veredito === 'diaria');
+if (pelaDiaria.length > 0) {
+  console.log(`
+${pelaDiaria.length} cotados pela média do dia — volume alto e preço andando.`);
+}
+
 // -------------------------------------------------- segunda opinião: a mediana
 //
 // Só para quem a conferência entre as janelas recusou. A média do site não
@@ -333,6 +439,7 @@ A conferência recusou ${duvidosas.length}. Buscando o histórico diário deles.
 const MARCA: Record<Veredito, string> = {
   ok: '  ok',
   raso: '   ~',
+  diaria: ' dia',
   mediana: ' med',
   instavel: '  !!',
   'sem contraprova': '   ?',
@@ -342,6 +449,7 @@ const MARCA: Record<Veredito, string> = {
 const MOTIVO: Record<Veredito, string> = {
   ok: 'ok',
   raso: 'pouco negociado',
+  diaria: 'média do último dia — volume alto e preço em movimento',
   mediana: 'mediana ponderada do histórico diário',
   instavel: `as janelas de ${curto}d e ${longo}d discordam acima de ${tolerancia}x`,
   'sem contraprova': `nada negociado na janela de ${curto}d`,
@@ -353,10 +461,11 @@ const col = (v: string | number, l: number) => String(v).padStart(l);
 
 const lg = Math.max(...linhas.map((l) => l.nome.length));
 console.log(
-  `\n${'item'.padEnd(lg)}  ${col(`n ${longo}d`, 9)}  ${col(`méd ${curto}d`, 11)}  ` +
-    `${col(`méd ${longo}d`, 11)}  ${col('', 4)}  ${col('atual', 11)}  ${col('cotado', 11)}`,
+  `\n${'item'.padEnd(lg)}  ${col(`n ${longo}d`, 9)}  ${col(`n ${DIARIA}d`, 8)}  ` +
+    `${col(`méd ${DIARIA}d`, 11)}  ${col(`méd ${curto}d`, 11)}  ${col(`méd ${longo}d`, 11)}  ` +
+    `${col('', 4)}  ${col('atual', 11)}  ${col('cotado', 11)}`,
 );
-console.log('-'.repeat(lg + 66));
+console.log('-'.repeat(lg + 89));
 
 for (const l of linhas) {
   const atual = DEFAULT_PRICES[l.itemId];
@@ -365,7 +474,8 @@ for (const l of linhas) {
   const mudou =
     l.sugerido != null && atual != null && (l.sugerido / atual > 1.25 || l.sugerido / atual < 0.8);
   console.log(
-    `${l.nome.padEnd(lg)}  ${col(N(l.longo?.transacoes), 9)}  ${col(N(l.curto?.media), 11)}  ` +
+    `${l.nome.padEnd(lg)}  ${col(N(l.longo?.transacoes), 9)}  ${col(N(l.diario?.transacoes), 8)}  ` +
+      `${col(N(l.diario?.media), 11)}  ${col(N(l.curto?.media), 11)}  ` +
       `${col(N(l.longo?.media), 11)}  ${col(MARCA[l.veredito], 4)}  ${col(N(atual), 11)}  ` +
       `${col(N(l.sugerido), 11)}${mudou ? '  <-' : ''}${l.via ? `  (${l.via})` : ''}`,
   );
@@ -375,6 +485,8 @@ const conta = (v: Veredito) => linhas.filter((l) => l.veredito === v).length;
 console.log(
   `\n  ok  ${conta('ok')} pela média de ${longo}d, conferida contra a de ${curto}d` +
     `\n   ~  ${conta('raso')} idem, com menos de ${LIQUIDEZ_MINIMA.toLocaleString('pt-BR')} transações` +
+    `\n dia  ${conta('diaria')} pela média do dia: mais de ${VOLUME_DIARIO.toLocaleString('pt-BR')} transações em ${DIARIA}d,` +
+    `\n      e o dia a mais de ${Math.round((OSCILACAO - 1) * 100)}% da média longa` +
     `\n med  ${conta('mediana')} recuperados pela mediana ponderada do histórico diário` +
     `\n  !!  ${conta('instavel')} recusados: as janelas discordam acima de ${tolerancia}x e o histórico não salvou` +
     `\n   ?  ${conta('sem contraprova')} sem negócio na janela de ${curto}d — nada para conferir contra` +
@@ -420,13 +532,16 @@ const carregadas: { linha: LinhaCotada; de: Linha }[] = [];
 
 for (const l of linhas) {
   if (l.sugerido != null) {
-    // Cotação pela mediana conta as unidades do histórico, não as transações da
-    // janela: é sobre elas que a mediana foi tirada, e é esse o número que diz
-    // se dá para confiar nela.
+    // O volume gravado é sempre o que sustenta o número, e cada origem tira o
+    // dela de um lugar: a mediana, das unidades do histórico sobre as quais foi
+    // tirada; a média do dia, das transações daquele dia — gravar o mês ao lado
+    // de um preço de um dia diria que o preço é mais firme do que é.
     const volume =
       l.origem === 'mediana'
         ? (l.dias ?? []).reduce((s, d) => s + d.unidades, 0)
-        : l.longo!.transacoes;
+        : l.origem === 'diaria'
+          ? l.diario!.transacoes
+          : l.longo!.transacoes;
     aceitas.push([l.itemId, l.sugerido, hoje, volume, l.origem!]);
     continue;
   }
@@ -467,7 +582,10 @@ await writeFile(
   `{
   "_fonte": "https://ro.gnjoylatam.com/pt/intro/shop-search/market-price",
   "_servidor": ${JSON.stringify(servidor)},
-  "_janela": ${JSON.stringify(`media de ${longo} dias, conferida contra a de ${curto}`)},
+  "_janela": ${JSON.stringify(
+    `media de ${longo} dias conferida contra a de ${curto}, ` +
+      `e media do dia nos materiais de giro muito alto`,
+  )},
   "_geradoEm": ${JSON.stringify(hoje)},
   "_campos": ["itemId", "zeny", "cotadoEm", "transacoes", "origem"],
   "precos": [

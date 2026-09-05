@@ -3,6 +3,7 @@
 [![Testes](https://github.com/Fernandohf/refinometro/actions/workflows/ci.yml/badge.svg)](https://github.com/Fernandohf/refinometro/actions/workflows/ci.yml)
 [![Deploy](https://github.com/Fernandohf/refinometro/actions/workflows/deploy.yml/badge.svg)](https://github.com/Fernandohf/refinometro/actions/workflows/deploy.yml)
 [![Base de itens](https://github.com/Fernandohf/refinometro/actions/workflows/base-itens.yml/badge.svg)](https://github.com/Fernandohf/refinometro/actions/workflows/base-itens.yml)
+[![Preços](https://github.com/Fernandohf/refinometro/actions/workflows/precos.yml/badge.svg)](https://github.com/Fernandohf/refinometro/actions/workflows/precos.yml)
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 [![Node 22+](https://img.shields.io/badge/node-%E2%89%A5%2022-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 
