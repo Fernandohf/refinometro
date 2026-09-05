@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it, beforeAll } from 'vitest';
 import { renderToString } from 'react-dom/server';
 
@@ -73,6 +75,13 @@ describe('página', () => {
     // dependendo de a pessoa colar ou digitar.
     expect(PIX.codigo).toContain(PIX.chave);
     expect(renderToString(<App />)).toContain(PIX.chave);
+
+    // E o README repete os dois, porque quem chega pelo GitHub não abre o site
+    // para doar. Duas cópias divergem na primeira vez que a chave mudar, e a
+    // que ficaria errada é a que ninguém revisa.
+    const leiaMe = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+    expect(leiaMe).toContain(PIX.codigo);
+    expect(leiaMe).toContain(PIX.chave);
   });
 
   it('abre o simulador de estoque já preenchido com o recomendado', () => {

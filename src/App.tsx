@@ -214,8 +214,8 @@ export default function App() {
         <title>. Um nome inventado como título de uma página que ninguém
         procura pelo nome é o jeito mais fácil de não ser encontrado.
       */}
-      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <h1 className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <header className="mb-8 flex items-start justify-between gap-x-4">
+        <h1 className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
           <span className="md-titulo-g text-2xl">
             Refinô<span className="text-realce">metro</span>
           </span>
@@ -223,11 +223,16 @@ export default function App() {
             Calculadora e simulador de custo de refino do Ragnarok Latam.
           </span>
         </h1>
-        {/* FORA do <h1>, e é o ponto: dentro dele, o título da página passaria a
-            ser "Refinômetro … ☕ Apoiar" para o buscador e para quem navega por
-            cabeçalhos. Aqui é irmão do título, empurrado para a borda direita
-            pelo `justify-between` e caindo para a linha de baixo na tela
-            estreita, onde não há borda direita para onde ir. */}
+        {/* FORA do <h1>, e é o ponto: dentro dele, o título da página passaria
+            a ser "Refinômetro … Apoiar" para o buscador e para quem navega por
+            cabeçalhos.
+
+            O cabeçalho NÃO quebra linha: o botão fica preso ao canto superior
+            direito em qualquer largura, e quem cede espaço é o <h1>, cuja
+            segunda parte já é uma linha que quebra sozinha. Com `flex-wrap`
+            aqui, na tela estreita o botão descia para uma linha inteira só
+            dele, encostado à esquerda embaixo do título — que era metade do
+            que havia de esquisito nele. */}
         <LinkDeApoio />
       </header>
 

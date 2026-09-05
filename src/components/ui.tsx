@@ -109,8 +109,12 @@ function IconeVisto() {
  * passaria a ver o IP de todo mundo que abre a calculadora, tendo clicado ou
  * não. Desenhada, ela entra no bundle, fica nítida em qualquer zoom e não
  * entrega visitante nenhum.
+ *
+ * Exportada porque ela aparece duas vezes: no botão amarelo do bloco de apoio
+ * e no atalho do cabeçalho, que precisa da MESMA caneca — um ícone diferente
+ * ali faria o atalho parecer levar a outro lugar.
  */
-function IconeCafe() {
+export function IconeCafe() {
   return (
     <svg viewBox="0 0 24 24" className="size-[1.25em] shrink-0" aria-hidden>
       {/* Corpo, alça e apoio da caneca. */}
@@ -140,10 +144,18 @@ function IconeCafe() {
  * principal de uma tela e só pode haver uma; `tonal` é a segunda mais
  * importante; `contornado` é alternativa legítima mas não recomendada; `texto`
  * é o que não deve competir com o conteúdo.
+ *
+ * Com `href` ele vira uma âncora, e é a mesma pele: um botão que NAVEGA tem
+ * que ser um `<a>` — é o que o teclado tabula, o que o leitor de tela anuncia
+ * como link e o que o botão do meio do mouse abre em outra aba. Sai o
+ * `disabled`, que não existe em link, e entram `target`/`rel`, que quem chama
+ * decide, porque link para fora e âncora da mesma página não querem o mesmo.
  */
 export function Botao({
   variante = 'texto',
   tamanho = 'normal',
+  href,
+  alvoExterno,
   iconeAoFim,
   children,
   className = '',
@@ -151,6 +163,10 @@ export function Botao({
 }: {
   variante?: 'preenchido' | 'tonal' | 'contornado' | 'texto';
   tamanho?: 'normal' | 'pequeno';
+  /** Presente, troca o `<button>` por um `<a>`. */
+  href?: string;
+  /** Só com `href`: abre em outra aba, sem entregar a página de origem. */
+  alvoExterno?: boolean;
   /** Ícone à direita do rótulo — a seta de um painel que abre, por exemplo. */
   iconeAoFim?: ReactNode;
   children: ReactNode;
@@ -169,21 +185,36 @@ export function Botao({
   const medida =
     tamanho === 'pequeno' ? 'h-8 px-3 text-xs gap-1.5' : 'h-10 px-5 md-corpo-m gap-2';
 
-  return (
-    <button
-      type="button"
-      onPointerDown={ondular}
-      className={
-        'estado inline-flex shrink-0 cursor-pointer items-center justify-center overflow-hidden ' +
-        'rounded-full font-medium whitespace-nowrap transition-shadow duration-200 ease-padrao ' +
-        'disabled:pointer-events-none disabled:opacity-40 ' +
-        `${pele} ${medida} ${className}`
-      }
-      {...props}
-    >
+  const classe =
+    'estado inline-flex shrink-0 cursor-pointer items-center justify-center overflow-hidden ' +
+    'rounded-full font-medium whitespace-nowrap transition-shadow duration-200 ease-padrao ' +
+    'disabled:pointer-events-none disabled:opacity-40 ' +
+    `${pele} ${medida} ${className}`;
+
+  const dentro = (
+    <>
       <Ondas />
       {children}
       {iconeAoFim}
+    </>
+  );
+
+  if (href !== undefined) {
+    return (
+      <a
+        href={href}
+        onPointerDown={ondular}
+        className={classe}
+        {...(alvoExterno ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
+      >
+        {dentro}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" onPointerDown={ondular} className={classe} {...props}>
+      {dentro}
     </button>
   );
 }
