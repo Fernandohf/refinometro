@@ -103,13 +103,10 @@ export function Apoie() {
  * `currentColor`; cinza sobre o cabeçalho não parecia clicável; e sem caixa
  * nem altura ele não tinha alvo de toque, só um punhado de letras. Agora é
  * pequeno E é um botão, que são coisas diferentes.
- *
- * O `-mt-0.5` acerta a ótica: os 32px do botão contra os ~28px da linha do
- * título deixavam o conjunto pendendo para baixo.
  */
 export function LinkDeApoio() {
   return (
-    <Botao href={`#${ANCORA}`} variante="contornado" tamanho="pequeno" className="-mt-0.5">
+    <Botao href={`#${ANCORA}`} variante="contornado" tamanho="pequeno">
       <IconeCafe />
       Apoiar
     </Botao>

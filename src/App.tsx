@@ -13,7 +13,7 @@ import type { CalcInput, PriceTable } from './engine/types';
 import { Resultado, type MargemKey } from './components/Resultado';
 import { ESTOQUE_VAZIO, SimuladorDeEstoque, type EstoqueSalvo } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
-import { Sobre } from './components/Sobre';
+import { LinkDasPerguntas, Sobre } from './components/Sobre';
 import { Apoie, LinkDeApoio } from './components/Apoie';
 import {
   BotaoDoPainel,
@@ -119,6 +119,9 @@ export default function App() {
   const [e, setE] = useState<Estado>(carregar);
   const set = <K extends keyof Estado>(k: K, v: Estado[K]) => setE((a) => ({ ...a, [k]: v }));
   const [estoque, setEstoque] = useState<EstoqueSalvo>(carregarEstoque);
+  // Estado das perguntas frequentes: mora aqui porque o atalho do cabeçalho e a
+  // seção lá embaixo são as duas pontas da página, e o atalho ABRE além de rolar.
+  const [perguntas, setPerguntas] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(CHAVE_STORAGE, JSON.stringify(e));
@@ -214,8 +217,8 @@ export default function App() {
         <title>. Um nome inventado como título de uma página que ninguém
         procura pelo nome é o jeito mais fácil de não ser encontrado.
       */}
-      <header className="mb-8 flex items-start justify-between gap-x-4">
-        <h1 className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <h1 className="flex min-w-[13rem] flex-1 flex-wrap items-center gap-x-4 gap-y-1">
           <span className="md-titulo-g text-2xl">
             Refinô<span className="text-realce">metro</span>
           </span>
@@ -227,13 +230,20 @@ export default function App() {
             a ser "Refinômetro … Apoiar" para o buscador e para quem navega por
             cabeçalhos.
 
-            O cabeçalho NÃO quebra linha: o botão fica preso ao canto superior
-            direito em qualquer largura, e quem cede espaço é o <h1>, cuja
-            segunda parte já é uma linha que quebra sozinha. Com `flex-wrap`
-            aqui, na tela estreita o botão descia para uma linha inteira só
-            dele, encostado à esquerda embaixo do título — que era metade do
-            que havia de esquisito nele. */}
-        <LinkDeApoio />
+            Os dois viajam juntos, numa embalagem com `ml-auto`, e o <h1> tem
+            largura mínima: enquanto os três couberem, título à esquerda e
+            botões à direita; quando não couberem, os botões descem inteiros
+            para a linha de baixo AINDA à direita, em vez de espremerem o
+            título até quebrá-lo no meio da palavra. A primeira versão fazia o
+            botão sozinho descer encostado à esquerda, e era metade do que
+            havia de esquisito nele. */}
+        {/* O `-mt-0.5` acerta a ótica do par inteiro: 32px de botão contra os
+            ~28px da linha do título deixavam o conjunto pendendo para baixo.
+            Na embalagem, e não em cada botão, senão os dois desalinham entre si. */}
+        <div className="-mt-0.5 ml-auto flex shrink-0 items-center gap-1">
+          <LinkDasPerguntas onAbrir={() => setPerguntas(true)} />
+          <LinkDeApoio />
+        </div>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
@@ -421,7 +431,7 @@ export default function App() {
             </div>
           ) : null}
 
-          <Sobre />
+          <Sobre aberto={perguntas} onAlternar={() => setPerguntas((a) => !a)} />
           <Apoie />
           <Rodape />
         </div>
