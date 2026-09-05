@@ -45,7 +45,9 @@ e quem se planeja pela média fica sem recursos no meio do caminho quase metade 
 - **Comprar × fabricar.** Cada minério é cotado pelo menor entre o mercado e a receita de NPC,
   e a lista de compras vem em duas partes: o que comprar e o que fabricar no balcão.
 - **"Dá com o que eu tenho?"** O painel de estoque responde o inverso: dado o seu zeny, os seus
-  minérios e as suas cópias, qual a chance de chegar ao alvo.
+  minérios e as suas cópias, qual a chance de chegar ao alvo. Ele já abre preenchido com o que a
+  chance escolhida pede, e aqui o zeny paga só as taxas — minério que faltar trava a campanha, não
+  vira compra.
 - **Busca de item por nome**, com a base do Divine Pride do LATAM versionada no repositório —
   funciona offline e sem chave de API. → [Itens](docs/dados-itens.md)
 - **Preços seus, salvos no navegador**, com a cotação real do mercado LATAM como palpite

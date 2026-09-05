@@ -1,5 +1,5 @@
 import { listaDeCompras } from './pricing';
-import { percentis, quantil, type AmostrasCampanha } from './simulate';
+import { percentis, quantilOrdenado, type AmostrasCampanha, type Marco } from './simulate';
 import type { Percentis, PriceTable } from './types';
 
 /**
@@ -12,7 +12,13 @@ import type { Percentis, PriceTable } from './types';
  * abatimento não fecharia com o orçamento.
  */
 export interface Estoque {
-  /** Zeny em caixa. */
+  /**
+   * Zeny em caixa.
+   *
+   * Só paga o que não se carrega na mochila: taxa do refinador, taxa de cada
+   * tentativa de Grau e balcão do NPC que fabrica os minérios intermediários.
+   * Ele **não** compra minério que faltar — ver `avaliarEstoque`.
+   */
   zeny: number;
   /** Quanto você tem de cada material, por id de item. */
   itens: Record<number, number>;
@@ -26,12 +32,27 @@ export interface MaterialDaCampanha {
   preco: number;
   /**
    * Consumo da campanha mais sortuda entre as simuladas. É o mínimo que faz
-   * sentido ter: abaixo disso não existe caminho que chegue ao alvo sem comprar
-   * mais material no meio.
+   * sentido ter: abaixo disso não existe campanha nenhuma que feche, porque o
+   * que falta de minério não se resolve com zeny.
    */
   minimo: number;
   /** Consumo médio entre as campanhas simuladas. */
   media: number;
+  /** Consumo do pior azar simulado — acima dele, mais minério não muda nada. */
+  maximo: number;
+}
+
+/**
+ * O menor estoque que ainda pode dar certo: abaixo de qualquer um destes
+ * números, nem a campanha mais sortuda das simuladas chega ao alvo.
+ *
+ * É o que a tela mostra em vermelho. Não é uma recomendação — é o chão do
+ * possível, e ficar nele é apostar em ter a melhor sorte de cinco mil.
+ */
+export interface PisoDoEstoque {
+  zeny: number;
+  copias: number;
+  itens: Record<number, number>;
 }
 
 /**
@@ -45,13 +66,88 @@ export interface CampanhaEmMateriais {
   materiais: MaterialDaCampanha[];
   /** Achatado: `consumo[i * execucoes + n]` unidades do material `i`. */
   consumo: Float64Array;
+  /** O mesmo `consumo`, com cada coluna ordenada — para os quantis. */
+  consumoOrdenado: Float64Array;
   /** Zeny total de cada execução, com tudo comprado a preço de mercado. */
   custo: Float64Array;
+  /**
+   * A parte do custo que só se paga em zeny, execução a execução: taxa do
+   * refinador, taxa das tentativas de Grau e balcão do NPC.
+   *
+   * É o custo total menos o preço de tudo o que se carrega — minério e cópias de
+   * reposição. Não depende do estoque: o material é consumido de qualquer jeito,
+   * a diferença é só se ele saiu da mochila ou do bolso.
+   */
+  zenyPuro: Float64Array;
+  /** `zenyPuro` ordenado, para o quantil do recomendado. */
+  zenyPuroOrdenado: Float64Array;
   /** Itens-base destruídos em cada execução. */
   quebras: Float64Array;
+  /** `quebras` ordenado, para o quantil do recomendado. */
+  quebrasOrdenado: Float64Array;
   execucoes: number;
   /** Preço do item sem refino, cobrado a cada quebra. */
   precoItem: number;
+  /** O chão do possível em cada recurso (ver `PisoDoEstoque`). */
+  piso: PisoDoEstoque;
+
+  /*
+    O caminho, e não só o destino.
+
+    Tudo acima responde *se* o estoque dá. O que vem abaixo responde **até onde**
+    ele leva — o consumo acumulado a cada ponto de progresso da campanha, nas
+    mesmas colunas de material. É uma amostra menor que a do total (ver
+    `MAX_MARCOS_GUARDADOS`), porque a pergunta é grossa: um degrau de refino.
+  */
+
+  /** Os pontos de progresso, na ordem em que a campanha os atravessa. */
+  marcos: Marco[];
+  /** Consumo acumulado: `progresso[(m * materiais + col) * execucoesMarcos + i]`. */
+  progresso: Float64Array;
+  /** Zeny de taxa e balcão acumulado: `[m * execucoesMarcos + i]`. */
+  progressoZenyPuro: Float64Array;
+  /** Cópias destruídas até ali: `[m * execucoesMarcos + i]`. */
+  progressoQuebras: Float64Array;
+  /** Execuções que sustentam o progresso. */
+  execucoesMarcos: number;
+}
+
+/** Um recurso que pode acabar no meio do caminho. */
+export type Recurso =
+  | { tipo: 'material'; itemId: number }
+  | { tipo: 'zeny' }
+  | { tipo: 'copias' };
+
+export interface CulpadoDoTravamento {
+  recurso: Recurso;
+  /** Fração das campanhas que travam em que ele é o primeiro a faltar. */
+  fracao: number;
+  /** Marco mediano em que ele acaba, entre essas campanhas. */
+  marco: number;
+}
+
+/**
+ * Onde a campanha para, quando ela para.
+ *
+ * A chance sozinha diz que você provavelmente não chega; ela não diz se o
+ * problema é o último degrau ou o terceiro. Com 30% de chance, saber que metade
+ * das campanhas morre já no primeiro Grau é o que separa "compro mais minério"
+ * de "escolho outro alvo".
+ */
+export interface Travamento {
+  /** Execuções que sustentam esta leitura — menos que as do veredito. */
+  execucoes: number;
+  /** Fração dessas execuções que não chegam ao alvo. */
+  fracaoQueTrava: number;
+  /** Quartis do marco em que a campanha para, entre as que travam. */
+  marcoP25: number;
+  marcoP50: number;
+  marcoP75: number;
+  /** Fração das campanhas que travam que param em cada marco. Soma 1. */
+  porMarco: number[];
+  /** Quem acaba primeiro, do mais frequente ao menos. */
+  culpados: CulpadoDoTravamento[];
+  marcos: Marco[];
 }
 
 export interface FaltaDeMaterial extends MaterialDaCampanha {
@@ -59,7 +155,7 @@ export interface FaltaDeMaterial extends MaterialDaCampanha {
   tem: number;
   /** Fração das campanhas em que o que você tem acaba antes do alvo. */
   fracaoFaltou: number;
-  /** Quanto ainda seria preciso comprar, por percentil. */
+  /** Quanto ainda seria preciso ter, por percentil. */
   falta: Percentis;
 }
 
@@ -68,21 +164,25 @@ export interface VereditoEstoque {
   chance: number;
   /** Campanhas que sustentam a resposta — quanto menos, mais grosseira ela é. */
   execucoes: number;
-  /** Zeny que precisa estar em caixa além do que o estoque já cobre. */
+  /** Zeny de taxa e balcão que a campanha exige, por percentil. */
   zenyNecessario: Percentis;
   /**
-   * O que faltou em CADA campanha, cru e fora de ordem.
-   *
-   * Os percentis acima são cinco cortes desta amostra. A pergunta inversa —
-   * "quanto ter em caixa para 10% de chance?" — é outro corte dela, num quantil
-   * que a tela escolhe, e por isso a amostra sai junto em vez de ser refeita.
+   * O que a campanha cobrou em zeny puro, execução a execução, cru e fora de
+   * ordem. Os percentis acima são cinco cortes desta amostra.
    */
   zenyPorCampanha: Float64Array;
   materiais: FaltaDeMaterial[];
   /** Fração das campanhas em que as cópias do item não bastam. */
   fracaoSemCopias: number;
-  /** Cópias do equipamento que ainda faltariam comprar, por percentil. */
+  /** Cópias do equipamento que ainda faltariam, por percentil. */
   copiasFaltantes: Percentis;
+  /** Fração das campanhas barradas só pelo caixa — material e cópias bastavam. */
+  fracaoSoPorZeny: number;
+}
+
+/** Uma coluna ordenada de `consumoOrdenado`. */
+function coluna(c: CampanhaEmMateriais, col: number): Float64Array {
+  return c.consumoOrdenado.subarray(col * c.execucoes, (col + 1) * c.execucoes);
 }
 
 /**
@@ -131,10 +231,12 @@ export function emMateriais(
 
   for (let col = 0; col < nCol; col++) {
     let minimo = Infinity;
+    let maximo = 0;
     let soma = 0;
     for (let i = 0; i < n; i++) {
       const v = bruto[col * n + i]!;
       if (v < minimo) minimo = v;
+      if (v > maximo) maximo = v;
       soma += v;
     }
     const media = soma / n;
@@ -146,6 +248,7 @@ export function emMateriais(
         preco: precoPorColuna[col]!,
         minimo: Number.isFinite(minimo) ? minimo : 0,
         media,
+        maximo,
       },
       coluna: col,
     });
@@ -161,126 +264,137 @@ export function emMateriais(
     for (let i = 0; i < n; i++) consumo[novo * n + i] = bruto[antigo * n + i]!;
   }
 
+  const materiais = achados.map((a) => a.material);
+  // Da coluna crua para a coluna já ordenada e filtrada — `undefined` no
+  // material que a estratégia nunca toca e que por isso não virou campo.
+  const novaColuna: (number | undefined)[] = new Array(nCol).fill(undefined);
+  achados.forEach((a, novo) => (novaColuna[a.coluna] = novo));
+
+  // O zeny que sobra depois de descontar TUDO o que se carrega. O `max(0, ...)`
+  // é só contra o resíduo de ponto flutuante da soma de milhares de parcelas:
+  // por construção o custo nunca é menor que o preço do que ele consumiu.
+  const zenyPuro = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    let material = amostras.quebras[i]! * precoItem;
+    for (let col = 0; col < materiais.length; col++) {
+      material += consumo[col * n + i]! * materiais[col]!.preco;
+    }
+    zenyPuro[i] = Math.max(0, amostras.custo[i]! - material);
+  }
+
+  const consumoOrdenado = new Float64Array(consumo.length);
+  for (let col = 0; col < materiais.length; col++) {
+    const fatia = consumo.slice(col * n, (col + 1) * n).sort();
+    consumoOrdenado.set(fatia, col * n);
+  }
+
+  /*
+    O progresso passa pela MESMA expansão do consumo — é a mesma transformação
+    linear, aplicada a cada foto em vez de só ao total. Precisa ser a mesma, ou
+    a trajetória falaria de Bradium enquanto os campos da tela falam de Oridecon.
+  */
+  const nM = amostras.execucoesMarcos;
+  const nMarcos = amostras.marcos.length;
+  const progresso = new Float64Array(nMarcos * materiais.length * nM);
+  const progressoZenyPuro = new Float64Array(nMarcos * nM);
+
+  for (let m = 0; m < nMarcos; m++) {
+    for (let o = 0; o < receitas.length; o++) {
+      for (const { coluna, qtd } of receitas[o]!) {
+        const col = novaColuna[coluna];
+        if (col === undefined) continue;
+        for (let i = 0; i < nM; i++) {
+          progresso[(m * materiais.length + col) * nM + i]! +=
+            amostras.progresso[(m * receitas.length + o) * nM + i]! * qtd;
+        }
+      }
+    }
+    for (let i = 0; i < nM; i++) {
+      let material = amostras.progressoQuebras[m * nM + i]! * precoItem;
+      for (let col = 0; col < materiais.length; col++) {
+        material += progresso[(m * materiais.length + col) * nM + i]! * materiais[col]!.preco;
+      }
+      progressoZenyPuro[m * nM + i] = Math.max(0, amostras.progressoCusto[m * nM + i]! - material);
+    }
+  }
+
+  let minimoZeny = Infinity;
+  let minimoQuebras = Infinity;
+  for (let i = 0; i < n; i++) {
+    if (zenyPuro[i]! < minimoZeny) minimoZeny = zenyPuro[i]!;
+    if (amostras.quebras[i]! < minimoQuebras) minimoQuebras = amostras.quebras[i]!;
+  }
+
   return {
-    materiais: achados.map((a) => a.material),
+    materiais,
     consumo,
+    consumoOrdenado,
     custo: amostras.custo,
+    zenyPuro,
+    zenyPuroOrdenado: zenyPuro.slice().sort(),
     quebras: amostras.quebras,
+    quebrasOrdenado: amostras.quebras.slice().sort(),
     execucoes: n,
     precoItem,
+    piso: {
+      zeny: Math.ceil(Number.isFinite(minimoZeny) ? minimoZeny : 0),
+      copias: 1 + Math.ceil(Number.isFinite(minimoQuebras) ? minimoQuebras : 0),
+      itens: Object.fromEntries(materiais.map((m) => [m.itemId, Math.ceil(m.minimo)])),
+    },
+    marcos: amostras.marcos,
+    progresso,
+    progressoZenyPuro,
+    progressoQuebras: amostras.progressoQuebras,
+    execucoesMarcos: nM,
   };
 }
 
-/**
- * Zeny que este estoque ainda exigiria para chegar ao alvo com a chance pedida.
- *
- * É a distribuição do que falta, lida ao contrário: levar o corte de 10% em
- * caixa fecha 10% das campanhas, o de 90% fecha 90%. O material informado já
- * está abatido, então o número é sempre "além do que você tem" — nunca o custo
- * cheio da campanha.
- */
-export function zenyParaChance(
-  c: CampanhaEmMateriais,
-  estoque: Estoque,
-  chanceAlvo: number,
-): number {
-  return Math.ceil(quantil(avaliarEstoque(c, estoque).zenyPorCampanha, chanceAlvo));
+/** Zeny de taxa e balcão que cobre a fração `chanceAlvo` das campanhas. */
+export function zenyParaChance(c: CampanhaEmMateriais, chanceAlvo: number): number {
+  return Math.ceil(quantilOrdenado(c.zenyPuroOrdenado, chanceAlvo));
 }
 
 /**
- * O estoque mínimo que chega ao alvo com a chance pedida: o piso de material de
- * cada campanha e o zeny que esse piso ainda exige.
+ * O estoque que a tela sugere para uma dada chance de chegar ao alvo.
  *
- * Os dois números são um só. Material no chão é orçamento no alto — o que
- * faltar no meio do caminho vira compra —, então preencher o piso sem o caixa
- * que ele implica devolveria 0%: verdade, e inútil. Por isso o zeny sai do
- * veredito DESTE estoque, com o material já abatido, e não do custo cheio da
- * campanha, que cobraria duas vezes pelo mesmo minério.
+ * O caminho ingênuo — pegar o percentil 90 de cada recurso — erra, e erra
+ * sempre para o mesmo lado: os azares são marginais, e a campanha que estoura o
+ * minério não é a mesma que estoura o caixa. Levar o percentil 90 de cinco
+ * coisas dá bem menos que 90% de chance de não faltar nenhuma.
  *
- * As cópias do item ficam como estão: quantas você tem é um fato, não uma
- * escolha de orçamento — e o zeny devolvido já paga as que faltarem.
+ * Então o que se busca é o **quantil comum** `q` em que a mochila inteira
+ * fecha a fração pedida das campanhas. Como todo recurso cresce com `q` e mais
+ * recurso nunca piora a chance, a conta é monótona e sai por bisseção; em `q=1`
+ * o estoque cobre o pior azar simulado e a chance é 1, o que garante que a
+ * busca sempre encontra um teto.
  */
-export function estoqueMinimo(
+export function estoqueRecomendado(
   c: CampanhaEmMateriais,
-  atual: Estoque,
   chanceAlvo: number,
 ): Estoque {
-  const itens = Object.fromEntries(c.materiais.map((m) => [m.itemId, Math.ceil(m.minimo)]));
-  const semCaixa: Estoque = { ...atual, itens, zeny: 0 };
-  return { ...semCaixa, zeny: zenyParaChance(c, semCaixa, chanceAlvo) };
-}
+  const noQuantil = (q: number): Estoque => ({
+    zeny: Math.ceil(quantilOrdenado(c.zenyPuroOrdenado, q)),
+    copias: 1 + Math.ceil(quantilOrdenado(c.quebrasOrdenado, q)),
+    itens: Object.fromEntries(
+      c.materiais.map((m, col) => [m.itemId, Math.ceil(quantilOrdenado(coluna(c, col), q))]),
+    ),
+  });
 
-/** O que ter na mochila para uma dada chance, sem pôr mais zeny no caixa. */
-export interface CestaDeMaterial {
-  /** Quanto ter de cada material, por id de item. */
-  itens: Record<number, number>;
-  /** Chance que esta cesta alcança com o zeny que já está no caixa. */
-  chance: number;
-  /**
-   * Chance máxima que esse caixa permite, com material de sobra. Abaixo do alvo
-   * pedido, material nenhum resolve: o que falta é zeny de taxa, balcão do NPC
-   * ou cópia de reposição, que não se paga com minério.
-   */
-  teto: number;
-  /** Zeny que o alvo exigiria em caixa, já com material de sobra na mochila. */
-  zenyDoTeto: number;
-}
+  // O alvo é sempre alcançável no teto, e nunca abaixo do próprio alvo: a
+  // chance conjunta não passa da marginal mais apertada.
+  let baixo = Math.min(0.999_999, Math.max(0, chanceAlvo));
+  let alto = 1;
+  if (chanceDoEstoque(c, noQuantil(baixo)) >= chanceAlvo) return noQuantil(baixo);
 
-/**
- * A pergunta invertida: com o zeny que eu já tenho, **quanto material** preciso
- * ter para chegar ao alvo com esta chance?
- *
- * Material é um vetor, e a chance é um número só — há infinitas mochilas que
- * dão 10%. A escolhida é a que segue a proporção do consumo médio da campanha,
- * multiplicada por um fator `k`: é a única forma equilibrada, e deixa a busca
- * ser por um botão só. Como mais material nunca piora a chance, `k` é monótono
- * e o menor que atinge o alvo sai por bisseção.
- *
- * Acima de `kTeto` a cesta já cobre a campanha mais gastadora de todas, e mais
- * minério deixa de mudar qualquer coisa — daí sair de lá o teto do que o caixa
- * permite.
- */
-export function materialParaChance(
-  c: CampanhaEmMateriais,
-  atual: Estoque,
-  chanceAlvo: number,
-): CestaDeMaterial {
-  const n = c.execucoes;
-  const extras = Math.max(0, Math.floor(atual.copias) - 1);
-  const zeny = Math.max(0, atual.zeny);
-
-  const cesta = (k: number) => c.materiais.map((m) => Math.ceil(k * m.media));
-  const comIds = (tem: number[]) =>
-    Object.fromEntries(c.materiais.map((m, col) => [m.itemId, tem[col]!]));
-
-  let kTeto = 0;
-  for (let col = 0; col < c.materiais.length; col++) {
-    let maior = 0;
-    for (let i = 0; i < n; i++) maior = Math.max(maior, c.consumo[col * n + i]!);
-    kTeto = Math.max(kTeto, maior / c.materiais[col]!.media);
-  }
-
-  const noTeto = cesta(kTeto);
-  const teto = chanceDe(c, noTeto, extras, zeny);
-  const zenyDoTeto = zenyParaChance(c, { ...atual, itens: comIds(noTeto) }, chanceAlvo);
-
-  if (teto < chanceAlvo) {
-    return { itens: comIds(noTeto), chance: teto, teto, zenyDoTeto };
-  }
-
-  // Bisseção no fator da cesta. 40 passos deixam o intervalo menor que qualquer
-  // unidade de material, e cada passo é uma varredura das campanhas guardadas —
-  // barato porque é um clique, não uma tecla digitada.
-  let baixo = 0;
-  let alto = kTeto;
+  // 40 passos deixam o intervalo menor que o espaçamento de duas campanhas
+  // vizinhas na amostra — abaixo disso o quantil não muda mais de degrau.
   for (let passo = 0; passo < 40; passo++) {
     const meio = (baixo + alto) / 2;
-    if (chanceDe(c, cesta(meio), extras, zeny) >= chanceAlvo) alto = meio;
+    if (chanceDoEstoque(c, noQuantil(meio)) >= chanceAlvo) alto = meio;
     else baixo = meio;
   }
 
-  const itens = cesta(alto);
-  return { itens: comIds(itens), chance: chanceDe(c, itens, extras, zeny), teto, zenyDoTeto };
+  return noQuantil(alto);
 }
 
 /**
@@ -290,16 +404,24 @@ export function materialParaChance(
  * mais: ordenar seis distribuições a cada passo custaria mais que a busca
  * inteira.
  */
-function chanceDe(c: CampanhaEmMateriais, tem: number[], extras: number, zeny: number): number {
+export function chanceDoEstoque(c: CampanhaEmMateriais, estoque: Estoque): number {
   const n = c.execucoes;
+  const nCol = c.materiais.length;
+  const tem = c.materiais.map((m) => Math.max(0, estoque.itens[m.itemId] ?? 0));
+  const extras = Math.max(0, Math.floor(estoque.copias) - 1);
   let sucessos = 0;
 
   for (let i = 0; i < n; i++) {
-    let coberto = Math.min(c.quebras[i]!, extras) * c.precoItem;
-    for (let col = 0; col < c.materiais.length; col++) {
-      coberto += Math.min(c.consumo[col * n + i]!, tem[col]!) * c.materiais[col]!.preco;
+    if (c.zenyPuro[i]! > estoque.zeny) continue;
+    if (c.quebras[i]! > extras) continue;
+    let cabe = true;
+    for (let col = 0; col < nCol; col++) {
+      if (c.consumo[col * n + i]! > tem[col]!) {
+        cabe = false;
+        break;
+      }
     }
-    if (c.custo[i]! - coberto <= zeny) sucessos++;
+    if (cabe) sucessos++;
   }
 
   return sucessos / n;
@@ -308,18 +430,22 @@ function chanceDe(c: CampanhaEmMateriais, tem: number[], extras: number, zeny: n
 /**
  * Chance de chegar ao alvo com o estoque informado.
  *
- * O que o estoque cobre é abatido do custo da campanha: o motor cotou cada
- * material pelo preço de mercado, então o que já está na mochila é exatamente
- * esse valor que deixa de sair do bolso. Sobra o zeny que ainda precisa existir
- * — e a campanha chega ao alvo quando ele cabe no caixa.
+ * A campanha fecha quando **nenhum** dos recursos acaba no meio: o minério de
+ * cada material, as cópias de reposição e o caixa. Cada um é uma restrição
+ * própria, e nenhum cobre a falta do outro.
  *
- * Duas coisas o modelo assume, e vale saber quais:
+ * Em especial, o zeny aqui **não compra minério**. Ele paga o que não se
+ * carrega na mochila — a taxa do refinador, a taxa de cada tentativa de Grau e
+ * o balcão do NPC que fabrica os intermediários —, e é essa parcela que o
+ * `zenyPuro` da campanha isola. É uma pergunta diferente da que o painel de
+ * custo responde: lá tudo é comprado na hora, aqui a mochila é o que é e a
+ * viagem ao mercado não está no plano.
  *
- * - **O que faltar pode ser comprado** pelo preço informado, a qualquer momento.
- *   É a mesma suposição do resto da calculadora. Por isso basta comparar o total
- *   da campanha com o caixa: o consumo só cresce, então quem aguenta o total
- *   aguenta cada passo do caminho, e quem não aguenta trava em algum ponto — não
- *   importa exatamente onde.
+ * Duas coisas o modelo continua assumindo, e vale saber quais:
+ *
+ * - **O consumo só cresce.** Por isso basta comparar o total da campanha com o
+ *   que se tem: quem aguenta o total aguenta cada passo do caminho, e quem não
+ *   aguenta trava em algum ponto — não importa exatamente onde.
  * - **O plano é o ótimo**, o mesmo que a calculadora recomenda. Ter uma pilha de
  *   Elunium parado não muda a estratégia que o motor escolhe; a resposta é a
  *   chance de atravessar *aquele* plano com estes recursos.
@@ -331,44 +457,42 @@ export function avaliarEstoque(c: CampanhaEmMateriais, estoque: Estoque): Veredi
   const tem = c.materiais.map((m) => Math.max(0, estoque.itens[m.itemId] ?? 0));
   const extras = Math.max(0, Math.floor(estoque.copias) - 1);
 
-  const zenyNecessario = new Float64Array(n);
   const faltaPorItem = new Float64Array(nCol * n);
   const faltou = new Int32Array(nCol);
   const copiasFaltantes = new Float64Array(n);
 
   let sucessos = 0;
   let semCopias = 0;
+  let soPorZeny = 0;
 
   for (let i = 0; i < n; i++) {
-    let coberto = 0;
+    let materialCabe = true;
 
     for (let col = 0; col < nCol; col++) {
-      const precisa = c.consumo[col * n + i]!;
-      const disponivel = tem[col]!;
-      coberto += Math.min(precisa, disponivel) * c.materiais[col]!.preco;
-      const falta = precisa - disponivel;
+      const falta = c.consumo[col * n + i]! - tem[col]!;
       if (falta > 0) {
         faltaPorItem[col * n + i] = falta;
         faltou[col]!++;
+        materialCabe = false;
       }
     }
 
-    const quebras = c.quebras[i]!;
-    coberto += Math.min(quebras, extras) * c.precoItem;
-    const faltamCopias = Math.max(0, quebras - extras);
+    const faltamCopias = Math.max(0, c.quebras[i]! - extras);
     copiasFaltantes[i] = faltamCopias;
     if (faltamCopias > 0) semCopias++;
 
-    const precisa = Math.max(0, c.custo[i]! - coberto);
-    zenyNecessario[i] = precisa;
-    if (precisa <= estoque.zeny) sucessos++;
+    const caixaCabe = c.zenyPuro[i]! <= estoque.zeny;
+    if (materialCabe && faltamCopias === 0) {
+      if (caixaCabe) sucessos++;
+      else soPorZeny++;
+    }
   }
 
   return {
     chance: sucessos / n,
     execucoes: n,
-    zenyNecessario: percentis(zenyNecessario),
-    zenyPorCampanha: zenyNecessario,
+    zenyNecessario: percentis(c.zenyPuro),
+    zenyPorCampanha: c.zenyPuro,
     materiais: c.materiais.map((m, col) => ({
       ...m,
       tem: tem[col]!,
@@ -377,5 +501,112 @@ export function avaliarEstoque(c: CampanhaEmMateriais, estoque: Estoque): Veredi
     })),
     fracaoSemCopias: semCopias / n,
     copiasFaltantes: percentis(copiasFaltantes),
+    fracaoSoPorZeny: soPorZeny / n,
   };
+}
+
+/**
+ * Onde a campanha para, dado o estoque — a pergunta que vem depois de uma
+ * chance baixa.
+ *
+ * Cada recurso tem uma curva de consumo acumulado que só cresce, então "quando
+ * ele acaba" é o primeiro marco em que a curva passa do que se tem. A campanha
+ * para no menor desses marcos, e o recurso que o alcança primeiro é o culpado.
+ *
+ * A conta é a mesma de `avaliarEstoque`, lida no meio do caminho em vez de no
+ * fim: no último marco o acumulado É o total, então uma campanha trava aqui se e
+ * somente se ela falha lá. A diferença entre as duas frações é só de amostra —
+ * esta lê menos execuções, porque guardar a trajetória inteira de cinco mil
+ * campanhas custaria dez vezes mais que guardar os totais.
+ *
+ * Devolve `null` quando não há trajetória guardada ou quando nenhuma campanha
+ * trava: aí não há o que localizar.
+ */
+export function ondeAcaba(c: CampanhaEmMateriais, estoque: Estoque): Travamento | null {
+  const n = c.execucoesMarcos;
+  const nMarcos = c.marcos.length;
+  const nCol = c.materiais.length;
+  if (n === 0 || nMarcos === 0) return null;
+
+  const tem = c.materiais.map((m) => Math.max(0, estoque.itens[m.itemId] ?? 0));
+  const extras = Math.max(0, Math.floor(estoque.copias) - 1);
+
+  const paradas: number[] = [];
+  // Por culpado: em quantas campanhas ele é o primeiro a faltar, e em que marcos.
+  const culpaMarcos = new Map<string, number[]>();
+  const recursoDe = new Map<string, Recurso>();
+
+  for (let i = 0; i < n; i++) {
+    let marcoParada = nMarcos;
+    let culpado: Recurso | null = null;
+    let folgaDoCulpado = Infinity;
+
+    /** O primeiro marco em que `curva` passa de `disponivel`. */
+    const cruza = (curva: (m: number) => number, disponivel: number) => {
+      for (let m = 0; m < nMarcos; m++) if (curva(m) > disponivel) return m;
+      return nMarcos;
+    };
+
+    const considerar = (m: number, recurso: Recurso, disponivel: number) => {
+      if (m > marcoParada) return;
+      // Empate no mesmo marco: fica com quem tinha menos folga, que é o que a
+      // pessoa sente primeiro. Sem o critério, a ordem das colunas decidiria.
+      if (m === marcoParada && disponivel >= folgaDoCulpado) return;
+      marcoParada = m;
+      culpado = recurso;
+      folgaDoCulpado = disponivel;
+    };
+
+    for (let col = 0; col < nCol; col++) {
+      const m = cruza((k) => c.progresso[(k * nCol + col) * n + i]!, tem[col]!);
+      if (m < nMarcos) considerar(m, { tipo: 'material', itemId: c.materiais[col]!.itemId }, tem[col]!);
+    }
+    const mZeny = cruza((k) => c.progressoZenyPuro[k * n + i]!, estoque.zeny);
+    if (mZeny < nMarcos) considerar(mZeny, { tipo: 'zeny' }, estoque.zeny);
+    const mCopias = cruza((k) => c.progressoQuebras[k * n + i]!, extras);
+    if (mCopias < nMarcos) considerar(mCopias, { tipo: 'copias' }, extras);
+
+    if (culpado === null) continue;
+
+    paradas.push(marcoParada);
+    const chave = chaveDoRecurso(culpado);
+    recursoDe.set(chave, culpado);
+    const lista = culpaMarcos.get(chave);
+    if (lista) lista.push(marcoParada);
+    else culpaMarcos.set(chave, [marcoParada]);
+  }
+
+  if (paradas.length === 0) return null;
+
+  paradas.sort((a, b) => a - b);
+  const corte = (q: number) => paradas[Math.min(paradas.length - 1, Math.floor(q * paradas.length))]!;
+
+  const culpados: CulpadoDoTravamento[] = [...culpaMarcos]
+    .map(([chave, marcos]) => {
+      marcos.sort((a, b) => a - b);
+      return {
+        recurso: recursoDe.get(chave)!,
+        fracao: marcos.length / paradas.length,
+        marco: marcos[Math.floor(marcos.length / 2)]!,
+      };
+    })
+    .sort((a, b) => b.fracao - a.fracao);
+
+  const porMarco = new Array<number>(nMarcos).fill(0);
+  for (const m of paradas) porMarco[m]! += 1 / paradas.length;
+
+  return {
+    execucoes: n,
+    fracaoQueTrava: paradas.length / n,
+    marcoP25: corte(0.25),
+    marcoP50: corte(0.5),
+    marcoP75: corte(0.75),
+    porMarco,
+    culpados,
+    marcos: c.marcos,
+  };
+}
+
+function chaveDoRecurso(r: Recurso): string {
+  return r.tipo === 'material' ? `m${r.itemId}` : r.tipo;
 }

@@ -710,6 +710,19 @@ const campoBase =
   'hover:border-texto focus:border-realce focus:shadow-[inset_0_0_0_1px_var(--color-realce)] ' +
   'disabled:pointer-events-none disabled:opacity-40';
 
+/*
+  A mesma pele, em erro. É uma constante à parte, e não `campoBase` com um
+  `border-perigo` acrescentado no fim: duas utilidades de cor de borda no mesmo
+  elemento não se resolvem pela ordem em que aparecem no `className`, e sim pela
+  ordem delas na folha gerada — o campo em erro perdia o vermelho justamente ao
+  receber o foco, que é quando a pessoa está mexendo nele.
+*/
+const campoEmErro =
+  'w-full rounded-lg border border-perigo bg-fundo px-3 py-2.5 text-perigo outline-none ' +
+  'transition-[border-color,box-shadow] duration-200 ease-padrao ' +
+  'hover:border-perigo focus:border-perigo focus:shadow-[inset_0_0_0_1px_var(--color-perigo)] ' +
+  'disabled:pointer-events-none disabled:opacity-40';
+
 export function Select({
   value,
   onChange,
@@ -807,6 +820,219 @@ export function NumeroQtd({
       }}
     />
   );
+}
+
+/** Menos e mais dos passos: dois traços, para não pesar uma fonte de ícones. */
+function IconePasso({ mais }: { mais?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[1.35em]" fill="currentColor" aria-hidden>
+      <path d={mais ? 'M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z' : 'M5 11h14v2H5v-2Z'} />
+    </svg>
+  );
+}
+
+/**
+ * Um passo que se repete enquanto o botão estiver pressionado.
+ *
+ * Sem isso, ajustar 400 Elunium de dez em dez seriam quarenta cliques. A pausa
+ * antes da repetição é o que preserva o clique único: quem quer +10 solta antes
+ * dos 400ms e recebe exatamente um passo.
+ *
+ * O valor sai de uma função (e não do fecho) porque a repetição vive num timer:
+ * ler `value` capturado no primeiro disparo faria todo o resto da rajada somar
+ * sobre o mesmo número de partida.
+ */
+function useRepeticao(passo: () => void) {
+  const timers = useRef<{ atraso?: number; ritmo?: number }>({});
+  // O timer dispara o passo MAIS RECENTE, não o que existia quando o dedo
+  // desceu. Sem esta indireção, toda a rajada somaria sobre o mesmo valor de
+  // partida e o campo andaria uma única casa por mais que se segurasse.
+  const atual = useRef(passo);
+  atual.current = passo;
+
+  const parar = () => {
+    clearTimeout(timers.current.atraso);
+    clearInterval(timers.current.ritmo);
+    timers.current = {};
+  };
+
+  useEffect(() => parar, []);
+
+  const comecar = () => {
+    parar();
+    atual.current();
+    timers.current.atraso = window.setTimeout(() => {
+      timers.current.ritmo = window.setInterval(() => atual.current(), 60);
+    }, 400);
+  };
+
+  return { comecar, parar };
+}
+
+function BotaoDePasso({
+  aoAcionar,
+  mais,
+  rotulo,
+  desabilitado,
+}: {
+  aoAcionar: () => void;
+  mais?: boolean;
+  rotulo: string;
+  desabilitado?: boolean;
+}) {
+  const { comecar, parar } = useRepeticao(aoAcionar);
+
+  return (
+    <button
+      type="button"
+      aria-label={rotulo}
+      title={rotulo}
+      disabled={desabilitado}
+      className={
+        'estado flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg ' +
+        'border border-contorno bg-fundo text-suave transition-colors duration-200 ease-padrao ' +
+        'hover:border-texto hover:text-texto disabled:pointer-events-none disabled:opacity-30'
+      }
+      onPointerDown={(ev) => {
+        // O ponteiro fica preso ao botão: arrastar o dedo um pixel para fora
+        // não deve interromper uma rajada em andamento.
+        ev.currentTarget.setPointerCapture(ev.pointerId);
+        comecar();
+      }}
+      onPointerUp={parar}
+      onPointerCancel={parar}
+      onLostPointerCapture={parar}
+      // O teclado não repete por conta própria aqui: `Enter` num `<button>` já
+      // dispara `click`, e o `onPointerDown` não roda. Sem isto, o campo seria
+      // inalcançável sem mouse.
+      onKeyDown={(ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          aoAcionar();
+        }
+      }}
+    >
+      <IconePasso mais={mais} />
+    </button>
+  );
+}
+
+/**
+ * Quantidade discreta, com os dois botões de passo ao lado.
+ *
+ * Minério se conta em unidades, e a pessoa que abre o painel de estoque não
+ * está digitando um número novo: está ajustando o que a tela já sugeriu, quase
+ * sempre para baixo, algumas dezenas por vez. Por isso o passo não é 1 fixo — é
+ * proporcional à ordem de grandeza do campo (ver `passoDe`), e o teclado
+ * (setas para cima e para baixo) anda no mesmo passo.
+ *
+ * Abaixo de `minimo` o campo fica vermelho: não é um aviso de formatação, é a
+ * campanha que deixou de ter caminho: nem a mais sortuda das simuladas fecha
+ * com menos que aquilo.
+ */
+export function NumeroComPasso({
+  value,
+  onChange,
+  passo,
+  rotulo,
+  minimo,
+  sufixo,
+  minimoDoCampo = 0,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  /** Quanto cada toque nos botões soma ou subtrai. */
+  passo: number;
+  /** Nome do campo para leitores de tela. */
+  rotulo: string;
+  /** Abaixo disto a campanha não tem caminho — o campo fica em vermelho. */
+  minimo?: number;
+  /** Unidade colada no fim do campo, como o `z` do zeny. */
+  sufixo?: string;
+  /** Piso absoluto do campo: 0 para material, 1 para as cópias do item. */
+  minimoDoCampo?: number;
+}) {
+  const invalido = minimo !== undefined && value < minimo;
+  const andar = (delta: number) =>
+    onChange(Math.max(minimoDoCampo, Math.round(value + delta)));
+
+  return (
+    <div className="flex items-stretch gap-1.5">
+      <BotaoDePasso
+        aoAcionar={() => andar(-passo)}
+        rotulo={`${rotulo}: menos ${passo.toLocaleString('pt-BR')}`}
+        desabilitado={value <= minimoDoCampo}
+      />
+      <div className="relative min-w-0 flex-1">
+        <input
+          type="text"
+          inputMode="numeric"
+          aria-label={rotulo}
+          aria-invalid={invalido}
+          className={
+            (invalido ? campoEmErro : campoBase) +
+            ' text-right tabular-nums' +
+            (sufixo ? ' pr-7' : '')
+          }
+          value={value === 0 ? '' : value.toLocaleString('pt-BR')}
+          placeholder={String(minimoDoCampo)}
+          onChange={(e) => {
+            const digitos = e.target.value.replace(/\D/g, '');
+            onChange(digitos === '' ? minimoDoCampo : Math.max(minimoDoCampo, Number(digitos)));
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              andar(passo);
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              andar(-passo);
+            }
+          }}
+        />
+        {sufixo && (
+          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-suave">
+            {sufixo}
+          </span>
+        )}
+      </div>
+      <BotaoDePasso
+        mais
+        aoAcionar={() => andar(passo)}
+        rotulo={`${rotulo}: mais ${passo.toLocaleString('pt-BR')}`}
+      />
+    </div>
+  );
+}
+
+/**
+ * Passo de um campo de contagem, pela ordem de grandeza do que ele guarda.
+ *
+ * Um passo fixo erra dos dois lados: 1 unidade é inútil num campo de 400
+ * Elunium, e 50 é grosseiro demais num de 3 Bênçãos. Os cortes são potências
+ * arredondadas — o passo é sempre um número que se conta de cabeça, e nunca
+ * passa de ~5% do campo.
+ */
+export function passoDe(referencia: number): number {
+  const n = Math.abs(referencia);
+  if (n <= 20) return 1;
+  if (n <= 100) return 5;
+  if (n <= 500) return 10;
+  if (n <= 2_000) return 50;
+  if (n <= 10_000) return 100;
+  return 1_000;
+}
+
+/**
+ * O mesmo, em zeny: aqui a ordem de grandeza varia de milhões a bilhões, e um
+ * passo tabelado não acompanha. O passo é a potência de dez uma casa abaixo do
+ * valor — entre 1% e 10% dele, ou seja, dezenas de toques para atravessar o
+ * campo inteiro —, com 100 mil de piso para não virar um passo de moeda.
+ */
+export function passoDeZeny(referencia: number): number {
+  const n = Math.abs(referencia);
+  if (n < 1_000_000) return 100_000;
+  return Math.max(100_000, Math.pow(10, Math.floor(Math.log10(n)) - 1));
 }
 
 /**

@@ -91,13 +91,30 @@ campanhas a cada tecla digitada. Precisa ser assim porque os percentis são marg
 Oridecon e faltar zeny na *mesma* campanha não é a soma dos dois azares, e só a distribuição
 conjunta responde.
 
+A diferença para o orçamento é a hipótese, não a conta. No orçamento tudo é comprado no instante
+em que é preciso; aqui a mochila é o que é, e **o zeny não compra minério que faltar** — ele paga
+só o que não se carrega: a taxa do refinador, a taxa de cada tentativa de Grau e o balcão do NPC.
+Faltou minério, a campanha para ali. Por isso as duas telas dão respostas diferentes para o mesmo
+jogador, e as duas estão certas: uma é sobre quem pode voltar ao mercado, a outra sobre quem não
+pode.
+
 Os campos pedem o estoque **no que se compra de verdade**, não em minério pronto — a mesma
-expansão da lista de compras, pela mesma razão. O painel tem alvo próprio (10% a 99%) e dois
-botões, que são a mesma equação resolvida para lados opostos: **preencher mochila e caixa** põe o
-piso de material e o zeny que esse piso ainda exige; **só o material, com o meu zeny** mantém o
-caixa informado e resolve a mochila. O segundo tem teto, e ele é a resposta ao caso que mais
-confunde: taxa do refinador, balcão do NPC e cópia de reposição se pagam em zeny, e minério
-nenhum os cobre.
+expansão da lista de compras, pela mesma razão. E já vêm **preenchidos**: escolhida a chance que
+se quer ter (10% a 99%), a tela procura o quantil comum em que a mochila inteira fecha aquela
+fração das campanhas, e põe cada recurso nele. O percentil de cada coisa lido em separado não
+serve — no `w4` +0 → +12, os quatro materiais no próprio p90 cobrem 75% das campanhas, não 90%.
+Daí em diante é ajuste: baixar o que não se tem e ver a chance responder. Abaixo do consumo da
+campanha mais sortuda o campo fica vermelho, porque aí a resposta deixa de ser "improvável" e
+passa a ser "sem caminho".
+
+Abaixo de 50% de chance a tela acrescenta **onde** a campanha para. Um número baixo não diz se o
+problema é o último degrau ou o terceiro, e é essa diferença que decide entre comprar mais minério
+e escolher outro alvo. Para responder, a simulação guarda também o caminho: o consumo acumulado a
+cada ponto de progresso — cada degrau de refino alcançado pela primeira vez, cada grau conquistado.
+Como o consumo só cresce, o ponto de parada é o primeiro marco em que algum recurso passa do que
+se tem, e o recurso que chega lá primeiro é o culpado. A trajetória é uma matriz por execução, não
+um vetor, então ela é guardada para menos campanhas que o total — a resposta ali é grossa de
+qualquer forma, um degrau de refino.
 
 ## O orçamento é de tempo
 
