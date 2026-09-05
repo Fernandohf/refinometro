@@ -12,7 +12,7 @@ import {
 } from '../src/data/ores';
 import { REFINO_MINIMO_GRAU, stepsBetween } from '../src/data/grade';
 import { gradeChanceOf, solveGradeCampaign } from '../src/engine/grade';
-import { listaDeCompras, unitCost } from '../src/engine/pricing';
+import { arvoreDeCompras, listaDeCompras, unitCost } from '../src/engine/pricing';
 import {
   actionsAt,
   chanceOf,
@@ -340,6 +340,76 @@ describe('lista de compras', () => {
     const lista = listaDeCompras({ [ETERIUM]: 3, 1000333: 2 }, { ...P, 7619: 2_500_000 });
     const po = lista.compras.find((l) => l.itemId === 1000322);
     expect(po?.qtd).toBe(3 * 1 + 2 * 2);
+  });
+});
+
+describe('árvore de compras', () => {
+  // Os mesmos preços da lista achatada: Eterium sai por 128k fabricado
+  // (10k de balcão + 1 Elunium a 50k + 1 Pó de Éter a 68k) e não tem cotação
+  // própria, então fabricar é a única via.
+  const P = { 985: 50_000, 1000322: 68_000 };
+  const ETERIUM = 1000331;
+
+  it('soma o mesmo total da lista achatada', () => {
+    // As duas leem a mesma decisão de `unitCost`. Se divergissem, o total da
+    // tela deixaria de bater com o diagrama de custo, que lê a achatada.
+    const itens = { [ETERIUM]: 10, 985: 3 };
+    const arvore = arvoreDeCompras(itens, P);
+    expect(arvore.reduce((s, l) => s + l.total, 0)).toBe(listaDeCompras(itens, P).total);
+  });
+
+  it('abre a receita embaixo do minério que vale a pena fabricar', () => {
+    const [eterium] = arvoreDeCompras({ [ETERIUM]: 10 }, P);
+    expect(eterium!.via).toBe('npc');
+    expect(eterium!.fabricacao!.zenyBalcao).toBe(10 * 10_000);
+    expect(eterium!.fabricacao!.insumos.map((i) => [i.itemId, i.qtd])).toEqual(
+      expect.arrayContaining([
+        [1000322, 10],
+        [985, 10],
+      ]),
+    );
+  });
+
+  it('diz quanto fabricar economiza contra comprar pronto', () => {
+    // Com o Eterium cotado a 200k, fabricar (128k) poupa 72k por unidade — e é
+    // esse número, e não o custo, que decide se a viagem ao NPC se paga.
+    const arvore = arvoreDeCompras({ [ETERIUM]: 10 }, { ...P, [ETERIUM]: 200_000 });
+    const eterium = arvore.find((l) => l.itemId === ETERIUM)!;
+    expect(eterium.via).toBe('npc');
+    expect(eterium.economia).toBe(10 * (200_000 - 128_000));
+  });
+
+  it('diz quanto comprar pronto economiza contra fabricar', () => {
+    // A mesma pergunta ao contrário: barato no mercado, a receita é que perde.
+    const arvore = arvoreDeCompras({ [ETERIUM]: 10 }, { ...P, [ETERIUM]: 100_000 });
+    const eterium = arvore.find((l) => l.itemId === ETERIUM)!;
+    expect(eterium.via).toBe('mercado');
+    expect(eterium.fabricacao).toBeNull();
+    expect(eterium.economia).toBe(10 * (128_000 - 100_000));
+  });
+
+  it('não promete economia onde não há escolha', () => {
+    // Ninguém vende Eterium: a economia é 0 porque não existe a outra via, e
+    // não porque as duas empataram.
+    const eterium = arvoreDeCompras({ [ETERIUM]: 10 }, P)[0]!;
+    expect(eterium.precoMercado).toBeNull();
+    expect(eterium.economia).toBe(0);
+    // E o Elunium, que só se compra, também não finge ter alternativa.
+    const elunium = arvoreDeCompras({ 985: 4 }, P)[0]!;
+    expect(elunium.custoFabricado).toBeNull();
+    expect(elunium.economia).toBe(0);
+  });
+
+  it('desce a decisão até o fim da receita', () => {
+    // Elunium a partir de 5 Minérios de Elunium sai mais barato que os 50k
+    // cotados: o insumo do Eterium precisa abrir de novo, ou a lista mandaria
+    // comprar pronto o que o custo já cotou como fabricado.
+    const arvore = arvoreDeCompras({ [ETERIUM]: 10 }, { ...P, 757: 1_000 });
+    const elunium = arvore[0]!.fabricacao!.insumos.find((i) => i.itemId === 985)!;
+    expect(elunium.via).toBe('npc');
+    expect(elunium.fabricacao!.insumos).toEqual([
+      expect.objectContaining({ itemId: 757, qtd: 50, total: 50_000 }),
+    ]);
   });
 });
 
