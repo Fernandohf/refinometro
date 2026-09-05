@@ -6,6 +6,7 @@
 [![Preços](https://github.com/Fernandohf/refinometro/actions/workflows/precos.yml/badge.svg)](https://github.com/Fernandohf/refinometro/actions/workflows/precos.yml)
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 [![Node 22+](https://img.shields.io/badge/node-%E2%89%A5%2022-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Apoie por Pix](https://img.shields.io/badge/Pix-apoiar-32BCAD?logo=pix&logoColor=white)](#apoie)
 
 <a href="https://www.buymeacoffee.com/fernandohf" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="41" width="149"></a>
 
@@ -129,6 +130,18 @@ A calculadora é de graça, sem anúncio e sem cadastro. Se ela te poupou zeny o
 
 <a href="https://www.buymeacoffee.com/fernandohf" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="60" width="217"></a>
 
-Ou por **Pix**, se preferir — chave aleatória `dede1a1e-bbe2-48ca-b972-00e26b7b217c`
-(Fernando H Fernandes). O site tem o "copia e cola" pronto em
+Ou por **Pix**, se preferir. Chave aleatória, em nome de Fernando H Fernandes:
+
+```
+dede1a1e-bbe2-48ca-b972-00e26b7b217c
+```
+
+Ou o **Pix Copia e Cola**, que o aplicativo do banco lê inteiro — sem valor definido, você
+escolhe quanto na hora de pagar:
+
+```
+00020101021126580014br.gov.bcb.pix0136dede1a1e-bbe2-48ca-b972-00e26b7b217c5204000053039865802BR5920FERNANDO H FERNANDES6013PAU DOS FERRO62070503***63046636
+```
+
+O site tem os dois prontos, com botão que copia, em
 [Apoie o Refinômetro](https://fernandohf.github.io/refinometro/#apoiar).

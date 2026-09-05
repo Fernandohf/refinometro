@@ -1,4 +1,4 @@
-import { BotaoCafe, BotaoPix } from './ui';
+import { Botao, BotaoCafe, BotaoPix, IconeCafe } from './ui';
 
 /*
   O pedido de apoio: o café, o Pix e o link discreto do topo.
@@ -87,23 +87,31 @@ export function Apoie() {
 }
 
 /**
- * O link de apoio no cabeçalho.
+ * O atalho de apoio no cabeçalho.
  *
  * Fica no topo porque quem quer apoiar não deveria ter que rolar a página
- * inteira para descobrir que dá — mas é um link de texto, do tamanho da linha
- * de apoio do título, e não um botão amarelo brigando com o <h1>. E ele não
- * leva para fora: rola até o bloco do fim, onde as duas opções estão
- * explicadas. Mandar alguém direto para um checkout a partir do topo de uma
- * calculadora que a pessoa ainda não usou é exatamente o que "nada muito
- * invasivo" quer dizer que não.
+ * inteira para descobrir que dá. E ele não leva para fora: rola até o bloco do
+ * fim, onde as duas opções estão explicadas — mandar alguém direto para um
+ * checkout a partir do topo de uma calculadora que a pessoa ainda não usou
+ * seria pedir antes de entregar.
+ *
+ * É o `Botao` do sistema, contornado e na medida pequena — a mesma peça do
+ * "editar" de cada painel, com a mesma altura, a mesma ondulação e a mesma
+ * película de estado. A primeira versão era texto cinza solto com um emoji de
+ * caneca na frente, e ficava esquisito por três motivos de uma vez: o emoji é
+ * colorido no meio de uma interface cujos ícones todos são desenhados em
+ * `currentColor`; cinza sobre o cabeçalho não parecia clicável; e sem caixa
+ * nem altura ele não tinha alvo de toque, só um punhado de letras. Agora é
+ * pequeno E é um botão, que são coisas diferentes.
+ *
+ * O `-mt-0.5` acerta a ótica: os 32px do botão contra os ~28px da linha do
+ * título deixavam o conjunto pendendo para baixo.
  */
 export function LinkDeApoio() {
   return (
-    <a
-      href={`#${ANCORA}`}
-      className="md-corpo-m shrink-0 text-suave transition-colors hover:text-realce"
-    >
-      ☕ Apoiar
-    </a>
+    <Botao href={`#${ANCORA}`} variante="contornado" tamanho="pequeno" className="-mt-0.5">
+      <IconeCafe />
+      Apoiar
+    </Botao>
   );
 }
