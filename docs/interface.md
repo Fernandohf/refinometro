@@ -41,19 +41,31 @@ Ela mostra a arte de cada item, servida pelo próprio Divine Pride a partir do i
 `SlotItem`). Não é enfeite: é o que o jogador reconhece na loja, e "Minério de Oridecon" e
 "Oridecon" são duas linhas seguidas com nomes quase iguais e sprites que não se parecem em nada.
 
-Ela vem em duas partes, porque são duas tarefas diferentes no jogo:
+Cada linha começa pela **quantidade**, em corpo de título e na cor de destaque: é o que se lê de
+relance com a loja aberta, e o nome já se reconhece pela arte ao lado.
 
-- **Comprar no mercado** — só o que se acha à venda. Um item que *também* tem receita ganha um
-  botão informativo com ela: aquele item está aqui porque comprar saiu mais barato que fabricar
-  **pelos preços que você informou**, e essa decisão vira do avesso se o preço mudar amanhã.
-- **Fabricar no balcão do NPC** — cada minério intermediário com a **composição** aberta ao lado,
-  em pastilhas com a arte de cada insumo. O número em destaque é a proporção da receita, não o
-  total: o total de cada insumo já é uma linha da lista acima, e é a proporção que liga os 1.900
-  Minério de Oridecon aos 380 Oridecon do plano.
+Depois da quantidade vem a decisão da linha — **comprar pronto ou fabricar no NPC** —, e quanto a
+via escolhida poupa contra a outra: *economiza 35,5 mi z (51%)*. Onde fabricar ganha, a receita
+abre **aninhada embaixo**, recuada e com fio à esquerda, até o que se acha à venda; onde comprar
+ganha, a economia diz o que a receita custaria a mais. Havia uma segunda seção, "Fabricar no
+balcão do NPC", com os intermediários listados à parte: virou este aninhamento, porque a receita
+não é assunto separado — é o que aquela linha custa quando se escolhe fabricá-la.
 
-O dado vem de `listaDeCompras().fabricacaoAberta`, que inclui as receitas de balcão zerado que
-`fabricacao` omite — transformar 5 Minério de Oridecon em 1 Oridecon é de graça, mas o jogador
-ainda precisa saber que tem de ir ao NPC fazer isso.
+A economia existe porque **o motor decide sozinho e nem sempre o jogador concorda**. O custo é
+cotado pela via mais barata (ver `unitCost`), então a lista seguiria o balcão por qualquer
+diferença — e fabricar 379 Eteridecon significa carregar 1.895 Minério de Oridecon do mercado ao
+NPC, num jogo em que peso é limite e viagem é tempo. A lista mostra as duas coisas na mesma
+linha: o que a viagem rende e o quanto ela é. Poupar 200z carregando mil minérios é decisão de
+quem carrega, não do motor.
+
+O dado vem de `arvoreDeCompras()`, em `src/engine/pricing.ts`: a mesma conta de `listaDeCompras`
+em árvore em vez de achatada, com os dois preços — mercado e receita — guardados em cada nó. Os
+totais das raízes somam exatamente o total da lista achatada, que é o que o diagrama de custo lê;
+se divergissem, dois números da mesma tela deixariam de bater.
+
+O que a árvore perde é a soma de um material que aparece sob dois pais — Pó de Éter entra na
+Pedra de Éter e no Eteridecon, e cada um mostra a sua parte. A vista **por minério**, ao lado, é
+onde o consumo aparece somado.
 
 ---
 

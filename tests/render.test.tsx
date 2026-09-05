@@ -104,7 +104,7 @@ describe('página', () => {
     const orcamento = html.indexOf('Orçamento recomendado');
     const estrategia = html.indexOf('Melhor estratégia');
     const zeny = html.indexOf('Para onde vai o zeny');
-    const compras = html.indexOf('Comprar no mercado');
+    const compras = html.indexOf('Comprar ou fabricar');
     const estoque = html.indexOf('Zeny em caixa');
 
     expect(aviso).toBeGreaterThan(-1);
@@ -176,7 +176,7 @@ describe('página', () => {
     // (ver `useRevelavelPelaBusca`). O que o servidor precisa garantir é que o
     // conteúdo das abas fechadas ESTEJA no HTML.
     expect(html).toContain('role="tabpanel"');
-    expect(html).toContain('Comprar no mercado');
+    expect(html).toContain('Comprar ou fabricar');
     expect(html).toContain('Chance de chegar ao alvo');
   });
 
@@ -329,7 +329,7 @@ describe('página', () => {
     const orcamento = html.indexOf('Orçamento recomendado');
     const sankey = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Lista de compras');
-    const tabela = html.indexOf('Preço un.');
+    const tabela = html.indexOf('Comprar pronto');
 
     expect(orcamento).toBeLessThan(sankey);
     expect(sankey).toBeLessThan(compras);

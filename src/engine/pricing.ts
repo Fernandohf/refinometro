@@ -99,26 +99,6 @@ export interface FabricacaoLinha {
   zeny: number;
 }
 
-/**
- * A mesma fabricação, com a receita aberta: o que entra para sair o minério.
- *
- * `FabricacaoLinha` responde "quanto o balcão cobrou"; esta responde "o que o
- * NPC pede em troca". É o que a lista de compras precisa para mostrar a
- * composição de um item ao lado dele — sem isso, quem lê a lista vê 1.900
- * Minério de Oridecon e não tem como saber que aquilo vira os 380 Oridecon do
- * plano.
- */
-export interface FabricacaoAberta extends FabricacaoLinha {
-  materiais: {
-    itemId: number;
-    nome: string;
-    /** Quantas unidades a receita pede para produzir UMA do item. */
-    porUnidade: number;
-    /** O total consumido: `porUnidade x qtd`. */
-    total: number;
-  }[];
-}
-
 /** A receita de NPC de um item, quando existe uma. */
 export function receitaDe(itemId: number): { zeny: number; materiais: MaterialCost[] } | null {
   return RECIPES.get(itemId) ?? null;
@@ -135,15 +115,6 @@ export interface ListaDeCompras {
    * e uma linha de 0z só ocuparia espaço.
    */
   fabricacao: FabricacaoLinha[];
-  /**
-   * Toda etapa de fabricação, de balcão pago ou não, com a receita aberta.
-   *
-   * É a lista que a tela usa para mostrar a composição de cada minério. Inclui
-   * as receitas de 0z que `fabricacao` omite justamente porque elas existem: o
-   * jogador ainda precisa saber que os 1.900 Minério de Oridecon da lista viram
-   * 380 Oridecon no NPC, mesmo que a transformação seja de graça.
-   */
-  fabricacaoAberta: FabricacaoAberta[];
   /** Compras + balcão do NPC. Não inclui taxa de refino nem itens quebrados. */
   total: number;
 }
@@ -192,32 +163,126 @@ export function listaDeCompras(
     })
     .sort((a, b) => b.total - a.total || b.qtd - a.qtd);
 
-  const fabricacaoAberta: FabricacaoAberta[] = [...fabricados]
-    .map(([itemId, a]) => ({
-      itemId,
-      qtd: a.qtd,
-      zeny: a.zeny,
-      materiais: (RECIPES.get(itemId)?.materiais ?? []).map((mat) => ({
-        itemId: mat.itemId,
-        nome: mat.nome,
-        porUnidade: mat.qtd,
-        total: mat.qtd * a.qtd,
-      })),
-    }))
-    // Pela quantidade fabricada, e não pelo balcão: a de balcão zerado é tão
-    // parte do preparo quanto as outras, e ordenar por zeny a jogaria para o
-    // fim mesmo sendo a maior transformação da lista.
-    .sort((a, b) => b.qtd - a.qtd);
-
   // Só o balcão pago vira linha de custo. Transformar 5 Minério de Oridecon em
   // 1 Oridecon é de graça, e uma linha de 0z no diagrama só ocuparia espaço.
-  const fabricacao: FabricacaoLinha[] = fabricacaoAberta
-    .filter((f) => f.zeny > 0)
-    .map(({ itemId, qtd, zeny }) => ({ itemId, qtd, zeny }))
+  const fabricacao: FabricacaoLinha[] = [...fabricados]
+    .filter(([, a]) => a.zeny > 0)
+    .map(([itemId, a]) => ({ itemId, qtd: a.qtd, zeny: a.zeny }))
     .sort((a, b) => b.zeny - a.zeny);
 
   const total = linhas.reduce((s, l) => s + l.total, 0) + zenyNpc;
-  return { compras: linhas, zenyNpc, fabricacao, fabricacaoAberta, total };
+  return { compras: linhas, zenyNpc, fabricacao, total };
+}
+
+/**
+ * Uma linha da lista de compras com a escolha ainda aberta: comprar pronto ou
+ * fabricar no NPC, e quanto separa uma da outra.
+ *
+ * `listaDeCompras` decide sozinha e entrega o resultado já desmontado — é o que
+ * o orçamento precisa, porque o custo do plano é cotado pela via mais barata.
+ * Mas quem vai ao jogo não paga só zeny: fabricar 1 Oridecon é juntar 5 minérios
+ * de peso alto, e o desconto que o motor viu pode não pagar a viagem a mais.
+ * Esta árvore mantém os DOIS números por linha para a pessoa poder discordar da
+ * conta com conhecimento de causa.
+ */
+export interface ItemDaLista {
+  itemId: number;
+  /** Quantas unidades desta linha — já multiplicadas pela receita, se for insumo. */
+  qtd: number;
+  /** A via mais barata pelos preços informados. É a que o custo do plano usou. */
+  via: Sourcing;
+  /** Custo unitário pela via escolhida. Igual a `unitCost` deste item. */
+  custoUnitario: number;
+  /** O que esta linha custa pela via escolhida: `qtd x custoUnitario`. */
+  total: number;
+  /** Preço unitário de comprar pronto, ou `null` quando ninguém vende. */
+  precoMercado: number | null;
+  /** Custo unitário de fabricar, materiais mais balcão, ou `null` sem receita. */
+  custoFabricado: number | null;
+  /**
+   * O que a via escolhida poupa contra a outra, no total desta linha.
+   *
+   * É o número da decisão: `0` quando não há alternativa nenhuma, e quanto maior,
+   * mais trabalho braçal se paga. Sempre positivo — a via escolhida é a barata.
+   */
+  economia: number;
+  /** O balcão e os insumos, quando fabricar é a via escolhida. */
+  fabricacao: { zenyBalcao: number; insumos: ItemDaLista[] } | null;
+}
+
+/**
+ * A mesma conta de `listaDeCompras`, em árvore em vez de achatada.
+ *
+ * As raízes são os minérios que o plano consome — os mesmos nomes que aparecem
+ * na tabela por minério —, e cada uma que vale a pena fabricar abre embaixo o
+ * que o NPC pede em troca, recursivamente até o que se acha à venda. Somar os
+ * totais das raízes dá exatamente o `total` da lista achatada: as duas leem a
+ * mesma decisão de `unitCost`, só que uma esconde os degraus e a outra os mostra.
+ *
+ * O que se perde em relação à lista achatada é a soma de um material que
+ * aparece sob dois pais (Pó de Éter entra na Pedra de Éter e no Eteridecon);
+ * o que se ganha é saber, a cada linha, quanto minério a economia custa em
+ * viagem.
+ */
+export function arvoreDeCompras(
+  itens: Record<number, number>,
+  precos: PriceTable,
+): ItemDaLista[] {
+  const memo = new Map<number, number>();
+
+  const no = (itemId: number, qtd: number, profundidade: number): ItemDaLista => {
+    const mercado = precos[itemId];
+    const precoMercado = mercado && mercado > 0 ? mercado : null;
+
+    const receita = RECIPES.get(itemId);
+    let custoFabricado: number | null = null;
+    if (receita) {
+      let craft = receita.zeny;
+      for (const mat of receita.materiais) {
+        const c = unitCost(mat.itemId, precos, memo);
+        if (!Number.isFinite(c)) {
+          craft = Infinity;
+          break;
+        }
+        craft += c * mat.qtd;
+      }
+      custoFabricado = Number.isFinite(craft) ? craft : null;
+    }
+
+    // A mesma decisão de `sourcingOf`, com os dois números já em mãos — e a
+    // mesma trava de profundidade de `listaDeCompras` contra receita cíclica.
+    const fabricar =
+      custoFabricado !== null &&
+      profundidade <= 8 &&
+      (precoMercado === null || custoFabricado < precoMercado);
+
+    const custoUnitario = fabricar ? custoFabricado! : (precoMercado ?? Infinity);
+    const alternativa = fabricar ? precoMercado : custoFabricado;
+
+    return {
+      itemId,
+      qtd,
+      via: fabricar ? 'npc' : precoMercado !== null ? 'mercado' : 'indisponivel',
+      custoUnitario,
+      total: custoUnitario * qtd,
+      precoMercado,
+      custoFabricado,
+      economia: alternativa === null ? 0 : (alternativa - custoUnitario) * qtd,
+      fabricacao: fabricar
+        ? {
+            zenyBalcao: receita!.zeny * qtd,
+            insumos: receita!.materiais
+              .map((mat) => no(mat.itemId, mat.qtd * qtd, profundidade + 1))
+              .sort((a, b) => b.total - a.total),
+          }
+        : null,
+    };
+  };
+
+  return Object.entries(itens)
+    .filter(([, qtd]) => qtd > 0)
+    .map(([id, qtd]) => no(Number(id), qtd, 0))
+    .sort((a, b) => b.total - a.total || b.qtd - a.qtd);
 }
 
 /** Custo de uma unidade de minério, pela via mais barata. */

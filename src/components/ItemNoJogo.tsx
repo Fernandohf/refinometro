@@ -1,12 +1,8 @@
-import type { ReactNode } from 'react';
-
 import type { Grade } from '../data/grade';
-import { nomeDoItem } from '../data/nomes';
 import { COR_GRAU, nomeNoJogo, rotuloCurto } from '../data/rotulos';
 import type { ItemKind } from '../data/ores';
 import { fichaNoDivinePride } from '../data/items';
-import { quantidade, zeny, zenyExato } from '../format';
-import { Pastilha } from './ui';
+import { zeny, zenyExato } from '../format';
 
 /**
  * Arte do item, servida pelo próprio Divine Pride.
@@ -57,70 +53,6 @@ export function SlotItem({
         />
       )}
     </span>
-  );
-}
-
-/**
- * Um material com a arte ao lado do nome.
- *
- * Uma lista de compras escrita só em nomes obriga a traduzir cada linha antes
- * de procurar o item no jogo — e "Minério de Oridecon" e "Oridecon" são duas
- * linhas seguidas com nomes quase iguais e sprites que não se parecem em nada.
- * A arte é o que o jogador reconhece na loja; o nome é o que ele confere.
- */
-export function ItemComArte({
-  itemId,
-  nome,
-  apoio,
-}: {
-  itemId: number;
-  /** Sobrescreve o nome do catálogo, quando a linha precisa dizer outra coisa. */
-  nome?: ReactNode;
-  /** Segunda linha, menor: o preço unitário, a via de obtenção. */
-  apoio?: ReactNode;
-}) {
-  return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      <SlotItem id={itemId} />
-      <span className="min-w-0">
-        <span className="md-corpo-m block font-medium text-texto">{nome ?? nomeDoItem(itemId)}</span>
-        {apoio && <span className="md-corpo-p block text-suave">{apoio}</span>}
-      </span>
-    </span>
-  );
-}
-
-/**
- * A composição de um item: o que o NPC pede em troca de uma unidade dele.
- *
- * Cada insumo vira uma pastilha com a própria arte, e não uma linha de texto,
- * porque a pergunta que ela responde é de relance — "isto aqui vira aquilo
- * ali" — e porque uma receita de três insumos numa frase corrida some no meio
- * do resto da lista.
- *
- * O número em destaque é a PROPORÇÃO da receita, não o total: o total de cada
- * insumo já é uma linha da lista de compras logo acima, e repeti-lo aqui só
- * duplicaria o que a pessoa vai comprar. A proporção é o que explica a linha —
- * é ela que liga os 1.900 Minério de Oridecon aos 380 Oridecon do plano.
- */
-export function Composicao({
-  materiais,
-}: {
-  materiais: { itemId: number; nome: string; porUnidade: number; total: number }[];
-}) {
-  return (
-    <ul className="flex flex-wrap items-center gap-1.5">
-      {materiais.map((m) => (
-        <li key={m.itemId}>
-          <Pastilha titulo={`${quantidade(m.total)} no total desta campanha`}>
-            <SlotItem id={m.itemId} tamanho="mini" />
-            <span className="tabular-nums">{m.porUnidade}x</span>
-            <span className="font-normal">{m.nome}</span>
-            <span className="tabular-nums opacity-60">({quantidade(m.total)})</span>
-          </Pastilha>
-        </li>
-      ))}
-    </ul>
   );
 }
 
