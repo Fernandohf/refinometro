@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-import { FAQ, PAGINAS } from '../data/seo';
+import { FAQ, PAGINAS, PERGUNTA_DAS_FONTES } from '../data/seo';
+import { Fontes } from './Fontes';
 import { BotaoDoPainel } from './ui';
 
 /**
@@ -12,7 +13,7 @@ import { BotaoDoPainel } from './ui';
  * ainda não fez — ela vê um orçamento pronto de um item que não escolheu.
  *
  * O parágrafo de abertura fica à vista e as respostas ficam atrás do botão,
- * pelo mesmo motivo do rodapé: é texto para ser lido uma vez, e sete respostas
+ * pelo mesmo motivo do rodapé: é texto para ser lido uma vez, e oito respostas
  * abertas empurrariam a calculadora para longe de quem já sabe usá-la. Fechado,
  * o conteúdo continua no documento — encontrável pelo Ctrl+F e lido pelo
  * rastreador, que renderiza a página antes de indexá-la.
@@ -20,6 +21,13 @@ import { BotaoDoPainel } from './ui';
  * O texto vem de `data/seo.ts`, e não daqui, porque as mesmas respostas são
  * declaradas ao buscador como dados estruturados. Duas cópias divergiriam, e a
  * cópia errada seria justamente a que o Google mostra.
+ *
+ * A proveniência dos números é uma destas perguntas, e não uma seção à parte:
+ * ela tinha rodapé próprio, com título e botão de abrir só seu, logo abaixo
+ * daqui — dois blocos recolhidos em sequência respondendo ao mesmo tipo de
+ * dúvida. Quem quer saber de onde vêm os números procura na lista de
+ * perguntas; ter uma segunda lista embaixo só fazia a primeira parecer
+ * incompleta.
  */
 export function Sobre() {
   const [aberto, setAberto] = useState(false);
@@ -44,7 +52,10 @@ export function Sobre() {
         {FAQ.map((f) => (
           <div key={f.pergunta}>
             <dt className="md-corpo-m font-semibold text-texto">{f.pergunta}</dt>
-            <dd className="mt-0.5">{f.resposta}</dd>
+            <dd className="mt-0.5">
+              {f.resposta}
+              {f.pergunta === PERGUNTA_DAS_FONTES && <Fontes />}
+            </dd>
           </div>
         ))}
       </dl>

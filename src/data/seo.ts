@@ -62,6 +62,17 @@ export const SITE = {
  * ainda não sabe que a página existe. Resposta em texto puro, uma ideia por
  * frase, porque ela é lida em dois lugares — na tela e no resultado da busca.
  */
+/**
+ * A pergunta cuja resposta a tela AMPLIA, em vez de só exibir.
+ *
+ * A resposta aqui é texto puro, como todas — é ela que vai ao buscador. Mas a
+ * proveniência tem link para cada fonte e ressalvas que não cabem numa frase,
+ * e isso desce logo abaixo dela na tela (ver `components/Fontes.tsx`). O nome
+ * da pergunta é a costura entre os dois arquivos: comparar strings soltas
+ * quebraria calado no dia em que alguém reescrevesse a pergunta.
+ */
+export const PERGUNTA_DAS_FONTES = 'De onde vêm os números?';
+
 export const FAQ: readonly { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'O que é o Refinômetro?',
@@ -114,6 +125,15 @@ export const FAQ: readonly { pergunta: string; resposta: string }[] = [
       'São um retrato recente do mercado de lojas de jogador do LATAM, não uma tabela do ' +
       'jogo. Eles servem de ponto de partida: a cotação que entra na conta é a sua, e o ' +
       'orçamento só vale o que valerem os preços que você colocar.',
+  },
+  {
+    pergunta: PERGUNTA_DAS_FONTES,
+    resposta:
+      'Nenhum número da tela é do projeto. As chances de refino e de grau vêm da divulgação ' +
+      'oficial da GNJOY Americas; os minérios, as penalidades de falha e os custos de NPC vêm ' +
+      'do Browiki; os itens vêm do Divine Pride no servidor LATAM; e a taxa do refinador foi ' +
+      'conferida no balcão do NPC, categoria por categoria. Os preços são seus. É um projeto ' +
+      'de fã, sem vínculo com a Gravity.',
   },
 ];
 

@@ -40,6 +40,14 @@ ao Google como dados estruturados de FAQ **e** exibidas na tela por
 mostrar outra na página é o que o próprio Google chama de conteúdo enganoso — e a punição não
 vem com aviso. Com um arquivo só, não há como divergirem.
 
+Uma das perguntas é ampliada na tela: **"De onde vêm os números?"** tem a resposta em texto puro
+como todas — é ela que vai ao buscador —, e logo abaixo dela
+[`components/Fontes.tsx`](../src/components/Fontes.tsx) desce a tabela de créditos, com link
+para cada fonte e as ressalvas do que a conta não considera. A costura entre os dois arquivos é
+`PERGUNTA_DAS_FONTES`, exportada do `seo.ts`: reescrever a pergunta num lugar sem o outro
+quebraria calado. Isto foi um rodapé separado, com título e botão de abrir só seu, logo abaixo
+das perguntas — dois blocos recolhidos em sequência respondendo à mesma dúvida.
+
 ## O que está no `<head>`, e por quê
 
 | O quê | Para quê |

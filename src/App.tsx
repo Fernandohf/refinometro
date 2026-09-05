@@ -1,6 +1,6 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
-import { COTACAO, DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
+import { DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
 import { GRADE_ORDER, type Grade } from './data/grade';
 import type { ItemKind } from './data/ores';
 import { CATEGORIAS, ROTULO_GRAU } from './data/rotulos';
@@ -14,9 +14,8 @@ import { Resultado, type MargemKey } from './components/Resultado';
 import { ESTOQUE_VAZIO, SimuladorDeEstoque, type EstoqueSalvo } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { Sobre } from './components/Sobre';
-import { META } from './data/items';
+import { Apoie, LinkDeApoio } from './components/Apoie';
 import {
-  BotaoCafe,
   BotaoDoPainel,
   Campo,
   Info,
@@ -28,7 +27,7 @@ import {
 } from './components/ui';
 import { SlotItem } from './components/ItemNoJogo';
 import { rotuloDoAlvo, TrilhaRefino } from './components/TrilhaRefino';
-import { dataBR, zeny } from './format';
+import { zeny } from './format';
 
 interface Estado {
   /** Nome do item escolhido na busca, só para exibição. */
@@ -215,7 +214,7 @@ export default function App() {
         <title>. Um nome inventado como título de uma página que ninguém
         procura pelo nome é o jeito mais fácil de não ser encontrado.
       */}
-      <header className="mb-8">
+      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <h1 className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="md-titulo-g text-2xl">
             Refinô<span className="text-realce">metro</span>
@@ -224,6 +223,12 @@ export default function App() {
             Calculadora e simulador de custo de refino do Ragnarok Latam.
           </span>
         </h1>
+        {/* FORA do <h1>, e é o ponto: dentro dele, o título da página passaria a
+            ser "Refinômetro … ☕ Apoiar" para o buscador e para quem navega por
+            cabeçalhos. Aqui é irmão do título, empurrado para a borda direita
+            pelo `justify-between` e caindo para a linha de baixo na tela
+            estreita, onde não há borda direita para onde ir. */}
+        <LinkDeApoio />
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
@@ -412,6 +417,7 @@ export default function App() {
           ) : null}
 
           <Sobre />
+          <Apoie />
           <Rodape />
         </div>
       </div>
@@ -598,178 +604,28 @@ const DESTAQUES = [
   { itemId: 6635, nome: 'Bênção do Ferreiro' },
 ];
 
-/** Uma fonte da tabela de créditos: o que ela fornece e de onde. */
-function Fonte({
-  o_que,
-  href,
-  nome,
-  children,
-}: {
-  o_que: string;
-  /** Ausente quando a fonte não é um site — o próprio usuário, por exemplo. */
-  href?: string;
-  nome: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="grid gap-x-3 gap-y-0.5 sm:grid-cols-[10rem_minmax(0,1fr)]">
-      <dt className="font-semibold text-texto">{o_que}</dt>
-      <dd>
-        {href ? (
-          <a
-            className="text-realce hover:underline"
-            href={href}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            {nome}
-          </a>
-        ) : (
-          <strong className="text-texto">{nome}</strong>
-        )}
-        {children}
-      </dd>
-    </div>
-  );
-}
-
 /**
- * Créditos e ressalvas, recolhidos.
+ * O fecho da página: a licença de quem a fez, e nada mais.
  *
- * Este era o trecho mais longo da página: cinco parágrafos de proveniência que
- * ninguém lê duas vezes, sob o resultado que todo mundo lê sempre. Recolhê-lo
- * não é escondê-lo — o conteúdo continua no documento, encontrável pelo Ctrl+F
- * e pelos buscadores, e a linha que fica à vista já nomeia as três fontes. O
- * que some é o rolar.
+ * Era daqui que saíam as fontes e as ressalvas, atrás de um botão de abrir só
+ * seu, logo abaixo das perguntas frequentes — dois blocos recolhidos em
+ * sequência respondendo à mesma dúvida. A proveniência virou uma das perguntas
+ * (ver `components/Fontes.tsx`) e o pedido de apoio virou bloco próprio (ver
+ * `components/Apoie.tsx`); o que sobra aqui é a linha que todo rodapé tem.
  */
 function Rodape() {
-  const [aberto, setAberto] = useState(false);
-
   return (
-    <footer className="md-corpo-p mt-6 rounded-2xl bg-superficie-baixa p-4 text-suave">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <h2 className="md-rotulo-p text-texto">De onde vêm os números</h2>
-        <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
-          {aberto ? 'esconder' : 'ver fontes e ressalvas'}
-        </BotaoDoPainel>
-      </div>
-
-      <p className="mt-1.5">
-        Chances da divulgação oficial do servidor, minérios do Browiki, itens do Divine Pride
-        (LATAM), taxas conferidas no balcão do NPC. Os preços são seus. Projeto de fã, sem
-        vínculo com a Gravity.
-      </p>
-
-      <div hidden={!aberto} className="mt-4 space-y-4">
-      <section>
-        <p className="mb-3">
-          O alvo é o <strong className="text-texto">Ragnarok Latin America</strong>, e as fontes
-          seguem essa ordem: a divulgação de chances da GNJOY Americas, que é a operadora do
-          servidor; o Browiki, que é o wiki do LATAM; o Divine Pride no servidor LATAM, que é
-          datamine do cliente do jogo; e, só onde nenhum dos três diz nada, o que der para
-          conferir no jogo — ou um wiki de fora, sempre marcado como não confirmado por aqui.
-        </p>
-        <dl className="space-y-2">
-          <Fonte
-            o_que="Chances de refino e de grau"
-            href="https://ro.gnjoyamericas.com/pt/news/probability/2"
-            nome="GNJOY Americas — Refinamento"
-          >
-            {' '}
-            e{' '}
-            <a
-              className="text-realce hover:underline"
-              href="https://ro.gnjoyamericas.com/pt/news/probability/27"
-            >
-              GNJOY Americas — Grau
-            </a>
-            . É a <strong className="text-texto">divulgação oficial da operadora</strong>: a chance
-            de cada nível, com e sem evento, e quais minérios servem a cada categoria. É ela que diz
-            que o grau só existe a partir do +11.
-          </Fonte>
-
-          <Fonte
-            o_que="Minérios e custos de NPC"
-            href="https://browiki.org/wiki/Refinamento"
-            nome="Browiki — Refinamento"
-          >
-            {' '}
-            e{' '}
-            <a className="text-realce hover:underline" href="https://browiki.org/wiki/Grau">
-              Browiki — Grau
-            </a>
-            . A página oficial publica chances, não custos: as penalidades de falha e o que o NPC
-            cobra pelos materiais vêm do wiki do LATAM. Onde a ficha do item no jogo contradiz o
-            Browiki sobre o que um minério faz, vale a ficha — e o plano avisa no trecho em que
-            isso muda o número.
-          </Fonte>
-
-          <Fonte
-            o_que="Taxa do refinador"
-            href="https://ro.gnjoylatam.com/"
-            nome="o balcão do NPC"
-          >
-            {' '}
-            — ninguém publica quanto o refinador cobra por tentativa, então as{' '}
-            <strong className="text-texto">nove categorias foram conferidas no jogo</strong>: de
-            1.000z na arma nv1 a 75.000z na arma nv5, sempre a mesma taxa em qualquer refino até o
-            +9. Nas armas, minério de Cash Shop sai por 0z; nos equipamentos, não — lá o
-            Enriquecido paga a taxa cheia. Do{' '}
-            <strong className="text-texto">+10 para cima a taxa não foi conferida</strong>, e a
-            conta assume que ela continua a mesma.
-          </Fonte>
-
-          <Fonte
-            o_que="Itens da busca"
-            href={META.fonte}
-            nome={`Divine Pride — servidor ${META.servidor}`}
-          >
-            {' '}
-            — nome, cartas e categoria de refino de{' '}
-            <strong className="text-texto">{META.total.toLocaleString('pt-BR')}</strong> itens,
-            varridos das páginas públicas em {dataBR(META.geradoEm)}. A
-            calculadora usa a ficha só para saber a categoria; o que ela afirma sobre um item pode
-            ser conferido clicando no link da ficha.
-          </Fonte>
-
-          <Fonte
-            o_que="Preços de mercado"
-            href={COTACAO.fonte}
-            nome={`Consulta de preço — servidor ${COTACAO.servidor}`}
-          >
-            {' '}
-            — o que as lojas de jogador cobraram, em{' '}
-            <strong className="text-texto">{COTACAO.janela}</strong>, por{' '}
-            <strong className="text-texto">{COTACAO.total}</strong> materiais. Atualizado em{' '}
-            {dataBR(COTACAO.geradoEm)}. É só o valor de partida do campo:{' '}
-            <strong className="text-texto">a cotação que entra na conta é a sua</strong>, e o
-            resultado só vale o que valerem os preços que você colocar.
-          </Fonte>
-        </dl>
-      </section>
-
-      <p>
-        <strong className="text-texto">O que a calculadora não considera:</strong> cartas nos itens.
-        Também não considera encantamentos, bônus aleatórios, nem Pergaminhos, Cubos e Martelos de
-        Refino — que pulam direto para um refino fixo em vez de tentar.
-      </p>
-      <p>
-        Projeto de fã, sem vínculo com a Gravity, a GNJOY Latam ou o Divine Pride. Tudo aqui é do
-        Ragnarok Latin America; se o seu servidor rodar valores diferentes, o resultado sai
-        diferente.
-      </p>
-      </div>
-
-      {/*
-        Fora do trecho recolhido, e de propósito: lá dentro é proveniência, que se
-        consulta uma vez; isto é um pedido, e pedido escondido não é pedido. Fica
-        no fim de tudo, depois das ressalvas, para não cobrar nada de quem veio
-        pela conta.
-      */}
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <p>Sem anúncio, sem cadastro e sem custo. Se a conta te poupou zeny:</p>
-        <BotaoCafe href="https://buymeacoffee.com/fernandohf">Me pague um café</BotaoCafe>
-      </div>
+    <footer className="md-corpo-p mt-6 px-1 text-suave">
+      Projeto de fã, de código aberto, sem vínculo com a Gravity ou a GNJOY Latam.{' '}
+      <a
+        className="text-realce hover:underline"
+        href="https://github.com/Fernandohf/refinometro"
+        target="_blank"
+        rel="noreferrer noopener"
+      >
+        Código no GitHub
+      </a>
+      .
     </footer>
   );
 }
