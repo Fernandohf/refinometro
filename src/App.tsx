@@ -9,9 +9,9 @@ import type { PedidoSimulacao, RespostaSimulacao } from './engine/worker';
 import { maxRefine, riscoPorAlvo, safeLimit } from './engine/refine';
 import { suportaGrau } from './engine/grade';
 import type { CalcInput, PriceTable } from './engine/types';
-import type { Estoque } from './engine/estoque';
+
 import { Resultado, type MargemKey } from './components/Resultado';
-import { ESTOQUE_VAZIO, SimuladorDeEstoque } from './components/Estoque';
+import { ESTOQUE_VAZIO, SimuladorDeEstoque, type EstoqueSalvo } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { Sobre } from './components/Sobre';
 import { META } from './data/items';
@@ -106,11 +106,11 @@ function carregar(): Estado {
   }
 }
 
-function carregarEstoque(): Estoque {
+function carregarEstoque(): EstoqueSalvo {
   try {
     const bruto = localStorage.getItem(CHAVE_ESTOQUE);
     if (!bruto) return ESTOQUE_VAZIO;
-    return { ...ESTOQUE_VAZIO, ...(JSON.parse(bruto) as Partial<Estoque>) };
+    return { ...ESTOQUE_VAZIO, ...(JSON.parse(bruto) as Partial<EstoqueSalvo>) };
   } catch {
     return ESTOQUE_VAZIO;
   }
@@ -119,7 +119,7 @@ function carregarEstoque(): Estoque {
 export default function App() {
   const [e, setE] = useState<Estado>(carregar);
   const set = <K extends keyof Estado>(k: K, v: Estado[K]) => setE((a) => ({ ...a, [k]: v }));
-  const [estoque, setEstoque] = useState<Estoque>(carregarEstoque);
+  const [estoque, setEstoque] = useState<EstoqueSalvo>(carregarEstoque);
 
   useEffect(() => {
     localStorage.setItem(CHAVE_STORAGE, JSON.stringify(e));

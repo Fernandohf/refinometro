@@ -10,9 +10,53 @@
   - Usuário coloca a quantidade que possui de cada minérios necessário ou o zeny, ver suas chances de chegar no refino/grau desejado
   - Feito: painel "Dá com o que eu tenho?" (`src/components/Estoque.tsx`), com a conta em
     `src/engine/estoque.ts`. Não é uma simulação nova — a de sempre passou a guardar 5 mil
-    execuções cruas (`AmostrasCampanha`) e o veredito relê essas campanhas, abatendo do custo o que o estoque cobre; por isso a chance responde a cada tecla sem o Worker rodar de novo. Os percentis não serviriam: são marginais, e faltar minério e faltar zeny na mesma campanha não é a soma dos dois azares. Os campos listam só os materiais que o plano usa, já
-    desmontados até o que se compra (Oridecon, não Bradium), com o mínimo da campanha mais
-    sortuda ao lado. Travado por testes em `tests/engine.test.ts` (describe 'simular com o que já se tem') e `tests/render.test.tsx`.
+    execuções cruas (`AmostrasCampanha`) e o veredito relê essas campanhas; por isso a chance
+    responde a cada tecla sem o Worker rodar de novo. Os percentis não serviriam: são marginais, e
+    faltar minério e faltar zeny na mesma campanha não é a soma dos dois azares. Os campos listam
+    só os materiais que o plano usa, já desmontados até o que se compra (Oridecon, não Bradium).
+    Travado por testes em `tests/engine.test.ts` (describe 'simular com o que já se tem') e
+    `tests/render.test.tsx`.
+- [x] Refazer a aba "Dá com o que tenho?": preenchida sozinha, ajustável em passos, e com o zeny
+      pagando só as taxas.
+  - **O zeny deixou de comprar minério.** Era a hipótese que o painel herdara do orçamento — o que
+    faltasse na mochila virava compra, abatida do caixa —, e ela respondia "100%" para quem tem
+    muito zeny e mochila vazia. Verdade para quem pode voltar ao mercado no meio da campanha, e a
+    pergunta do painel é justamente a de quem não pode. Agora cada recurso é uma restrição própria:
+    o caixa paga só o que não se carrega (taxa do refinador, taxa de Grau, balcão do NPC), e essa
+    parcela é isolada por execução em `zenyPuro` — o custo menos o preço de tudo o que é material.
+    Consequência de projeto: `estoqueMinimo` e `materialParaChance` saíram, porque os dois eram a
+    mesma equação de substituição resolvida para lados opostos, e sem substituição não há equação.
+  - **A aba abre preenchida.** Escolhida a chance (10% a 99%), `estoqueRecomendado` bisecciona o
+    quantil comum em que a mochila inteira fecha aquela fração das campanhas. O percentil de cada
+    recurso lido em separado não serve, e o número mede o tamanho do erro: no `w4` +0 → +12, pedir
+    50% pelos marginais entrega 14,6%. A conta está em `docs/matematica.md` §9.3 e os números saem
+    de `npx vite-node scripts/estoque-numeros.ts`.
+  - O preenchimento é **derivado no render**, não um efeito: num `useEffect` o primeiro quadro
+    apareceria vazio, e o render de servidor (que os testes usam) nunca preencheria. O que decide
+    repor é uma assinatura da pergunta — item, alvo, condições, chance mirada e lista de materiais.
+    Preço fica de fora de propósito: quem ajusta o preço do Elunium não quer ver as quantidades que
+    digitou sumirem a cada tecla.
+  - Quantidade discreta se ajusta em passos (`NumeroComPasso`), com o passo tirado da ordem de
+    grandeza do campo e repetição enquanto o botão fica pressionado. A primeira versão andava uma
+    casa só por mais que se segurasse: o timer repetia o fecho do primeiro disparo, que somava
+    sempre sobre o mesmo valor de partida.
+  - **Onde a campanha para**, abaixo de 50% de chance. Um número baixo não diz se o problema é o
+    último degrau ou o terceiro, e é essa diferença que decide entre comprar mais minério e
+    escolher outro alvo. A simulação passou a guardar o *caminho*, e não só o destino: o consumo
+    acumulado em cada marco — cada degrau alcançado pela primeira vez, cada grau conquistado. Como
+    o consumo só cresce, o ponto de parada é o primeiro marco em que algum recurso passa do que se
+    tem, e quem chega lá primeiro é o culpado. No último marco o acumulado é o total, então a
+    fração que trava é o complemento exato da chance (docs/matematica.md §9.5, Proposição 9.2) —
+    as duas divergem só pela amostra, porque a trajetória é uma matriz por execução e é guardada
+    para mil campanhas, não cinco mil.
+  - Duas coisas que a primeira versão errava: contar como avanço a reconquista de um refino
+    perdido (a campanha "progredia" a cada azar, e o re-refino do item de reposição contava duas
+    vezes), e desenhar a trilha sem separar as fases — num alvo com grau o `+11` do preparo
+    encostava no `+1` do refino seguinte como se fossem degraus vizinhos.
+  - Abaixo do consumo da campanha mais sortuda o campo fica vermelho e diz de quanto precisa —
+    ali a resposta deixa de ser "improvável" e passa a ser "sem caminho". Como o campo em erro e o
+    campo em foco disputavam a mesma utilidade de cor de borda, a pele de erro virou uma constante
+    à parte: duas utilidades iguais não se resolvem pela ordem no `className`.
 - [x] Remover o banco de base dos itens e, ao vivo, pesquisar usando o parser os resultados do
       divine pride dados a entrada do usuário.
   - Feito ao contrário do enunciado, e de propósito: a base ficou, mas deixou de ser curada à

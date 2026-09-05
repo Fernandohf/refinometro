@@ -45,24 +45,51 @@ describe('página', () => {
     expect(html).toContain('rel="noreferrer noopener"');
   });
 
-  it('abre o simulador de estoque com o que ficou salvo', () => {
-    // Estoque salvo => o painel já vem aberto, com os campos do plano atual.
+  it('abre o simulador de estoque já preenchido com o recomendado', () => {
+    // O estoque salvo é de outra pergunta (sem assinatura), então a tela repõe
+    // os valores da campanha atual. E repõe DURANTE o render, não num efeito:
+    // é por isso que o preenchimento aparece aqui, onde efeito nenhum roda.
     localStorage.setItem(
       'refinometro:estoque:v1',
-      JSON.stringify({ zeny: 500_000_000, itens: { 984: 300 }, copias: 2 }),
+      JSON.stringify({ zeny: 1, itens: { 984: 1 }, copias: 1 }),
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:estoque:v1');
 
     expect(html).toContain('Dá com o que eu tenho?');
     expect(html).toContain('Chance de chegar ao alvo');
-    expect(html).toContain('Zeny em caixa');
+    expect(html).toContain('Zeny para as taxas');
     expect(html).toContain('Quero chegar com');
-    expect(html).toContain('preencher mochila e caixa');
-    expect(html).toContain('só o material, com o meu zeny');
+    expect(html).toContain('Tudo abaixo está no recomendado para essa chance');
+    // Preenchido de verdade: nada em vermelho, e nenhum campo no zero.
+    expect(html).not.toContain('impossível abaixo de');
+    expect(html).not.toContain('aria-invalid="true"');
     // Os campos são os materiais que se compra, não o minério fabricado.
     expect(html).toContain('Oridecon');
     expect(html).not.toContain('mín. 0');
+    // Quantidade discreta se ajusta em passos, não só digitando — e o passo
+    // acompanha a ordem de grandeza do campo, então vem no rótulo do botão.
+    expect(html).toContain('Zeny para as taxas: mais ');
+    expect(html).toContain('Cópias do item: menos 1');
+    expect(html).toMatch(/aria-label="Oridecon[^"]*: mais \d/);
+    // No recomendado a chance passa de 50%, e aí "onde eu travo?" é curiosidade
+    // sobre a minoria azarada — o bloco não aparece.
+    expect(html).not.toContain('Onde a campanha para');
+  });
+
+  it('mostra onde a campanha para quando a chance é baixa', () => {
+    // Mirar 10% é pedir o estoque da aposta barata, e a chance cai junto: aí a
+    // pergunta deixa de ser "dá?" e passa a ser "onde eu travo, e por causa de
+    // quê?". Sai do próprio preenchimento, sem estoque forjado.
+    localStorage.setItem('refinometro:estoque:v1', JSON.stringify({ alvo: 0.1 }));
+    const html = renderToString(<App />);
+    localStorage.removeItem('refinometro:estoque:v1');
+
+    expect(html).toContain('Onde a campanha para');
+    expect(html).toContain('Acaba primeiro');
+    expect(html).toContain('Das que travam');
+    // A frase do meio nomeia o ponto de parada, não só uma porcentagem.
+    expect(html).toMatch(/Metade das campanhas que não fecham para até/);
   });
 
   it('renderiza sem estourar e já mostra um orçamento', () => {
@@ -105,7 +132,7 @@ describe('página', () => {
     const estrategia = html.indexOf('Melhor estratégia');
     const zeny = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Comprar ou fabricar');
-    const estoque = html.indexOf('Zeny em caixa');
+    const estoque = html.indexOf('Zeny para as taxas');
 
     expect(aviso).toBeGreaterThan(-1);
     expect(aviso).toBeLessThan(orcamento);

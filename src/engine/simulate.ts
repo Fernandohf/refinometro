@@ -48,6 +48,36 @@ export interface AmostrasCampanha {
   consumo: Float64Array;
   /** Quantas execuções estão guardadas aqui — nem sempre todas as simuladas. */
   execucoes: number;
+  /** Os pontos de progresso da campanha, na ordem em que ela os atravessa. */
+  marcos: Marco[];
+  /**
+   * Consumo acumulado em cada marco: `progresso[(m * itens + i) * execucoesMarcos + n]`.
+   *
+   * O total já diz *se* o estoque dá; isto diz **até onde** ele leva. São as
+   * mesmas execuções, fotografadas no caminho em vez de só no fim.
+   */
+  progresso: Float64Array;
+  /** Custo acumulado em cada marco: `[m * execucoesMarcos + n]`. */
+  progressoCusto: Float64Array;
+  /** Quebras acumuladas em cada marco: `[m * execucoesMarcos + n]`. */
+  progressoQuebras: Float64Array;
+  /** Execuções guardadas no progresso — bem menos que `execucoes`, ver `MAX_MARCOS_GUARDADOS`. */
+  execucoesMarcos: number;
+}
+
+/**
+ * Um ponto de progresso da campanha: o item chegou aqui pela primeira vez.
+ *
+ * Só a **primeira** chegada conta. A campanha sobe e desce o mesmo degrau
+ * dezenas de vezes, e o que interessa é o avanço — o ponto mais longe que ela
+ * alcançou com o que já gastou.
+ */
+export interface Marco {
+  /** Rótulo curto: `+9`, `Grau C`. */
+  rotulo: string;
+  /** A fase a que ele pertence, para a tela dizer de que trecho se trata. */
+  faseRotulo: string;
+  tipo: 'refino' | 'grau';
 }
 
 /** Gerador determinístico (mulberry32) — mesma entrada, mesmo resultado na tela. */
@@ -110,6 +140,17 @@ const MAX_TENTATIVAS_PADRAO = 4_000_000;
  * Worker a cada cálculo.
  */
 const MAX_AMOSTRAS_GUARDADAS = 5_000;
+
+/**
+ * Execuções guardadas com o progresso marco a marco.
+ *
+ * São bem menos que as 5 mil do consumo total, e de propósito: esta amostra é
+ * uma matriz (marcos × materiais) por execução, não um vetor, e a pergunta que
+ * ela responde é grossa — "até onde eu chego", em degraus de refino. Mil
+ * execuções dão a esse quartil um erro de ~1,5 ponto percentual, muito abaixo
+ * da largura de um degrau.
+ */
+const MAX_MARCOS_GUARDADOS = 1_000;
 
 /**
  * Execuções entre duas checagens do relógio, e teto de tentativas entre elas.
@@ -271,6 +312,27 @@ export function simulateCampaign(
   const consumo = new Float64Array(nItens * execucoes);
   const contagem = new Float64Array(nItens);
 
+  // Os pontos de progresso, na ordem em que a campanha os atravessa: um por
+  // degrau de refino de cada fase, e um por grau conquistado. É a mesma lista
+  // que a tela lê para dizer onde o estoque acabou.
+  const marcos: Marco[] = [];
+  for (const fase of fases) {
+    if (fase.tipo === 'refino') {
+      for (let r = fase.de + 1; r <= fase.para; r++) {
+        marcos.push({ rotulo: `+${r}`, faseRotulo: fase.rotulo, tipo: 'refino' });
+      }
+    } else {
+      const para = fase.plano.step.para;
+      marcos.push({ rotulo: `Grau ${para}`, faseRotulo: fase.rotulo, tipo: 'grau' });
+    }
+  }
+
+  const nMarcos = marcos.length;
+  const marcosGuardados = Math.min(execucoes, MAX_MARCOS_GUARDADOS);
+  const progresso = new Float64Array(nMarcos * nItens * marcosGuardados);
+  const progressoCusto = new Float64Array(nMarcos * marcosGuardados);
+  const progressoQuebras = new Float64Array(nMarcos * marcosGuardados);
+
   const precoItem = opts.precoItem;
   const refinoReposicao = opts.refinoReposicao;
 
@@ -300,11 +362,37 @@ export function simulateCampaign(
     let taxa = 0;
     let quebrou = 0;
     let tentativas = 0;
+    // Quantos marcos esta execução já atravessou. Eles vêm sempre na mesma
+    // ordem — as fases correm em sequência e, dentro de uma, o refino só é
+    // alcançado pela primeira vez em ordem crescente —, então um contador só
+    // basta para saber qual é o próximo.
+    let marcosFeitos = 0;
 
-    /** Percorre um trecho de refino até chegar em `trilha.para`. */
-    const rodar = (trilha: Trilha, inicio: number) => {
+    const guardaMarcos = n < marcosGuardados;
+
+    /** Fotografa o consumo acumulado no marco que acabou de ser alcançado. */
+    const marcar = () => {
+      const m = marcosFeitos++;
+      if (!guardaMarcos) return;
+      for (let k = 0; k < nItens; k++) {
+        progresso[(m * nItens + k) * marcosGuardados + n] = contagem[k]!;
+      }
+      progressoCusto[m * marcosGuardados + n] = zeny;
+      progressoQuebras[m * marcosGuardados + n] = quebrou;
+    };
+
+    /**
+     * Percorre um trecho de refino até chegar em `trilha.para`.
+     *
+     * `marca` distingue a subida que é progresso da que é recuperação: a
+     * reposição de um item quebrado no meio de uma fase de grau reconquista um
+     * refino que a campanha já tinha, e contá-la de novo faria a campanha
+     * "avançar" a cada azar.
+     */
+    const rodar = (trilha: Trilha, inicio: number, marca: boolean) => {
       let r = inicio;
       const alvo = trilha.para;
+      let maisLonge = inicio;
       while (r < alvo && tentativas < maxTentativas) {
         tentativas++;
         zeny += trilha.custo[r]!;
@@ -315,6 +403,10 @@ export function simulateCampaign(
 
         if (rand() < trilha.chance[r]!) {
           r++;
+          if (marca && r > maisLonge) {
+            maisLonge = r;
+            marcar();
+          }
         } else {
           const destino = trilha.falha[r]!;
           if (destino < 0) {
@@ -330,7 +422,7 @@ export function simulateCampaign(
 
     for (const fase of compiladas) {
       if (fase.tipo === 'refino') {
-        rodar(fase.trilha, fase.trilha.de);
+        rodar(fase.trilha, fase.trilha.de, true);
         continue;
       }
 
@@ -339,16 +431,25 @@ export function simulateCampaign(
         contagem[fase.slotMaterial]! += fase.qtdMaterial;
         if (fase.qtdBencao > 0) contagem[slotBencaoEter]! += fase.qtdBencao;
 
-        if (rand() < fase.chance) break;
+        if (rand() < fase.chance) {
+          marcar();
+          break;
+        }
 
         if (!fase.seguro) {
           // O processo normal destrói o item: comprar outro e refiná-lo de novo.
           quebrou++;
           zeny += precoItem;
-          rodar(fase.reposicao!, refinoReposicao);
+          rodar(fase.reposicao!, refinoReposicao, false);
         }
       }
     }
+
+    // Execução truncada pelo teto de tentativas: os marcos que ela não chegou a
+    // alcançar ficam com o consumo final. É o mesmo que dizer "daqui não passou
+    // com o que gastou", que é a leitura certa — e `truncadas` já avisa que
+    // essas execuções existem.
+    while (marcosFeitos < nMarcos) marcar();
 
     custos[n] = zeny;
     quebras[n] = quebrou;
@@ -386,12 +487,41 @@ export function simulateCampaign(
     const i = usados[c]!;
     for (let n2 = 0; n2 < guardadas; n2++) consumoGuardado[c * guardadas + n2] = consumo[i * execucoes + n2]!;
   }
+  // O progresso é recortado nas mesmas colunas do consumo — materiais que a
+  // estratégia nunca toca não viram campo na tela e não precisam de trajetória
+  // — e nas execuções que de fato rodaram.
+  const marcosFeitos = Math.min(rodadas, marcosGuardados);
+  const progressoGuardado = new Float64Array(nMarcos * usados.length * marcosFeitos);
+  for (let m = 0; m < nMarcos; m++) {
+    for (let c = 0; c < usados.length; c++) {
+      const i = usados[c]!;
+      for (let n2 = 0; n2 < marcosFeitos; n2++) {
+        progressoGuardado[(m * usados.length + c) * marcosFeitos + n2] =
+          progresso[(m * nItens + i) * marcosGuardados + n2]!;
+      }
+    }
+  }
+  const recorte = (v: Float64Array) => {
+    const saida = new Float64Array(nMarcos * marcosFeitos);
+    for (let m = 0; m < nMarcos; m++) {
+      for (let n2 = 0; n2 < marcosFeitos; n2++) {
+        saida[m * marcosFeitos + n2] = v[m * marcosGuardados + n2]!;
+      }
+    }
+    return saida;
+  };
+
   const amostras: AmostrasCampanha = {
     itemIds: usados.map((i) => itemIds[i]!),
     custo: custosFeitos.slice(0, guardadas),
     quebras: quebrasFeitas.slice(0, guardadas),
     consumo: consumoGuardado,
     execucoes: guardadas,
+    marcos,
+    progresso: progressoGuardado,
+    progressoCusto: recorte(progressoCusto),
+    progressoQuebras: recorte(progressoQuebras),
+    execucoesMarcos: marcosFeitos,
   };
 
   let soma = 0;
@@ -471,6 +601,16 @@ export function chanceAte(ordenado: Float64Array, v: number): number {
     else alto = meio;
   }
   return baixo / ordenado.length;
+}
+
+/**
+ * O mesmo corte de `quantil`, numa amostra **já ordenada**.
+ *
+ * O painel de estoque pergunta o quantil de cinco distribuições a cada passo de
+ * uma bisseção; reordenar todas elas dezenas de vezes custaria mais que a busca.
+ */
+export function quantilOrdenado(ordenado: Float64Array, q: number): number {
+  return corte(ordenado, q);
 }
 
 /**

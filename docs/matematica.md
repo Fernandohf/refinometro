@@ -699,92 +699,168 @@ compram**, já desmontados por `listaDeCompras()`), um número de quebras `Q^{(i
 `C^{(i)}`. O estoque é `(z, x, e)`: zeny em caixa, vetor de materiais e cópias extras do
 equipamento.
 
-O **déficit** de uma campanha, dado o estoque, é
+O custo registrado por execução é, por construção, uma soma linear nos preços que o motor usou
+para cotar a campanha. Isso permite separar dele a parcela que **não se carrega na mochila**:
 
 ```
-Z^{(i)}(x, e) = ( C^{(i)} − Σⱼ min(U_j^{(i)}, xⱼ)·pⱼ − min(Q^{(i)}, e)·V₀ )₊
+Z₀^{(i)} := C^{(i)} − Σⱼ U_j^{(i)}·pⱼ − Q^{(i)}·V₀     (taxa do refinador + taxa de grau + balcão do NPC)
 ```
 
-e a resposta do painel é
+`Z₀` é uma propriedade da campanha, não do estoque: o material é consumido de qualquer jeito, e a
+única diferença é se ele saiu da mochila ou do bolso.
+
+A campanha fecha quando **nenhum** recurso acaba no caminho:
 
 ```
-chance(z, x, e) = P( Z(x, e) ≤ z )   estimada por   (1/n) Σᵢ 1{ Z^{(i)}(x,e) ≤ z }
+S^{(i)}(z, x, e) = 1{ xⱼ ≥ U_j^{(i)} ∀j } · 1{ e ≥ Q^{(i)} } · 1{ z ≥ Z₀^{(i)} }
+
+chance(z, x, e) = (1/n) Σᵢ S^{(i)}(z, x, e)
 ```
 
 com `n = 5 000` execuções guardadas cruas (`AmostrasCampanha`).
 
-**Por que o abatimento fecha.** O custo registrado por execução é, por construção,
-`C = Σⱼ Uⱼ·pⱼ + taxas + balcão + Q·V₀` — uma soma linear nos preços que o motor usou para cotar a
-campanha. Logo o que já está na mochila é, ao pé da letra, o valor que deixa de sair do bolso.
+**Por que o zeny não compra minério.** É a diferença entre este painel e o orçamento de
+[§8](#8-simulação-de-monte-carlo). Lá tudo é comprado no instante em que é preciso, e a pergunta
+é quanto zeny reservar para isso. Aqui a mochila é o que é e a viagem ao mercado não está no
+plano: o que falta de minério trava a campanha, e o caixa paga exatamente o que minério nenhum
+cobre — taxa e balcão. As duas perguntas são legítimas e têm respostas diferentes; misturá-las
+daria a um jogador com uma mochila vazia e muito zeny a resposta "100%", que é verdade só para
+quem pode voltar ao mercado no meio.
 
-**Por que comparar o total basta.** O gasto acumulado é não decrescente ao longo da campanha; se o
-total cabe no caixa, todo prefixo cabe, e a recíproca é imediata. Não é atalho — é equivalência,
-dada a hipótese de liquidez de [§9.4](#94-hipóteses-do-painel).
+**Por que comparar o total basta.** O consumo acumulado é não decrescente ao longo da campanha;
+se o total cabe no que se tem, todo prefixo cabe, e a recíproca é imediata. Vale para cada eixo
+separadamente, e por isso o critério pode ser lido recurso a recurso.
 
 ### 9.2 Por que os percentis marginais não respondem
 
 Os cinco percentis por material são **marginais**. A pergunta do estoque é conjunta: faltar
 Oridecon e faltar zeny na *mesma* campanha não é a soma dos dois azares.
 
-Quantificando, no caso `w4` +0 → +12 com preços padrão (5 materiais, 5 000 campanhas guardadas):
+Medindo no caso `w4` +0 → +12 com os preços padrão (4 materiais, 5 000 campanhas guardadas), com
+`npx vite-node scripts/estoque-numeros.ts`:
 
-```
-P( todo material ≤ o seu próprio p90 ) = 72,7%      (e não 90%)
-```
+| Alvo | Só o material, cada um no seu percentil | Material, cópias e caixa, todos no percentil |
+| --- | --- | --- |
+| 50% | 14,6% | 14,6% |
+| 75% | 50,7% | 50,4% |
+| 90% | 75,1% | 74,8% |
+| 99% | 97,1% | 96,8% |
 
-É por isso que a simulação guarda as **execuções inteiras** em vez de só os resumos: a
-distribuição conjunta só existe nas execuções. Como elas são i.i.d., guardar as 5 000 primeiras é
-uma amostra tão válida quanto qualquer outra.
+Pedir 50% e receber 14,6% não é um detalhe de calibragem — é a resposta errada. É por isso que a
+simulação guarda as **execuções inteiras** em vez de só os resumos: a distribuição conjunta só
+existe nas execuções. Como elas são i.i.d., guardar as 5 000 primeiras é uma amostra tão válida
+quanto qualquer outra.
 
 **Precisão dessa amostra.** A chance é uma proporção binomial sobre `n = 5 000`: o erro padrão é
 no máximo `1/(2√n) ≈ 0,71` ponto percentual, e um intervalo de 95% tem semilargura de no máximo
 `≈ 1,4` p.p. (pela DKW, a banda simultânea sobre todos os níveis fica em `≈ 1,9` p.p.).
 
-### 9.3 Os dois preenchimentos, e a monotonia que os sustenta
+### 9.3 O preenchimento: um quantil comum
 
-> **Proposição 9.1 (monotonia).** `Z^{(i)}(x, e)` é não crescente em cada componente de `x` e em
-> `e`; portanto `chance(z, x, e)` é não decrescente em `z`, em `x` e em `e`.
+> **Proposição 9.1 (monotonia).** `S^{(i)}(z, x, e)` é não decrescente em `z`, em cada componente
+> de `x` e em `e`; portanto `chance(z, x, e)` também é.
 >
-> *Demonstração.* `t ↦ min(U, t)` é não decrescente, `pⱼ ≥ 0`, e `(·)₊` é não decrescente. ∎
+> *Demonstração.* Cada fator é uma indicadora de um `≥` com o recurso do lado esquerdo, logo não
+> decrescente nele; o produto de não decrescentes não negativas é não decrescente. ∎
 
-Disso saem os dois botões do painel:
+A tela preenche os campos sozinha, e a Proposição 9.1 é o que torna isso um problema de uma
+variável. Definimos a família de estoques indexada pelo **quantil comum** `q`:
 
-- **`estoqueMinimo`** fixa o material no piso observado (`minᵢ U^{(i)}`, a campanha mais sortuda) e
-  resolve o zeny: `z = Q̂(chance alvo)` sobre a amostra `{Z^{(i)}}` *desse* estoque. Os dois
-  números são um só — material no chão é orçamento no alto —, e por isso o zeny sai do veredito
-  com o material já abatido, e não do custo cheio da campanha, que cobraria duas vezes pelo mesmo
-  minério.
-- **`materialParaChance`** fixa o caixa e resolve o material. Material é um vetor e a chance é um
-  escalar, então há infinitas mochilas que dão 10%: a escolhida segue a proporção do consumo
-  médio, `x(k)ⱼ = ⌈k · média(Uⱼ)⌉`. Pela Proposição 9.1, `k ↦ chance(z, x(k), e)` é uma função
-  escada não decrescente, então o menor `k` que atinge o alvo sai por
-  [bisseção](https://en.wikipedia.org/wiki/Bisection_method) em `[0, k_teto]`. Com 40 passos, o
-  intervalo final tem largura `k_teto/2⁴⁰` — muito abaixo de uma unidade de qualquer material.
+```
+E(q) = ( ⌈Q̂_Z(q)⌉ , ( ⌈Q̂_{Uⱼ}(q)⌉ )ⱼ , 1 + ⌈Q̂_Q(q)⌉ )
+```
 
-`k_teto = maxⱼ maxᵢ U_j^{(i)} / média(Uⱼ)` é o fator a partir do qual a cesta já cobre a campanha
-mais gastadora de todas; acima dele, mais minério não muda nada. Daí sair de lá o **teto** do que
-o caixa informado permite: quando `chance(z, x(k_teto), e) < alvo`, o que falta é zeny de taxa,
-balcão de NPC ou cópia de reposição — e nenhum desses se paga com minério. O painel diz isso, em
-vez de encher a tela de material e continuar devolvendo 0%.
+Cada quantil empírico é não decrescente em `q`, então `q ↦ chance(E(q))` é uma função escada não
+decrescente, com `chance(E(1)) = 1` — em `q = 1` o estoque cobre o pior azar de todos. O
+preenchimento é o **menor `q` que atinge a chance pedida**, achado por
+[bisseção](https://en.wikipedia.org/wiki/Bisection_method) em `[α, 1]` (o intervalo começa em `α`
+porque a chance conjunta nunca passa da marginal mais apertada). Com 40 passos, o intervalo final
+é menor que o espaçamento de duas campanhas vizinhas na amostra, abaixo do qual nenhum quantil
+muda de degrau.
 
-**Otimismo dentro da amostra.** `k` é escolhido para atingir o alvo na *distribuição empírica*
+Na mesma medição da tabela acima, o quantil comum entrega 50,4%, 75,1%, 90,1% e 99,1% para os
+quatro alvos — a diferença entre a coluna da direita e a resposta certa.
+
+**Otimismo dentro da amostra.** `q` é escolhido para atingir o alvo na *distribuição empírica*
 fixa das 5 000 execuções guardadas. Como qualquer estimador escolhido por otimização sobre a mesma
 amostra que o avalia, a chance realizada tende a ficar ligeiramente abaixo da nominal. Com uma
 busca de um parâmetro só sobre uma família monótona, o efeito é da ordem do erro de amostragem de
 [§9.2](#92-por-que-os-percentis-marginais-não-respondem), não maior.
 
-### 9.4 Hipóteses do painel
+### 9.4 O piso do possível
 
-1. **Liquidez a preço fixo.** O que faltar pode ser comprado, a qualquer momento, pelo preço
-   informado. É a mesma hipótese do resto da calculadora, e é ela que torna o critério
-   "total ≤ caixa" equivalente à sobrevivência passo a passo.
-2. **Substituição linear.** Material sobrando não vale nada (não é revendido) e material faltando
-   custa exatamente `pⱼ` por unidade. Daí o `min(U, x)` no abatimento.
+Como nenhum recurso cobre a falta de outro, cada eixo tem um chão abaixo do qual a chance é
+**exatamente zero**:
+
+```
+piso_j = minᵢ U_j^{(i)}        piso_z = minᵢ Z₀^{(i)}        piso_e = 1 + minᵢ Q^{(i)}
+```
+
+É o consumo da campanha mais sortuda. A tela mostra esses números ao lado de cada campo e pinta o
+campo de vermelho quando ele cai abaixo — não é um aviso de formatação: é a diferença entre
+"improvável" e "sem caminho".
+
+Rigorosamente, o zero é o da distribuição empírica: o piso verdadeiro é `≤ piso_j`, e existe uma
+cauda de campanhas ainda mais sortudas que 5 000 sorteios não viram. A afirmação exata que a tela
+faz — "nenhuma das 5 000 campanhas simuladas chega lá com isso" — é a que os dados sustentam.
+
+### 9.5 Onde a campanha para
+
+A chance sozinha diz que provavelmente não dá; não diz se o problema é o último degrau ou o
+terceiro. Com 30%, saber que metade das campanhas morre já no primeiro Grau é o que separa
+"compro mais minério" de "escolho outro alvo". Para responder isso é preciso o **caminho**, e não
+só o destino.
+
+**Marcos.** A campanha atravessa uma sequência de pontos de progresso `m = 0, …, M−1`: um por
+degrau de refino de cada fase (a *primeira* chegada ao `+r`), e um por grau conquistado. Só a
+primeira chegada conta — a campanha sobe e desce o mesmo degrau dezenas de vezes, e reconquistar
+um refino perdido não é avanço. Pela mesma razão, o re-refino de um item de reposição, dentro de
+uma fase de grau, não marca nada: ele recupera terreno já andado.
+
+A simulação guarda `U^{(i)}(m)`, o consumo acumulado da execução `i` no marco `m`, e o mesmo para
+`Z₀` e para as quebras. Por construção `U^{(i)}(M−1) = U^{(i)}`: o último marco é o fim da
+campanha, e o acumulado ali **é** o total.
+
+**Onde acaba cada recurso.** `m ↦ U_j^{(i)}(m)` é não decrescente, então
+
+```
+τ_j^{(i)}(x) = min{ m : U_j^{(i)}(m) > xⱼ }        (∞ se o estoque cobre a campanha inteira)
+```
+
+está bem definido, e a campanha para em `τ^{(i)} = minⱼ τ_j^{(i)}`, pelo recurso que atinge esse
+mínimo — o **culpado**. Empates no mesmo marco ficam com quem tinha menos folga, que é o que se
+sente primeiro; sem esse critério, a ordem das colunas é que decidiria.
+
+> **Proposição 9.2 (coerência com o veredito).** `τ^{(i)} < ∞` se e somente se
+> `S^{(i)}(z, x, e) = 0`.
+>
+> *Demonstração.* Se algum recurso cruza em algum marco, ele cruza também em `M−1`, onde o
+> acumulado é o total — logo o estoque não cobre a campanha. A recíproca é o mesmo argumento ao
+> contrário, com `m = M−1` testemunhando o cruzamento. ∎
+
+Ou seja, a fração que trava é o complemento exato da chance de [§9.1](#91-formalização). As duas
+leituras divergem só pelo tamanho da amostra: a trajetória é uma **matriz** (marcos × materiais)
+por execução, não um vetor, e guardar 5 mil delas custaria dez vezes mais que guardar os totais.
+São 1 000 execuções — na campanha `w5` +0 → +8 Grau C, 32 marcos × 6 materiais × 1 000 = 1,5 MB,
+contra 0,4 MB dos totais. Mil execuções dão ao quartil um erro de `≈ 1,5` ponto percentual, muito
+abaixo da largura de um degrau, que é a resolução da resposta.
+
+**Por que só abaixo de 50%.** Acima disso a pergunta "onde eu travo?" é sobre a minoria azarada, e
+a resposta útil já está no orçamento. Abaixo, ela é a pergunta principal — é ela que diz o que
+comprar, ou que o alvo é que está errado.
+
+### 9.6 Hipóteses do painel
+
+1. **Sem reposição no meio do caminho.** O que faltar, faltou. É o oposto da hipótese de liquidez
+   que o orçamento usa ([H4](#11-hipóteses-do-modelo-e-o-que-elas-deixam-de-fora)), e é
+   deliberado: são duas perguntas. A chance reportada é, portanto, um **limite inferior** da
+   chance de quem pode voltar ao mercado.
+2. **Material sobrando não vale nada.** Não é revendido nem convertido; só o `min` com o consumo
+   entra na conta. Daí a resposta ser uma indicadora, e não um saldo.
 3. **A política é a ótima do motor.** Uma pilha de Elunium parada não muda a estratégia escolhida;
    a resposta é a chance de atravessar *aquele* plano com estes recursos, não a chance sob a melhor
    estratégia condicionada ao estoque. Formalmente isto é uma restrição da classe de políticas, e
-   portanto a chance reportada é um **limite inferior** da chance atingível por alguém que
-   replanejasse conforme o estoque.
+   portanto mais uma razão para a chance reportada ser um limite inferior.
 
 ---
 
@@ -844,7 +920,8 @@ tentativas por execução:
 | Iteração de política | `k · (n³ + n·|A|)`, com `k` medido entre 1 e 3 |
 | Degrau de grau | `O(|candidatos| · 11 · 2)` avaliações, com preparo cacheado |
 | Simulação | `O(m · t)`, limitado por `orçamento = tempoMs × 40 000` |
-| Veredito de estoque | `O(m · d)` por consulta; `40 · O(m·d)` na bisseção |
+| Veredito de estoque | `O(m · d)` por consulta; `40 · O(m·d)` no preenchimento |
+| Onde a campanha para | `O(m' · M · d)`, com `m' = 1 000` trajetórias e `M` marcos |
 
 A conversão de **tempo** em **trabalho** (`orcamentoDe`) é o que torna o resultado determinístico
 entre máquinas: o mesmo alvo produz o mesmo número de execuções em qualquer computador, e o
@@ -862,7 +939,7 @@ Reunidas num lugar só, na ordem em que apareceram:
 | H1 | Tentativas são Bernoulli independentes, com a chance da tabela | §2.1 | Se o servidor usar *pity*/sequência, o MDP muda de forma |
 | H2 | Chances, taxas e receitas das tabelas são as do servidor | §1.1 | Erro sistemático proporcional; ver [as fontes](dados.md#a-ordem-das-fontes) |
 | H3 | Preços são fixos, exógenos e iguais na compra e na venda | §7, §9.4 | O custo vira um problema com duas fontes de risco |
-| H4 | Liquidez ilimitada ao preço informado, a qualquer momento | §9.1 | "Total ≤ caixa" deixa de ser equivalente à sobrevivência |
+| H4 | Liquidez ilimitada ao preço informado, a qualquer momento | §7, §8 — e **não** no painel de estoque, que assume o contrário (§9.6) | O orçamento subestima o custo de quem não acha o minério à venda |
 | H5 | A reposição é sempre um item +0 ao preço `V₀` | §2.1 | Repor no refino corrente incentivaria quebrar de propósito |
 | H6 | Critério neutro ao risco (minimizar `𝔼[C]`) | §2.3, §8.6 | Os percentis não são os da política que os minimizaria |
 | H7 | Recursos só são consumidos, nunca obtidos jogando | todo o modelo | Farmar minério muda a moeda do problema |
@@ -883,16 +960,21 @@ Os invariantes deste documento estão codificados em
 - consumo material a material batendo com o cálculo exato, inclusive nas fases de grau
   (Teorema 3.2);
 - monotonia do custo no alvo (Lema 6.2) e nas opções liberadas (evento, minérios especiais);
-- `chance` do painel não decrescente quando o estoque cresce (Proposição 9.1);
+- `chance` do painel não decrescente quando o estoque cresce (Proposição 9.1), e zero exatamente
+  abaixo do piso de qualquer recurso (§9.4);
+- preenchimento do painel entregando a chance pedida, que o percentil marginal não entrega (§9.3);
+- acumulado do último marco igual ao total da campanha, e fração que trava igual ao complemento
+  da chance (Proposição 9.2);
 - plano seguro nunca mais barato que o plano com risco, e nenhuma ação de quebra no plano seguro
   (§5);
 - `listaDeCompras` fechando com `unitCost` (Proposição 7.2);
 - teto de trabalho da simulação respeitando o orçamento (§8.5).
 
-Os números medidos citados ao longo do texto (`ρ(P)`, `κ∞`, `𝔼[T]`, percentis, cobertura conjunta
-de 72,7%) foram obtidos com os preços padrão de
-[src/data/defaultPrices.ts](../src/data/defaultPrices.ts) e são reproduzíveis com
-`npx vite-node scripts/demo.ts` mais as fórmulas desta página.
+Os números medidos citados ao longo do texto (`ρ(P)`, `κ∞`, `𝔼[T]`, percentis) foram obtidos com
+os preços padrão de [src/data/defaultPrices.ts](../src/data/defaultPrices.ts) e são reproduzíveis
+com `npx vite-node scripts/demo.ts` mais as fórmulas desta página; a tabela de cobertura conjunta
+de [§9.2](#92-por-que-os-percentis-marginais-não-respondem), com
+`npx vite-node scripts/estoque-numeros.ts`.
 
 ---
 
