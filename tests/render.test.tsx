@@ -8,6 +8,7 @@ import { PIX } from '../src/components/Apoie';
 import { CurvaDeCusto } from '../src/components/CurvaDeCusto';
 import { TabelaDeEstados } from '../src/components/Cadeia';
 import { Resultado } from '../src/components/Resultado';
+import { Sobre } from '../src/components/Sobre';
 import { PRECOS_FIXOS } from './precosFixos';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
@@ -82,6 +83,26 @@ describe('página', () => {
     const leiaMe = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
     expect(leiaMe).toContain(PIX.codigo);
     expect(leiaMe).toContain(PIX.chave);
+  });
+
+  it('leva o atalho do topo a uma seção que ele consegue abrir', () => {
+    // Um atalho que só rolasse entregaria uma caixa fechada a quem acabou de
+    // pedir para lê-la. O que se confere é o contrato que permite abri-la: o
+    // cabeçalho aponta para o id que existe, e a seção obedece ao `aberto`.
+    const html = renderToString(<App />);
+    expect(html).toContain('href="#perguntas"');
+    expect(html).toContain('id="perguntas"');
+
+    const fechada = renderToString(
+      <Sobre aberto={false} onAlternar={() => {}} />,
+    );
+    const abertaHtml = renderToString(<Sobre aberto onAlternar={() => {}} />);
+    expect(fechada).toContain('hidden=""');
+    expect(abertaHtml).not.toContain('hidden=""');
+    // Fechada ou aberta, as respostas continuam no documento — é o que o
+    // rastreador lê e o que o Ctrl+F encontra.
+    expect(fechada).toContain('De onde vêm os números?');
+    expect(abertaHtml).toContain('De onde vêm os números?');
   });
 
   it('abre o simulador de estoque já preenchido com o recomendado', () => {

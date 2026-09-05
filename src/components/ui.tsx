@@ -5,6 +5,7 @@ import {
   useState,
   type ButtonHTMLAttributes,
   type KeyboardEvent as KeyboardEventReact,
+  type MouseEventHandler,
   type PointerEvent as PointerEventReact,
   type ReactNode,
 } from 'react';
@@ -71,6 +72,30 @@ function IconeInfo() {
   return (
     <svg viewBox="0 0 24 24" className="size-[1.15em]" fill="currentColor" aria-hidden>
       <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm-1-12h2v2h-2V8Zm0 4h2v6h-2v-6Z" />
+    </svg>
+  );
+}
+
+/**
+ * Ícone do atalho para as perguntas frequentes.
+ *
+ * Traçado, e não preenchido como o `IconeInfo` ao lado: um "?" cheio de 15px
+ * vira um borrão, e o que sobra dele é a bolinha. O círculo em volta é o que
+ * faz o glifo ler como ícone em vez de pontuação perdida no meio do rótulo.
+ */
+export function IconePergunta() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-[1.15em] shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" d="M9.6 9.4a2.4 2.4 0 1 1 3.2 2.26c-.6.22-.9.72-.9 1.34v.9" />
+      <circle cx="11.9" cy="16.3" r=".2" strokeWidth="1.9" />
     </svg>
   );
 }
@@ -157,6 +182,7 @@ export function Botao({
   href,
   alvoExterno,
   iconeAoFim,
+  onClick,
   children,
   className = '',
   ...props
@@ -169,8 +195,14 @@ export function Botao({
   alvoExterno?: boolean;
   /** Ícone à direita do rótulo — a seta de um painel que abre, por exemplo. */
   iconeAoFim?: ReactNode;
+  /**
+   * Alargado para `HTMLElement` porque o mesmo botão pode sair como `<a>`:
+   * o tipo do `<button>` recusaria o manipulador da âncora, e o inverso
+   * obrigaria todo chamador a dizer de que elemento é o clique dele.
+   */
+  onClick?: MouseEventHandler<HTMLElement>;
   children: ReactNode;
-} & ButtonHTMLAttributes<HTMLButtonElement>) {
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'>) {
   const { ondular, Ondas } = useOndulacao();
 
   const pele = {
@@ -204,6 +236,7 @@ export function Botao({
       <a
         href={href}
         onPointerDown={ondular}
+        onClick={onClick}
         className={classe}
         {...(alvoExterno ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
       >
@@ -213,7 +246,7 @@ export function Botao({
   }
 
   return (
-    <button type="button" onPointerDown={ondular} className={classe} {...props}>
+    <button type="button" onPointerDown={ondular} onClick={onClick} className={classe} {...props}>
       {dentro}
     </button>
   );

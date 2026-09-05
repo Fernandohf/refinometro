@@ -125,7 +125,9 @@ describe('dados estruturados', () => {
     const faq = grafo['@graph'].find((n) => n['@type'] === 'FAQPage');
     expect(faq?.mainEntity).toHaveLength(FAQ.length);
 
-    const tela = renderToString(createElement(Sobre));
+    // Fechada, que é como a seção nasce: o conteúdo continua no documento sob
+    // o `hidden`, e é isso que o rastreador lê.
+    const tela = renderToString(createElement(Sobre, { aberto: false, onAlternar: () => {} }));
     for (const { pergunta, resposta } of FAQ) {
       expect(tela).toContain(pergunta);
       // O React escapa as aspas do texto, então a comparação é sobre o
