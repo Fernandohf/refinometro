@@ -128,3 +128,7 @@ Ragnarok Online é da Gravity; este é um projeto de fã, sem vínculo com a Gra
 A calculadora é de graça, sem anúncio e sem cadastro. Se ela te poupou zeny ou ajudou suas decisões:
 
 <a href="https://www.buymeacoffee.com/fernandohf" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="60" width="217"></a>
+
+Ou por **Pix**, se preferir — chave aleatória `dede1a1e-bbe2-48ca-b972-00e26b7b217c`
+(Fernando H Fernandes). O site tem o "copia e cola" pronto em
+[Apoie o Refinômetro](https://fernandohf.github.io/refinometro/#apoiar).

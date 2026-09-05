@@ -260,6 +260,116 @@ export function BotaoCafe({ href, children }: { href: string; children: ReactNod
 }
 
 /**
+ * O ícone do botão do Pix: uma prancheta que vira visto depois de copiar.
+ *
+ * NÃO é a marca do Pix. O losango do Banco Central é marca registrada, e
+ * redesenhá-lo de memória produziria uma imitação torta ao lado de uma caneca
+ * bem desenhada. O que o botão precisa dizer é o que ele FAZ — copiar —, e o
+ * nome "Pix" já está escrito por extenso ao lado.
+ */
+function IconeCopia({ copiado }: { copiado: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[1.15em] shrink-0" fill="currentColor" aria-hidden>
+      {copiado ? (
+        <path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z" />
+      ) : (
+        <path d="M15.5 1H4.5A1.5 1.5 0 0 0 3 2.5V17h2V3h10.5V1Zm4 4h-11A1.5 1.5 0 0 0 7 6.5v15A1.5 1.5 0 0 0 8.5 23h11a1.5 1.5 0 0 0 1.5-1.5v-15A1.5 1.5 0 0 0 19.5 5ZM19 21H9V7h10v14Z" />
+      )}
+    </svg>
+  );
+}
+
+/**
+ * Copia um texto para a área de transferência, com o plano B de sempre.
+ *
+ * `navigator.clipboard` é a via boa e a que existe em produção — o site é
+ * servido por HTTPS. Ela não existe em contexto inseguro (um `http://` de rede
+ * local, que é como alguém testa o build antes de publicar) e recusa em alguns
+ * navegadores embutidos de aplicativo; nesses, o `<textarea>` fora da tela com
+ * `execCommand` ainda funciona. Devolve se deu certo, porque o botão só pode
+ * dizer "copiado" quando foi.
+ */
+async function copiarTexto(texto: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch {
+    try {
+      const campo = document.createElement('textarea');
+      campo.value = texto;
+      // Fora da tela, mas não `display:none`: o que não é renderizado não pode
+      // ser selecionado, e sem seleção não há o que copiar.
+      campo.setAttribute('readonly', '');
+      campo.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(campo);
+      campo.select();
+      const deu = document.execCommand('copy');
+      campo.remove();
+      return deu;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
+ * O botão que copia o código Pix.
+ *
+ * Copiar é a interação certa aqui, e não um QR: quem está no celular não tem
+ * como fotografar a própria tela, e quem está no computador cola o código no
+ * aplicativo do banco pelo "Pix Copia e Cola". Um QR desenhado exigiria um
+ * codificador inteiro no bundle para servir só ao caso mais raro.
+ *
+ * O verde-água é a cor do Pix e fica fixo pelo mesmo motivo do amarelo do
+ * `BotaoCafe`: é a única coisa que faz o botão ser reconhecido de relance. Vem
+ * contornado, e não preenchido, porque o café é o pedido principal — dois
+ * botões preenchidos lado a lado não têm principal nenhum.
+ *
+ * Quando a cópia falha, o rótulo diz que falhou em vez de mentir "copiado", e
+ * o código continua à vista no bloco de apoio para ser selecionado à mão.
+ */
+export function BotaoPix({ codigo }: { codigo: string }) {
+  const { ondular, Ondas } = useOndulacao();
+  const [estado, setEstado] = useState<'parado' | 'copiado' | 'falhou'>('parado');
+
+  // O aviso volta ao normal sozinho: um botão que fica "copiado" para sempre
+  // não diz nada no segundo clique.
+  useEffect(() => {
+    if (estado === 'parado') return;
+    const t = setTimeout(() => setEstado('parado'), 2400);
+    return () => clearTimeout(t);
+  }, [estado]);
+
+  const rotulo = {
+    parado: 'Copiar código Pix',
+    copiado: 'Código Pix copiado',
+    falhou: 'Copie o código abaixo',
+  }[estado];
+
+  return (
+    <button
+      type="button"
+      onPointerDown={ondular}
+      onClick={() => {
+        void copiarTexto(codigo).then((deu) => setEstado(deu ? 'copiado' : 'falhou'));
+      }}
+      // A mudança de rótulo é a resposta ao clique, e leitor de tela precisa
+      // ouvi-la: sem isto, o botão parece não ter feito nada.
+      aria-live="polite"
+      className={
+        'estado inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 ' +
+        'overflow-hidden rounded-full border border-[#32BCAD] px-5 text-[#32BCAD] md-corpo-m ' +
+        'font-medium whitespace-nowrap transition-shadow duration-200 ease-padrao'
+      }
+    >
+      <Ondas />
+      <IconeCopia copiado={estado === 'copiado'} />
+      {rotulo}
+    </button>
+  );
+}
+
+/**
  * Botão informativo: a explicação que só aparece para quem a pede.
  *
  * Este é o componente que enxugou a página. Antes, cada campo, cada número e

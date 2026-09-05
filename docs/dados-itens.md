@@ -68,7 +68,7 @@ esconderia os de nível 2 — os de Éter, justamente os que têm Grau.
 **O arquivo é grande, então não entra no bundle.** [`src/data/items.ts`](../src/data/items.ts)
 carrega `items.json` por `import()` dinâmico, na primeira vez que alguém mexe na busca; quem só
 quer fazer uma conta escolhendo a categoria à mão nunca paga esse download. A data da varredura
-e a contagem ficam num arquivo separado (`itemsMeta.json`), para o rodapé poder creditar a
+e a contagem ficam num arquivo separado (`itemsMeta.json`), para os créditos poderem nomear a
 fonte sem baixar a base junto.
 
 ## Duas armadilhas da busca

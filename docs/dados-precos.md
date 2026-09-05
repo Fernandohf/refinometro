@@ -23,8 +23,9 @@ como a base de itens: a base muda quando o jogo muda, o preço muda quando o mer
 
 O script regrava `src/data/precos.json`, que é de onde os preços saem.
 [`defaultPrices.ts`](../src/data/defaultPrices.ts) lê esse arquivo e o aplica por cima de uma
-tabela de chutes escritos à mão — a cotação vence onde existe, o chute cobre o resto. O rodapé
-do site credita a fonte, o servidor e a data da última execução.
+tabela de chutes escritos à mão — a cotação vence onde existe, o chute cobre o resto. A fonte, o
+servidor e a data da última execução são creditados na tela, na resposta "De onde vêm os
+números?" das perguntas frequentes.
 
 Duas datas, de propósito. `_geradoEm` é quando o script rodou; `cotadoEm`, por item, pode ser mais
 antiga — item que ninguém negociou nesta semana **mantém a cotação boa da semana passada** em vez

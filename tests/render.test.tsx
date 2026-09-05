@@ -2,6 +2,7 @@ import { describe, expect, it, beforeAll } from 'vitest';
 import { renderToString } from 'react-dom/server';
 
 import App from '../src/App';
+import { PIX } from '../src/components/Apoie';
 import { CurvaDeCusto } from '../src/components/CurvaDeCusto';
 import { TabelaDeEstados } from '../src/components/Cadeia';
 import { Resultado } from '../src/components/Resultado';
@@ -26,23 +27,52 @@ beforeAll(() => {
 });
 
 describe('página', () => {
-  it('deixa o apoio à vista, fora do trecho recolhido do rodapé', () => {
+  it('deixa as duas formas de apoio à vista, fora de qualquer trecho recolhido', () => {
     const html = renderToString(<App />);
 
-    // O rodapé esconde a proveniência atrás de um `hidden`, e o pedido não pode
-    // cair junto: pedido escondido não é pedido. `hidden` aparece no HTML do
-    // trecho recolhido, então o que se confere é que o botão vem DEPOIS dele —
-    // fora da <div> que abre e fecha.
-    const recolhido = html.indexOf('hidden=""');
-    const botao = html.indexOf('buymeacoffee.com/fernandohf');
-    expect(recolhido).toBeGreaterThan(-1);
-    expect(botao).toBeGreaterThan(recolhido);
+    // Pedido escondido não é pedido. Tudo o que a página recolhe sai no HTML
+    // com `hidden`, então o que se confere é que nem o café nem o Pix estão
+    // dentro de um: as duas ocorrências têm que vir DEPOIS do último `hidden`.
+    const ultimoRecolhido = html.lastIndexOf('hidden=""');
+    expect(ultimoRecolhido).toBeGreaterThan(-1);
+    expect(html.indexOf('buymeacoffee.com/fernandohf')).toBeGreaterThan(ultimoRecolhido);
+    expect(html.indexOf('Copiar código Pix')).toBeGreaterThan(ultimoRecolhido);
 
     expect(html).toContain('Me pague um café');
     // A caneca é desenhada no bundle, e não buscada no CDN da Buy Me a Coffee:
     // um <img> de lá entregaria o IP de todo visitante, tendo clicado ou não.
     expect(html).not.toContain('cdn.buymeacoffee.com');
     expect(html).toContain('rel="noreferrer noopener"');
+
+    // A chave fica legível na página, e não só dentro do botão que copia: é o
+    // plano B de quando a área de transferência não funciona.
+    expect(html).toContain('dede1a1e-bbe2-48ca-b972-00e26b7b217c');
+    // E o link do topo aponta para o bloco que existe.
+    expect(html).toContain('href="#apoiar"');
+    expect(html).toContain('id="apoiar"');
+  });
+
+  it('serve um código Pix que o banco aceita: CRC certo e chave de dentro', () => {
+    // Um caractere trocado no payload não quebra nada aqui e nada na tela — o
+    // erro aparece no aplicativo do banco de quem tentou doar, que é onde
+    // ninguém vai reportá-lo. O CRC16 do fim é o que pega isso: ele é função do
+    // resto do código, então mexer no valor, no nome ou na chave sem
+    // recalculá-lo dá o erro aqui.
+    // CRC-16/CCITT-FALSE sobre tudo menos os quatro dígitos finais.
+    let crc = 0xffff;
+    for (const ch of PIX.codigo.slice(0, -4)) {
+      crc ^= ch.charCodeAt(0) << 8;
+      for (let i = 0; i < 8; i++) {
+        crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+      }
+    }
+    expect(PIX.codigo.slice(-4)).toBe(crc.toString(16).toUpperCase().padStart(4, '0'));
+
+    // E o código carrega a mesma chave que a página mostra por extenso: duas
+    // chaves diferentes na mesma seção mandariam a doação para outro lugar
+    // dependendo de a pessoa colar ou digitar.
+    expect(PIX.codigo).toContain(PIX.chave);
+    expect(renderToString(<App />)).toContain(PIX.chave);
   });
 
   it('abre o simulador de estoque já preenchido com o recomendado', () => {
@@ -481,10 +511,11 @@ describe('página', () => {
     // Nenhum número da tela é do projeto: as chances são da divulgação oficial da
     // GNJOY, os minérios e custos de NPC do Browiki, a taxa do refinador do balcão
     // do jogo, os itens do Divine Pride e os preços do usuário. Se uma fonte sumir
-    // do rodapé, a página passa a se apresentar como autora.
+    // da resposta que credita todas elas, a página passa a se apresentar como autora.
     const html = renderToString(<App />);
 
-    expect(html).toContain('De onde vêm os números');
+    // A proveniência é uma das perguntas frequentes, e não uma seção à parte.
+    expect(html).toContain('De onde vêm os números?');
     expect(html).toContain('ro.gnjoyamericas.com/pt/news/probability/2');
     expect(html).toContain('ro.gnjoyamericas.com/pt/news/probability/27');
     expect(html).toContain('browiki.org/wiki/Refinamento');
