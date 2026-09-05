@@ -62,9 +62,21 @@ describe('cotação do mercado', () => {
   it('diz de onde cada preço veio', () => {
     // A procedência não é enfeite: a mediana vem de uma Server Action interna e
     // frágil, e é a coluna que permite saber, olhando o arquivo, quais preços
-    // dependem dela — sem reexecutar o script.
+    // dependem dela — sem reexecutar o script. A média do dia diz outra coisa,
+    // igualmente útil de saber sem reexecutar nada: aquele preço é de hoje
+    // porque o material estava andando, e envelhece mais rápido que os outros.
     for (const [itemId, , , , origem] of precos) {
-      expect(['janelas', 'mediana'], `item ${itemId}`).toContain(origem);
+      expect(['janelas', 'diaria', 'mediana'], `item ${itemId}`).toContain(origem);
+    }
+  });
+
+  it('só cota pela média do dia o que tem giro para isso', () => {
+    // O piso é o mesmo que separa cotação de anedota nas outras janelas (mil
+    // transações, `LIQUIDEZ_MINIMA`). Sem ele a regra publicaria a média de um
+    // dia de meia dúzia de vendas, que é o erro que o script inteiro existe
+    // para não cometer — só que com data de hoje, o que o disfarça.
+    for (const [itemId, , , volume, origem] of precos) {
+      if (origem === 'diaria') expect(volume, `item ${itemId}`).toBeGreaterThanOrEqual(1_000);
     }
   });
 
