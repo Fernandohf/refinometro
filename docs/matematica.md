@@ -391,6 +391,50 @@ piso. A falha é **ruidosa**, não silenciosa — que é a propriedade que inter
 Nos degraus de grau, a mesma restrição elimina o processo normal (que destrói o item na falha) e
 deixa só o seguro; como nada é arriscado, `itensQuebrados = 0` e `copiasItem = 1`.
 
+### 5.3 A relaxação é monótona na média — e só nela
+
+> **Proposição 5.4.** Fixados categoria, preços e demais opções, sejam `E*_livre` e `E*_seguro` os
+> custos esperados ótimos com `perdaAceitavel = true` e `false`. Então `E*_livre ≤ E*_seguro`.
+>
+> *Demonstração.* Com a perda aceitável, `L = 0` e `acaoLegal` não filtra nada, logo
+> `S_seguro ⊆ S_livre` e `A_seguro(r) ⊆ A_livre(r)` para todo `r`. A política ótima do problema
+> restrito é, portanto, admissível no relaxado, e seu custo é o mesmo nos dois (as parcelas que
+> diferem — `V₀` na quebra — só aparecem em ações com `φ = ⊥`, que ela não usa). O ótimo do
+> relaxado não pode ser pior que uma política admissível qualquer. ∎
+
+Marcar "posso perder o item" nunca pode, portanto, **subir** o custo médio. Conferido também por
+amostragem: 20 000 tabelas de preço aleatórias (log-uniformes, fator `e^{±3}`) no alvo `w5` +6 Sem
+Grau → +9 Grau D, mais 2 474 combinações variando categoria, refino, grau e opções — **nenhuma**
+violação.
+
+A monotonicidade **não se estende aos quantis**, e essa é a parte que importa para a tela. O que a
+relaxação compra é média; o que ela paga é cauda. Mesmo alvo, com a Bênção do Ferreiro a 6 mi
+(preços de `tests/precosFixos.ts`, 4 000 campanhas):
+
+| plano | `𝔼[C]` | `p50` | `p75` | `p90` | `p99` | itens destruídos |
+|---|---:|---:|---:|---:|---:|---:|
+| livre (`perdaAceitavel = true`) | **288,2** | **211,5** | 387,0 | 621,0 | 1 168,4 | 4,0 |
+| seguro (`false`) | 293,4 | 240,3 | **375,6** | **545,0** | **979,7** | 0,0 |
+
+O plano livre larga a Bênção no `+10 → +11`: o item passa a poder explodir ali, a média cai 1,8% e
+a mediana cai 12% — mas do `p75` para cima o plano seguro ganha, e no `p90` ele é 12% mais barato.
+As duas metades da distribuição discordam, e o cruzamento é real, não ruído de amostragem.
+
+Isto é uma propriedade do objetivo, não um defeito do solucionador: o motor minimiza `𝔼[C]`, que é
+a única funcional aditiva ao longo da cadeia — é ela que faz valer a equação de Bellman de
+[§2](#2-a-cadeia-de-refino-como-problema-de-caminho-mínimo-estocástico) e o sistema linear de
+[§3](#3-avaliação-exata-de-uma-política-e-a-contagem-de-recursos). Um quantil não é aditivo
+(a mediana de uma soma não é a soma das medianas), exigiria aumentar o estado com o custo já
+gasto, e a política ótima resultante seria **temporalmente inconsistente**: a escolha ótima no `+6`
+deixaria de ser ótima no `+9` depois de duas falhas. Um objetivo de quantil também é cego ao que
+acontece além do corte, o que o faria *procurar* apostas catastróficas — o oposto do que a
+restrição de segurança existe para oferecer.
+
+A consequência prática fica no motor: quando o plano escolhido arrisca o item, `calcular()` resolve
+também o alvo restrito e o devolve em `Resultado.alternativa` (`AlternativaSegura`), para a tela
+poder pôr os dois orçamentos lado a lado na margem que a pessoa escolheu. Sem isso, uma opção que
+só abre caminhos conseguia piorar em silêncio o número que a página destaca.
+
 ---
 
 ## 6. Os degraus de Grau

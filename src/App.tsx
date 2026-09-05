@@ -455,7 +455,9 @@ function usePlanoPreciso(
     worker.postMessage({
       id,
       input,
-      opcoes: { tempoMs: TEMPO_PASSE_PRECISO_MS },
+      // A comparação com o plano seguro custa uma campanha inteira a mais, então
+      // é aqui que ela cabe: fora da thread da página, e uma vez só por entrada.
+      opcoes: { tempoMs: TEMPO_PASSE_PRECISO_MS, comparar: true },
     } satisfies PedidoSimulacao);
 
     return () => worker.terminate();

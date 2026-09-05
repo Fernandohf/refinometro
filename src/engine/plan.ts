@@ -10,7 +10,7 @@ import {
 } from './refine';
 import { GrauImpossivel, solveGradeCampaign, suportaGrau, type GradeAttemptPlan } from './grade';
 import { simulateCampaign, type Fase, type SimulationResult } from './simulate';
-import type { CalcInput, PolicyEntry, ResourceUsage } from './types';
+import type { CalcInput, Percentis, PolicyEntry, ResourceUsage } from './types';
 
 /** Um trecho de refino em que a mesma ação é a melhor escolha. */
 export interface StrategyRange {
@@ -63,6 +63,27 @@ export interface PlanoDeFase {
   para?: number;
 }
 
+/**
+ * O mesmo alvo resolvido com a perda do item PROIBIDA, para comparar com um
+ * plano que aceita o risco.
+ *
+ * Existe porque o motor minimiza a MÉDIA, e a média não é o número que a tela
+ * destaca: o "orçamento recomendado" é um percentil. As duas coisas se cruzam.
+ * Aceitar a quebra sempre baixa a média — é matemática, o conjunto de ações só
+ * cresce —, mas engorda a cauda, e num percentil alto o plano seguro pode sair
+ * MAIS BARATO que o arriscado. Sem esta comparação a página exibiria o número
+ * maior sem dizer que existe um plano melhor naquela margem, escondido atrás de
+ * uma opção que a pessoa marcou achando que só liberava caminhos.
+ */
+export interface AlternativaSegura {
+  /** Custo médio exato do plano que não arrisca o item. */
+  custoEsperado: number;
+  /** Percentis do plano seguro. `null` quando ele não foi simulável. */
+  custo: Percentis | null;
+  /** Itens-base destruídos, em média — zero, por construção do plano seguro. */
+  itensQuebrados: number;
+}
+
 export interface Resultado {
   input: CalcInput;
   fases: PlanoDeFase[];
@@ -91,6 +112,13 @@ export interface Resultado {
   avisos: Aviso[];
   /** Recursos esperados agregados de toda a campanha, por id de item. */
   recursos: ResourceUsage;
+  /**
+   * O plano sem risco de quebra, quando este arrisca e existe um. `null` quando
+   * não há o que comparar: ou a perda não era aceitável (o plano JÁ é o seguro),
+   * ou nenhuma tentativa deste plano pode destruir o item, ou não existe caminho
+   * seguro até o alvo. Ver `AlternativaSegura`.
+   */
+  alternativa: AlternativaSegura | null;
 }
 
 const MAX_REFINO_ALVO = 20;
@@ -126,6 +154,16 @@ export interface CalcOptions {
   tempoMs?: number;
   /** Teto de execuções, independente do tempo. */
   execucoes?: number;
+  /**
+   * Resolver também o plano sem risco de quebra, para a tela poder comparar os
+   * dois orçamentos (ver `AlternativaSegura`).
+   *
+   * Custa uma campanha inteira a mais, simulação inclusive, então quem pede é o
+   * passe preciso — que roda no Worker e não trava a página. O passe rápido, que
+   * refaz a conta a cada tecla, não pede: a comparação pode esperar o resultado
+   * bom, e dobrar o trabalho do caminho síncrono seria pagar com a digitação.
+   */
+  comparar?: boolean;
 }
 
 /** Orçamento de trabalho (tentativas de refino) para um dado tempo. */
@@ -150,6 +188,24 @@ function limiteSimulavel(orcamento: number): number {
 }
 
 export function calcular(input: CalcInput, opcoes: CalcOptions = {}): Resultado {
+  return calcularInterno(input, opcoes, true);
+}
+
+/**
+ * `calcular`, com a chave que interrompe a recursão.
+ *
+ * As duas comparações entre mundos (`custoAceitandoPerda` e `planoSeguro`)
+ * resolvem o mesmo alvo com a resposta oposta para "posso perder o item" — e
+ * essa resolução, se comparasse de novo, chamaria a primeira outra vez, para
+ * sempre. `comparacoes: false` diz "resolva só o plano, sem olhar para o lado":
+ * é o que o plano comparado precisa ser, e de quebra ele não paga por avisos
+ * que ninguém vai ler.
+ */
+function calcularInterno(
+  input: CalcInput,
+  opcoes: CalcOptions,
+  comparacoes: boolean,
+): Resultado {
   validar(input);
 
   const tempoMs = opcoes.tempoMs ?? TEMPO_PADRAO_MS;
@@ -295,9 +351,54 @@ export function calcular(input: CalcInput, opcoes: CalcOptions = {}): Resultado 
     valorJusto: input.precoItem + custoEsperado,
     // Sem aceitar a perda, o aviso põe preço na garantia — e para isso precisa
     // do mesmo alvo resolvido com o risco liberado.
-    avisos: gerarAvisos(input, planos, simulacao, recursos, custoAceitandoPerda(input)),
+    avisos: gerarAvisos(
+      input,
+      planos,
+      simulacao,
+      recursos,
+      comparacoes ? custoAceitandoPerda(input) : null,
+    ),
     recursos,
+    alternativa: comparacoes && opcoes.comparar ? planoSeguro(input, opcoes, planos) : null,
   };
+}
+
+/**
+ * O mesmo alvo com a quebra proibida, para comparar com um plano que a aceita.
+ *
+ * Só existe quando há o que comparar. Se nenhuma tentativa deste plano pode
+ * destruir o item, o plano seguro é ESTE plano — a restrição não corta nada que
+ * ele use, e o ótimo com risco, sendo viável sem risco, continua ótimo lá. Nesse
+ * caso comparar seria mostrar o mesmo número duas vezes.
+ *
+ * Devolve `null` também quando não há caminho seguro até o alvo: aí a opção não
+ * é cara, é inexistente, e quem diz isso é o aviso de quebra que já está na tela.
+ */
+function planoSeguro(
+  input: CalcInput,
+  opcoes: CalcOptions,
+  planos: PlanoDeFase[],
+): AlternativaSegura | null {
+  if (!input.perdaAceitavel) return null;
+
+  const arriscaItem = planos.some(
+    (f) => f.trechos.some((t) => t.arriscaQuebrar) || (f.grau !== undefined && !f.grau.seguro),
+  );
+  if (!arriscaItem) return null;
+
+  try {
+    // Mesmo orçamento do plano principal, de propósito: os dois percentis vão
+    // ser postos lado a lado, e comparar uma amostra grande com uma pequena
+    // faria a diferença entre os planos se misturar com a diferença de precisão.
+    const seguro = calcularInterno({ ...input, perdaAceitavel: false }, opcoes, false);
+    return {
+      custoEsperado: seguro.custoEsperado,
+      custo: seguro.simulacao?.custo ?? null,
+      itensQuebrados: seguro.itensQuebrados,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -311,7 +412,7 @@ export function calcular(input: CalcInput, opcoes: CalcOptions = {}): Resultado 
 function custoAceitandoPerda(input: CalcInput): number | null {
   if (input.perdaAceitavel) return null;
   try {
-    return calcular({ ...input, perdaAceitavel: true }, { tempoMs: 0 }).custoEsperado;
+    return calcularInterno({ ...input, perdaAceitavel: true }, { tempoMs: 0 }, false).custoEsperado;
   } catch {
     return null;
   }
@@ -616,7 +717,10 @@ function gerarAvisos(
     const faixas = naoUsouBencao.map((t) => `+${t.de}→+${t.para}`).join(', ');
     avisos.push({
       nivel: 'info',
-      texto: `Em ${faixas} a Bênção do Ferreiro é aceita mas não compensa: no preço informado, sai mais barato aceitar o risco de quebra. Se você não quer arriscar o item, use assim mesmo.`,
+      // "Na média" não é preciosismo: é exatamente o que o motor otimiza, e
+      // deixar isso implícito punha este aviso em contradição com o bloco que
+      // compara os dois planos no percentil — onde a Bênção pode ganhar.
+      texto: `Em ${faixas} a Bênção do Ferreiro é aceita mas não compensa: no preço informado, sai mais barato NA MÉDIA aceitar o risco de quebra. Se você não quer arriscar o item, use assim mesmo — e repare no orçamento, porque a proteção pode ganhar na margem que você escolheu.`,
     });
   }
 

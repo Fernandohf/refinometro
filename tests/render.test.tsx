@@ -4,6 +4,7 @@ import { renderToString } from 'react-dom/server';
 import App from '../src/App';
 import { CurvaDeCusto } from '../src/components/CurvaDeCusto';
 import { TabelaDeEstados } from '../src/components/Cadeia';
+import { Resultado } from '../src/components/Resultado';
 import { PRECOS_FIXOS } from './precosFixos';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
@@ -268,6 +269,46 @@ describe('página', () => {
 
     // E nenhum degrau sai negativo: subir um refino nunca devolve dinheiro.
     for (const m of etapas) expect(numero(m[1]!)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('oferece o plano sem risco quando ele ganha na margem exibida', () => {
+    // O motor minimiza a média; o número grande da tela é um percentil. Quando
+    // as duas coisas discordam, a página tem que dizer — senão marcar "posso
+    // perder o item", que só deveria abrir caminhos, PIORA o orçamento exibido
+    // em silêncio. Ver `AlternativaSegura`, em engine/plan.ts.
+    const alvo: CalcInput = {
+      kind: 'w5',
+      precoItem: 200_000,
+      refinoAtual: 6,
+      refinoAlvo: 9,
+      grauAtual: 'none',
+      grauAlvo: 'D',
+      evento: true,
+      precos: { ...PRECOS_FIXOS, 6635: 6_000_000 },
+      usarBencaoFerreiro: true,
+      usarMineriosEspeciais: true,
+      perdaAceitavel: true,
+    };
+    const plano = calcular(alvo, { execucoes: 4_000, tempoMs: 30_000, comparar: true });
+    const html = renderToString(
+      <Resultado plano={plano} margem="p90" onMargem={() => {}} />,
+    );
+
+    expect(html).toContain('o plano sem risco de quebra sai mais barato');
+    // As três linhas da comparação, com o orçamento da margem escolhida em cima.
+    expect(html).toContain('Orçamento (90%)');
+    expect(html).toContain('Custo médio');
+    expect(html).toContain('Itens destruídos');
+    // E o caminho para chegar nele, que é o único jeito de agir sobre o aviso.
+    expect(html).toContain('posso perder o item');
+
+    // Sem pedir a comparação não há bloco nenhum: ele custa uma campanha
+    // inteira a mais, e quem paga por ela é o passe preciso, no Worker.
+    const rapido = calcular(alvo, { execucoes: 4_000, tempoMs: 30_000 });
+    const semBloco = renderToString(
+      <Resultado plano={rapido} margem="p90" onMargem={() => {}} />,
+    );
+    expect(semBloco).not.toContain('sem risco de quebra');
   });
 
   it('desenha o Sankey do custo colado na lista de compras', () => {

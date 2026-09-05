@@ -1167,3 +1167,102 @@ describe('equipamento que não pode ser perdido', () => {
     expect(solveRefine(0, 12, opts()).piso).toBe(0);
   });
 });
+
+describe('o plano seguro oferecido ao lado do arriscado', () => {
+  // O motor minimiza a MÉDIA; a tela destaca um PERCENTIL. Aceitar a quebra
+  // sempre baixa a média — o otimizador só ganha ações —, mas o que ele compra
+  // com isso é cauda, e num percentil alto o plano seguro pode ser o mais
+  // barato dos dois. `Resultado.alternativa` existe para a página não exibir o
+  // número pior calada. Ver `AlternativaSegura`, em engine/plan.ts.
+  const arriscado = (over: Partial<CalcInput> = {}, comparar = true) =>
+    calcular(input({ kind: 'w4', refinoAtual: 7, refinoAlvo: 11, precoItem: 200_000, ...over }), {
+      execucoes: 2_000,
+      tempoMs: 30_000,
+      comparar,
+    });
+
+  it('só é resolvido quando alguém pede a comparação', () => {
+    // Uma campanha inteira a mais não pode entrar na conta que roda a cada
+    // tecla digitada: quem paga por ela é o passe preciso, no Worker.
+    expect(arriscado({}, false).alternativa).toBeNull();
+  });
+
+  it('não existe para quem já está no plano seguro', () => {
+    // O plano JÁ é o alternativo: comparar seria mostrar o mesmo número duas vezes.
+    expect(arriscado({ perdaAceitavel: false }).alternativa).toBeNull();
+  });
+
+  it('não existe quando este plano já não arrisca o item', () => {
+    // Item caro o bastante e o ótimo com o risco liberado não usa o risco.
+    // Sendo viável sob a restrição, ele continua ótimo lá — os dois planos são
+    // um só, e comparar mostraria o mesmo número duas vezes.
+    const r = arriscado({ precoItem: 500_000 });
+    expect(r.fases.flatMap((f) => f.trechos).some((t) => t.arriscaQuebrar)).toBe(false);
+    expect(r.alternativa).toBeNull();
+  });
+
+  it('não existe quando não há caminho seguro nenhum até o alvo', () => {
+    // Sombrio não aceita Bênção: aqui a opção não é cara, é inexistente, e quem
+    // diz isso é o aviso de quebra que já está na tela.
+    expect(arriscado({ kind: 'shadowW', refinoAtual: 7, refinoAlvo: 10 }).alternativa).toBeNull();
+  });
+
+  it('custa mais na média e não destrói item nenhum', () => {
+    const r = arriscado();
+    expect(r.alternativa).not.toBeNull();
+    // A restrição só tira opções da mesa: a média do plano seguro não pode cair.
+    expect(r.alternativa!.custoEsperado).toBeGreaterThanOrEqual(r.custoEsperado - 1e-6);
+    expect(r.alternativa!.itensQuebrados).toBe(0);
+    expect(r.itensQuebrados).toBeGreaterThan(0);
+  });
+
+  it('confere com o plano que sai de desmarcar a opção', () => {
+    // O bloco da tela manda desmarcar "posso perder o item" para ver o plano por
+    // inteiro. Se os dois números divergissem, o conselho levaria a outra tela
+    // que não a prometida.
+    const r = arriscado();
+    const desmarcado = arriscado({ perdaAceitavel: false });
+    expect(r.alternativa!.custoEsperado).toBeCloseTo(desmarcado.custoEsperado, 6);
+    expect(r.alternativa!.custo!.p90).toBeCloseTo(desmarcado.simulacao!.custo.p90, 6);
+  });
+
+  it('registra o cruzamento que motivou tudo isto: média menor, percentil maior', () => {
+    // Arma nv5 com Evento, +6 Sem Grau → +9 Grau D, item barato. Com a Bênção
+    // do Ferreiro a 6 mi, aceitar a quebra faz o motor largá-la no +10→+11: o
+    // item passa a poder explodir ali, a média cai 1,8% e a CAUDA engorda. No
+    // p90 — a margem que a página recomenda — o plano seguro sai 12% mais
+    // barato, e era esse plano melhor que a tela escondia atrás de uma opção
+    // marcada para abrir caminhos, não para fechá-los.
+    //
+    // A janela de preço é estreita de propósito: abaixo dela o otimizador compra
+    // a Bênção mesmo aceitando o risco (planos iguais, nada a comparar) e acima
+    // ela fica cara demais para o plano seguro competir em qualquer margem.
+    const alvo = input({
+      kind: 'w5',
+      precoItem: 200_000,
+      refinoAtual: 6,
+      refinoAlvo: 9,
+      grauAlvo: 'D',
+      evento: true,
+      precos: { ...PRECOS_FIXOS, 6635: 6_000_000 },
+    });
+    // Teto de execuções bem abaixo do que o tempo permite: assim é o teto que
+    // encerra a amostragem, e não o relógio, e o percentil sai igual em qualquer
+    // máquina (a semente da simulação é fixa).
+    const orcamento = { execucoes: 4_000, tempoMs: 30_000 };
+    const com = calcular(alvo, { ...orcamento, comparar: true });
+    const sem = calcular({ ...alvo, perdaAceitavel: false }, orcamento);
+
+    // O plano que aceita o risco larga a Bênção no +10; o seguro a mantém.
+    const bencaoNo10 = (r: typeof com) =>
+      r.fases.flatMap((f) => f.trechos).find((t) => t.de === 10)!.bencaos;
+    expect(bencaoNo10(com)).toBe(0);
+    expect(bencaoNo10(sem)).toBeGreaterThan(0);
+
+    // A média confirma que o motor não errou: aceitar o risco é mais barato nela.
+    expect(com.custoEsperado).toBeLessThan(sem.custoEsperado);
+    // E o percentil confirma que a média não era a resposta que a tela dá.
+    expect(com.simulacao!.custo.p90).toBeGreaterThan(sem.simulacao!.custo.p90 * 1.05);
+    expect(com.alternativa!.custo!.p90).toBeLessThan(com.simulacao!.custo.p90);
+  });
+});
