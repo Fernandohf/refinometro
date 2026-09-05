@@ -1,5 +1,6 @@
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
 
+import { chanceAte } from '../engine/simulate';
 import { porcento, zeny, zenyExato } from '../format';
 import { Info } from './ui';
 
@@ -24,6 +25,15 @@ const X_LIMITE = LARGURA - L_CAUDA - VAO;
 
 /** O ponto desliza de uma margem à outra: o pulo entre elas é a informação. */
 const TRANSICAO = 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)';
+
+/**
+ * Quanto uma seta do teclado anda pela escala: uma faixa do histograma.
+ *
+ * No cursor a leitura é contínua, porque o dedo e o mouse já apontam onde
+ * querem. No teclado ela precisa de um passo, e a faixa é o único passo com
+ * significado no desenho — é a menor diferença que ele chega a mostrar.
+ */
+const PASSO_TECLA = X_LIMITE / N_FAIXAS;
 
 /** A margem escolhida, já resolvida em chance e em zeny. */
 export interface PontoDaCurva {
@@ -73,6 +83,18 @@ export function CurvaDeCusto({
 
   const curva = useMemo(() => histograma(amostras, limite), [amostras, limite]);
 
+  /**
+   * Onde o cursor está lendo, em unidades do viewBox — `null` quando ninguém
+   * aponta e o desenho volta a mostrar a margem escolhida.
+   */
+  const [lidoX, setLidoX] = useState<number | null>(null);
+
+  // Ordenar uma vez. A leitura responde "quantas campanhas custaram até aqui?"
+  // a cada movimento do cursor, e numa amostra ordenada isso é uma busca
+  // binária; reordenar as 5 mil a cada pixel percorrido custaria mil vezes mais
+  // que a resposta.
+  const ordenado = useMemo(() => Float64Array.from(amostras).sort(), [amostras]);
+
   // Dentro do limite seguro da categoria nenhuma tentativa falha, então toda
   // campanha custa exatamente o mesmo. Um gráfico de uma barra só não diria
   // nada; a frase diz.
@@ -87,10 +109,43 @@ export function CurvaDeCusto({
   }
 
   const escala = (v: number) => Math.max(0, Math.min(X_LIMITE, (v / limite) * X_LIMITE));
-  const xPonto = escala(escolhida.valor);
   const xMedia = escala(media);
   const mediaAlemDaEscala = media > limite;
   const { area, linha } = caminhos(curva);
+
+  // O ponto tem dois donos: a margem escolhida no painel e, enquanto alguém
+  // aponta, o cursor. É o mesmo ponto nos dois casos — apontar não abre uma
+  // leitura paralela ao lado, move a que já estava lá. Assim não há nada novo a
+  // aprender: o rótulo continua dizendo um orçamento e a fatia que ele cobre.
+  const lendo = lidoX !== null;
+  const xPonto = lendo ? lidoX : escala(escolhida.valor);
+  const valor = lendo ? (lidoX / X_LIMITE) * limite : escolhida.valor;
+  const chance = lendo ? chanceAte(ordenado, valor) : escolhida.chance;
+
+  /** Onde o ponteiro caiu, na régua do viewBox. */
+  const xDoPonteiro = (ev: PointerEvent<SVGSVGElement>) => {
+    const caixa = ev.currentTarget.getBoundingClientRect();
+    // O SVG preserva a proporção do viewBox, então largura desenhada e largura
+    // do viewBox são a mesma régua em escalas diferentes — uma divisão basta.
+    return Math.max(0, Math.min(X_LIMITE, ((ev.clientX - caixa.left) / caixa.width) * LARGURA));
+  };
+
+  const teclado = (ev: KeyboardEvent<SVGSVGElement>) => {
+    const atual = lidoX ?? escala(escolhida.valor);
+    // Sair pelo Esc devolve o desenho à margem escolhida: a leitura é uma
+    // visita, e toda camada temporária desta interface tem essa saída.
+    const destino =
+      ev.key === 'ArrowRight' ? Math.min(X_LIMITE, atual + PASSO_TECLA)
+      : ev.key === 'ArrowLeft' ? Math.max(0, atual - PASSO_TECLA)
+      : ev.key === 'Home' ? 0
+      : ev.key === 'End' ? X_LIMITE
+      : ev.key === 'Escape' ? null
+      : undefined;
+    if (destino === undefined) return;
+    // As setas rolariam a página por baixo da leitura.
+    ev.preventDefault();
+    setLidoX(destino);
+  };
 
   // O rótulo acompanha o ponto, então perto das bordas ele precisa virar para
   // dentro — senão sai do desenho justamente nas margens extremas.
@@ -99,17 +154,45 @@ export function CurvaDeCusto({
 
   return (
     <figure className="m-0 mt-5">
+      {/* Continua sendo uma imagem para quem lê por leitor de tela — o `title`
+          abaixo já conta a distribuição inteira em uma frase. O `tabIndex` é
+          para quem navega por teclado poder correr a leitura com as setas; um
+          `slider` seria mentira, porque apontar aqui não muda nada, só lê.
+
+          `touch-pan-y` deixa a rolagem vertical passar direto: no celular o
+          dedo arrastado de lado lê o gráfico, e arrastado para cima rola a
+          página, como faria em qualquer outro trecho dela. */}
       <svg
         viewBox={`0 0 ${LARGURA} ${ALTURA_VB}`}
-        className="h-auto w-full"
+        className="h-auto w-full cursor-crosshair touch-pan-y"
         role="img"
+        tabIndex={0}
         aria-labelledby={`${id}-t`}
         preserveAspectRatio="xMidYMid meet"
+        onPointerMove={(ev) => setLidoX(xDoPonteiro(ev))}
+        onPointerDown={(ev) => {
+          // Capturar o ponteiro segura a leitura mesmo quando o dedo passa da
+          // borda do desenho — arrastar até o fim da cauda é o gesto natural.
+          ev.currentTarget.setPointerCapture(ev.pointerId);
+          setLidoX(xDoPonteiro(ev));
+        }}
+        onPointerUp={(ev) => {
+          ev.currentTarget.releasePointerCapture(ev.pointerId);
+          // O mouse continua pousado sobre o desenho e segue lendo; o dedo, ao
+          // soltar, não está mais em lugar nenhum, e uma leitura congelada ali
+          // mentiria sobre a margem escolhida no painel de baixo.
+          if (ev.pointerType !== 'mouse') setLidoX(null);
+        }}
+        onPointerLeave={() => setLidoX(null)}
+        onPointerCancel={() => setLidoX(null)}
+        onKeyDown={teclado}
+        onBlur={() => setLidoX(null)}
       >
         <title id={`${id}-t`}>
           {`Distribuição do custo em ${amostras.length.toLocaleString('pt-BR')} campanhas simuladas. ` +
             `A margem escolhida, ${escolhida.rotulo.toLowerCase()}, cai em ${zenyExato(escolhida.valor)} ` +
-            `e cobre ${porcento(escolhida.chance)} delas. O custo médio é ${zenyExato(media)}.`}
+            `e cobre ${porcento(escolhida.chance)} delas. O custo médio é ${zenyExato(media)}. ` +
+            'Aponte o desenho, ou use as setas, para ler qualquer outro orçamento.'}
         </title>
 
         {/* A parte acesa é a mesma curva recortada na altura do ponto, e o
@@ -120,7 +203,7 @@ export function CurvaDeCusto({
             y={0}
             width={LARGURA}
             height={ALTURA_VB}
-            style={{ transform: `translateX(${xPonto}px)`, transition: TRANSICAO }}
+            style={{ transform: `translateX(${xPonto}px)`, transition: lendo ? 'none' : TRANSICAO }}
           />
         </clipPath>
 
@@ -147,18 +230,23 @@ export function CurvaDeCusto({
         <line x1={0} x2={LARGURA} y1={BASE} y2={BASE} stroke="var(--color-borda)" strokeWidth={0.8} />
 
         {/* Onde estão as outras margens: mostra de antemão o pulo que cada uma
-            representa — e por que as últimas ficam tão espremidas. */}
-        {margens.map((v) => (
-          <line
-            key={v}
-            x1={escala(v)}
-            x2={escala(v)}
-            y1={BASE}
-            y2={BASE + 3.5}
-            stroke="var(--color-borda)"
-            strokeWidth={0.8}
-          />
-        ))}
+            representa — e por que as últimas ficam tão espremidas. A escolhida
+            fica acesa entre elas, porque enquanto o cursor lê outro ponto ela é
+            a única coisa no desenho que ainda diz o que o painel selecionou. */}
+        {margens.map((v) => {
+          const daVez = v === escolhida.valor;
+          return (
+            <line
+              key={v}
+              x1={escala(v)}
+              x2={escala(v)}
+              y1={BASE}
+              y2={BASE + (daVez ? 5 : 3.5)}
+              stroke={daVez ? 'var(--color-realce)' : 'var(--color-borda)'}
+              strokeWidth={daVez ? 1.2 : 0.8}
+            />
+          );
+        })}
 
         {/* O custo médio, para poder ser comparado com a mediana sem sair da tela. */}
         <g style={{ transform: `translateX(${xMedia}px)` }}>
@@ -195,8 +283,11 @@ export function CurvaDeCusto({
           </text>
         )}
 
-        {/* O ponto: a leitura da margem escolhida sobre a distribuição. */}
-        <g style={{ transform: `translateX(${xPonto}px)`, transition: TRANSICAO }}>
+        {/* O ponto: a leitura — do painel ou do cursor — sobre a distribuição.
+            Pulando entre margens ele desliza, porque o pulo é a informação;
+            seguindo o cursor ele não pode deslizar, ou chegaria sempre um passo
+            atrás do dedo. */}
+        <g style={{ transform: `translateX(${xPonto}px)`, transition: lendo ? 'none' : TRANSICAO }}>
           <line x1={0} x2={0} y1={22} y2={BASE} stroke="var(--color-realce)" strokeWidth={1.2} />
           <circle cx={0} cy={22} r={3.5} fill="var(--color-realce)" />
           <text
@@ -205,25 +296,32 @@ export function CurvaDeCusto({
             textAnchor={ancora}
             className="fill-[var(--color-realce)] text-[11px] font-semibold"
           >
-            {zeny(escolhida.valor)}
+            {zeny(valor)}
             {/* `dx` e não um espaço no texto: o SVG colapsa espaços, e os dois
                 números coloriam um só bloco ilegível ("450,1 mi z 99%"). */}
             <tspan dx={5} className="fill-[var(--color-suave)] font-normal">
-              {porcento(escolhida.chance)}
+              {porcento(chance)}
             </tspan>
           </text>
         </g>
       </svg>
 
+      {/* O rótulo do ponto é um número desenhado, e desenho não se lê em voz
+          alta: quem corre a curva pelas setas precisa ouvir onde chegou. */}
+      <p className="sr-only" aria-live="polite">
+        {lendo ? `${zenyExato(valor)} cobre ${porcento(chance)} das campanhas.` : ''}
+      </p>
+
       {/* A legenda explica o desenho, e um desenho explicado uma vez fica
           explicado. Impressa, ela ocupava mais altura que o gráfico — e o
           gráfico é que responde a pergunta. */}
       <figcaption className="md-corpo-p mt-1 flex items-center gap-1 text-suave">
-        A área acesa cobre {porcento(escolhida.chance)} das campanhas simuladas.
+        A área acesa cobre {porcento(chance)} das campanhas simuladas.
         <Info titulo="Como ler esta curva">
           Cada faixa é a fatia das campanhas simuladas que custou aquilo. A área acesa vai até o
           orçamento escolhido: são {porcento(escolhida.chance)} das campanhas, e é exatamente isso
-          que a margem compra.{' '}
+          que a margem compra. Apontar o desenho — com o cursor, com o dedo ou com as setas do
+          teclado — lê qualquer outro orçamento, e não só as cinco margens da lista.{' '}
           {!curva.alisada && (
             <>
               Os degraus separados são os itens destruídos: cada quebra soma o preço de um item de
