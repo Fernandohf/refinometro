@@ -1,0 +1,254 @@
+name: Sondar o acesso ao LATAM
+
+# Descobre se o runner do GitHub consegue falar com o site do LATAM, e com qual
+# cliente.
+#
+# Por que isto existe: em 2026-09-15 a cotação começou a falhar 36/36 com HTTP
+# 403. O site migrou de `ro.gnjoylatam.com` para `ro.gnjoyamericas.com` (301) e o
+# domínio novo ficou atrás de um managed challenge da Cloudflare
+# (`Cf-Mitigated: challenge`). Testado de IP residencial, o resultado é limpo: o
+# `fetch` do Node leva 403 em 100% das tentativas — inclusive com os headers
+# completos de navegador e com `ciphers`/`sigalgs`/`ecdhCurve` do Chrome —,
+# enquanto o `curl` com headers completos passa em ~9/10.
+#
+# O que NÃO dá para testar de casa é o que decide o conserto: a Cloudflare pontua
+# o ASN de origem, e o runner sai de datacenter. Pode ser que nem o `curl` com
+# headers perfeitos passe daqui. Consertar `scripts/latam.ts` antes de saber
+# disso é reescrever o transporte no escuro.
+#
+# Então esta sonda é de leitura pura: não grava arquivo, não comita, não chama
+# deploy. Ela baixa a mesma página que a cotação baixa, com quatro perfis de
+# cliente, e conta quantas vezes cada um passou. O veredito sai no resumo da
+# execução, não no meio do log.
+#
+# É diagnóstico, não rotina: só `workflow_dispatch`, sem `schedule`. Depois que a
+# cotação voltar, este arquivo pode ir embora.
+on:
+  workflow_dispatch:
+    inputs:
+      tentativas:
+        description: 'Tentativas por perfil (o desafio é intermitente; 1 não conclui nada)'
+        type: string
+        default: '6'
+      termo:
+        description: 'Termo a consultar'
+        type: string
+        default: 'Oridecon'
+
+permissions:
+  contents: read
+
+jobs:
+  sondar:
+    runs-on: ubuntu-latest
+    # Quatro perfis, com pausa de 2s entre tentativas. Sobra de propósito: se o
+    # site estiver lento, prefiro esperar a concluir "rede" e sujar o veredito.
+    timeout-minutes: 10
+
+    steps:
+      # Sem checkout de propósito: a sonda não depende de nada do repositório, e
+      # assim ela mede o acesso e mais nada.
+
+      - name: De onde este runner está saindo
+        # O ASN é metade da pergunta. Se a Cloudflare barrar tudo, é este campo
+        # que explica por quê — e se um dia passar, é ele que muda.
+        run: |
+          set +e
+          echo "### De onde a sonda saiu" >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          origem=$(curl -sS --max-time 15 https://ipinfo.io/json)
+          if [ -n "$origem" ]; then
+            echo "$origem"
+            ip=$(echo "$origem"  | grep -o '"ip": *"[^"]*"'  | cut -d'"' -f4)
+            org=$(echo "$origem" | grep -o '"org": *"[^"]*"' | cut -d'"' -f4)
+            pais=$(echo "$origem" | grep -o '"country": *"[^"]*"' | cut -d'"' -f4)
+            echo "IP \`${ip:-?}\` — ${org:-ASN desconhecido} — ${pais:-?}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Não consegui descobrir o IP de saída.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sondar os quatro perfis
+        env:
+          TENTATIVAS: ${{ inputs.tentativas }}
+          TERMO: ${{ inputs.termo }}
+        run: |
+          set +e
+
+          NOVO='https://ro.gnjoyamericas.com/pt/intro/shop-search/market-price'
+          VELHO='https://ro.gnjoylatam.com/pt/intro/shop-search/market-price'
+
+          # O UA que `scripts/latam.ts` manda hoje, e um atual. O antigo alega
+          # Chrome 126 sem mandar nada que o Chrome 126 manda, e é parte do
+          # motivo do 403.
+          UA_ATUAL='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+          UA_SCRIPT='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
+
+          # O conjunto que um Chrome de verdade manda numa navegação de topo. É
+          # a diferença entre ~1/6 e ~9/10 no teste de casa.
+          COMPLETOS=(
+            -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+            -H 'Accept-Language: pt-BR,pt;q=0.9,en;q=0.8'
+            -H 'sec-ch-ua: "Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"'
+            -H 'sec-ch-ua-mobile: ?0'
+            -H 'sec-ch-ua-platform: "Windows"'
+            -H 'Sec-Fetch-Dest: document'
+            -H 'Sec-Fetch-Mode: navigate'
+            -H 'Sec-Fetch-Site: none'
+            -H 'Sec-Fetch-User: ?1'
+            -H 'Upgrade-Insecure-Requests: 1'
+          )
+
+          tentativas="${TENTATIVAS:-6}"
+          case "$tentativas" in ''|*[!0-9]*) tentativas=6 ;; esac
+          [ "$tentativas" -lt 1 ] && tentativas=1
+
+          termo="${TERMO:-Oridecon}"
+          # Precisa ser codificado, e não interpolado cru: metade dos materiais
+          # tem espaço e acento (Pó de Éter, Bênção do Ferreiro) e o curl recusa
+          # a URL com código 000, que pareceria bloqueio sem ser. É o mesmo que
+          # `URLSearchParams` faz em `urlDaConsulta`.
+          termo_enc=$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$termo")
+          consulta="?serverType=FREYA&period=1&searchWord=$termo_enc"
+
+          {
+            echo "### Quem passou"
+            echo ''
+            echo "Termo \`$termo\`, $tentativas tentativas por perfil."
+            echo ''
+            echo '| perfil | 200 | com o bloco de resultados | códigos |'
+            echo '|---|---|---|---|'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Guarda a taxa de cada perfil para o veredito no fim.
+          declare -A passou
+
+          sonda_curl() {
+            chave="$1"; rotulo="$2"; url="$3"; ua="$4"; shift 4
+            ok=0; bloco=0; codigos=''
+            for i in $(seq 1 "$tentativas"); do
+              code=$(curl -sS --compressed --max-time 30 -o corpo.html \
+                       -w '%{http_code}' -A "$ua" "$@" "$url$consulta" 2>/dev/null)
+              [ -z "$code" ] && code='rede'
+              codigos="$codigos $code"
+              if [ "$code" = '200' ]; then
+                ok=$((ok + 1))
+                # Escapado no HTML cru (`{\"queryParams\":`), então o grep
+                # simples acha sem desescapar. É a mesma marca que
+                # `parsearMercado` procura depois de remontar o payload.
+                if grep -q 'queryParams' corpo.html; then
+                  bloco=$((bloco + 1))
+                fi
+              fi
+              sleep 2
+            done
+            passou["$chave"]=$ok
+            echo "| $rotulo | $ok/$tentativas | $bloco/$tentativas |$codigos |" >> "$GITHUB_STEP_SUMMARY"
+            echo "  $rotulo: $ok/$tentativas passaram, $bloco com o bloco —$codigos"
+          }
+
+          echo "Sondando $tentativas vezes por perfil..."
+
+          # 1. O que o script faz hoje, já no domínio novo: isola o efeito dos
+          #    headers do efeito do domínio.
+          sonda_curl script "curl, só UA (como o script hoje)" "$NOVO" "$UA_SCRIPT"
+
+          # 2. A aposta do conserto.
+          sonda_curl completo "curl, headers completos" "$NOVO" "$UA_ATUAL" "${COMPLETOS[@]}"
+
+          # 3. Pelo domínio velho, seguindo o 301. Confirma que o redirect é
+          #    atravessável num GET — e é o mesmo 301 que engole o POST da série
+          #    diária, convertendo-o em GET.
+          sonda_curl redirect "curl, headers completos, via 301 do domínio velho" "$VELHO" "$UA_ATUAL" -L "${COMPLETOS[@]}"
+
+          # 4. O `fetch` do Node, que é o que o script usa de verdade. De casa
+          #    leva 403 em 100%, mesmo com estes headers; aqui confirma se o
+          #    fingerprint do undici é barrado no runner também.
+          cat > sonda.mjs <<'FIM'
+          const url = process.argv[2];
+          const tentativas = Number(process.argv[3]);
+          const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+            'sec-ch-ua': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+          };
+
+          let ok = 0;
+          let bloco = 0;
+          const codigos = [];
+          for (let i = 0; i < tentativas; i++) {
+            try {
+              const res = await fetch(url, { headers });
+              codigos.push(String(res.status));
+              if (res.ok) {
+                ok++;
+                if ((await res.text()).includes('queryParams')) bloco++;
+              }
+            } catch (erro) {
+              codigos.push('rede');
+              console.error(`  rede: ${erro.message}`);
+            }
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+          // Lido pelo shell, então uma linha só e formato fixo.
+          console.log(`${ok} ${bloco} ${codigos.join(' ')}`);
+          FIM
+
+          linha=$(node sonda.mjs "$NOVO$consulta" "$tentativas" 2>/dev/null | tail -1)
+          if [ -n "$linha" ]; then
+            ok_node=$(echo "$linha" | cut -d' ' -f1)
+            bloco_node=$(echo "$linha" | cut -d' ' -f2)
+            codigos_node=$(echo "$linha" | cut -d' ' -f3-)
+          else
+            ok_node=0; bloco_node=0; codigos_node='(a sonda do Node não respondeu)'
+          fi
+          passou[node]=$ok_node
+          echo "| \`fetch\` do Node, headers completos | $ok_node/$tentativas | $bloco_node/$tentativas | $codigos_node |" >> "$GITHUB_STEP_SUMMARY"
+          echo "  fetch do Node: $ok_node/$tentativas passaram, $bloco_node com o bloco — $codigos_node"
+
+          # ------------------------------------------------------------ veredito
+
+          metade=$(( (tentativas + 1) / 2 ))
+          {
+            echo ''
+            echo "### Veredito"
+            echo ''
+            if [ "${passou[node]}" -ge "$metade" ]; then
+              echo "**O \`fetch\` do Node passa deste runner.** O conserto é só de endereço e"
+              echo "headers: apontar \`BASE\` para \`ro.gnjoyamericas.com\` e mandar o conjunto"
+              echo "completo de headers. Nada de \`curl\` nem de child_process."
+            elif [ "${passou[completo]}" -ge "$metade" ]; then
+              echo "**O \`curl\` com headers completos passa, o \`fetch\` do Node não.** Confirma de"
+              echo "dentro do runner o que o teste local mostrou: a Cloudflare barra o fingerprint"
+              echo "de TLS do undici. O conserto é trocar o transporte de \`baixar()\` por \`curl\`"
+              echo "via child_process, com estes headers, no domínio novo."
+            elif [ "${passou[completo]}" -gt 0 ] || [ "${passou[script]}" -gt 0 ] || [ "${passou[redirect]}" -gt 0 ]; then
+              echo "**Passa, mas intermitente.** Alguma tentativa vingou e a maioria não — o"
+              echo "desafio está pontuando o runner na fronteira. Um conserto baseado nisso"
+              echo "cotaria pela metade, o que é pior que não cotar: a guarda de 1/4 de falhas"
+              echo "não seguraria, e o campo abriria com meia base velha. Vale medir de novo com"
+              echo "mais tentativas antes de decidir."
+            else
+              echo "**A Cloudflare barra este runner em todos os perfis.** Não é header nem"
+              echo "domínio: é o IP de datacenter. Trocar o transporte no script não resolve —"
+              echo "as saídas são cotar de outro lugar (uma máquina em IP residencial, ou um"
+              echo "proxy), ou pedir liberação à GNJOY. Enquanto isso, \`npm run precos\` recusar"
+              echo "a gravar é o comportamento certo."
+            fi
+            echo ''
+            echo "Contexto de casa (IP residencial, 2026-09-16): \`curl\` completo 9/10, \`fetch\`"
+            echo "do Node 0/4 mesmo com TLS imitando o Chrome. O parser não mudou — a página"
+            echo "nova é parseada por \`parsearMercado\` sem alteração."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Sai verde sempre: 403 aqui é a resposta da sonda, não falha dela. Um
+          # job vermelho faria parecer que a sonda quebrou.
+          echo 'Sonda concluída — o veredito está no resumo da execução.'
