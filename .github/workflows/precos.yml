@@ -1,5 +1,34 @@
 name: Atualizar os preços
 
+# DESATIVADO em 2026-10-01 — o agendamento saiu, e o motivo não é consertável
+# aqui dentro.
+#
+# O site do LATAM migrou para `ro.gnjoyamericas.com` e pôs a Cloudflare na
+# frente. Do runner do GitHub Actions NADA passa: a sonda de
+# `sonda-latam.yml` mediu quatro perfis de cliente — `curl` só com UA, `curl`
+# com o conjunto completo de headers de navegador, o mesmo via o 301 do domínio
+# velho, e o `fetch` do Node — e deu 0/6 em todos, 48 de 48 requisições em 403.
+# O IP de saída é `20.29.29.22` (AS8075, Microsoft), e dois runs em regiões
+# diferentes do Azure saíram pelo MESMO IP: é o ASN, não o cliente nem os
+# headers, e trocar de região ou reexecutar não dá sorte.
+#
+# Da máquina de casa, em IP residencial, `curl` com headers completos passa
+# ~9/10 — então a cotação em si continua possível, só não daqui.
+#
+# De 15/09 a 30/09 foram 16 falhas seguidas (último sucesso em 14/09), todas
+# pelo mesmo 403. Falhar era o comportamento certo: o script se recusa a gravar
+# quando mais de um quarto das consultas falha, e foi isso que impediu
+# `precos.json` de virar "mercado vazio". Mas um agendamento que só pode falhar
+# é alarme sem informação, e é por isso que o `schedule` saiu daqui.
+#
+# O `workflow_dispatch` FICOU de propósito: é o jeito de testar se o bloqueio
+# caiu, e se cair basta devolver o `cron`. O parser não precisa de conserto
+# nenhum — `parsearMercado` lê a página nova sem alteração; o que falta é
+# transporte (domínio novo, headers completos, e um cliente que não seja o
+# `fetch` do Node) rodando de um IP que não seja de datacenter.
+#
+# ---
+#
 # Recota os materiais no mercado do LATAM e comita src/data/precos.json quando
 # algum preço mudou.
 #
@@ -16,11 +45,15 @@ name: Atualizar os preços
 # recursão), então o `on: push` do deploy.yml ficaria mudo. `workflow_dispatch` é
 # justamente a exceção dessa regra, e por isso funciona.
 on:
-  schedule:
-    # 09:00 UTC, 06:00 em Brasília. A janela de 1 dia do site é móvel, então a
-    # hora não muda o que ela cobre; o que a madrugada evita é publicar em cima
-    # de quem está usando o site.
-    - cron: '0 9 * * *'
+  # O `schedule` está suspenso — ver a nota de DESATIVADO no alto. Quando o
+  # acesso voltar, é só descomentar; o horário continua valendo pelo mesmo
+  # motivo de antes.
+  #
+  # schedule:
+  #   # 09:00 UTC, 06:00 em Brasília. A janela de 1 dia do site é móvel, então a
+  #   # hora não muda o que ela cobre; o que a madrugada evita é publicar em
+  #   # cima de quem está usando o site.
+  #   - cron: '0 9 * * *'
   workflow_dispatch:
 
 # Nunca duas cotações ao mesmo tempo: as duas gravariam o mesmo arquivo, e a
