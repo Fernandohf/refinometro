@@ -6,7 +6,7 @@ import { fluxoDeCusto, quantidadesNaMargem } from '../engine/fluxoDeCusto';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
 import type { Grade } from '../data/grade';
-import { ROTULO_GRAU, rotuloCurto } from '../data/rotulos';
+import { rotuloCurto } from '../data/rotulos';
 import { CartaoItem, SlotItem } from './ItemNoJogo';
 import { Percurso, TabelaDeEstados } from './Cadeia';
 import { CurvaDeCusto } from './CurvaDeCusto';
@@ -19,6 +19,7 @@ import {
   Info,
   Painel,
   Pastilha,
+  Recolhivel,
   Segmentado,
   TituloDeSecao,
 } from './ui';
@@ -36,13 +37,25 @@ type AbaKey = 'plano' | 'compras' | 'estoque';
  * o gráfico da distribuição precisa dela para dizer que fatia das campanhas a
  * área acesa cobre, e ler isso de volta da chave ('p90' → 0,9) seria um parse
  * inútil de um dado que já se sabe aqui.
+ *
+ * O `rotulo` diz quão seguro é o orçamento, não o percentil: "90%" sozinho é
+ * vocabulário de estatística, e era o primeiro controle que quem chega via no
+ * resultado. O número continua em `pct`, para quem o quer e para os textos que
+ * precisam ser exatos. `explica` fala em "vezes", e não em "tentativas": no jogo
+ * tentativa é cada clique no refinador, não a campanha inteira.
  */
-export const MARGENS: { key: MargemKey; rotulo: string; chance: number; explica: string }[] = [
-  { key: 'p50', rotulo: 'Mediana', chance: 0.5, explica: 'metade das tentativas custa menos que isso' },
-  { key: 'p75', rotulo: '75%', chance: 0.75, explica: 'cobre 3 de cada 4 tentativas' },
-  { key: 'p90', rotulo: '90%', chance: 0.9, explica: 'cobre 9 de cada 10 tentativas' },
-  { key: 'p95', rotulo: '95%', chance: 0.95, explica: 'cobre 19 de cada 20 tentativas' },
-  { key: 'p99', rotulo: '99%', chance: 0.99, explica: 'só 1 em 100 estoura este orçamento' },
+export const MARGENS: {
+  key: MargemKey;
+  rotulo: string;
+  pct: string;
+  chance: number;
+  explica: string;
+}[] = [
+  { key: 'p50', rotulo: 'Arriscado', pct: '50%', chance: 0.5, explica: 'dá em metade das vezes' },
+  { key: 'p75', rotulo: 'Moderado', pct: '75%', chance: 0.75, explica: 'dá em 3 de cada 4 vezes' },
+  { key: 'p90', rotulo: 'Seguro', pct: '90%', chance: 0.9, explica: 'dá em 9 de cada 10 vezes' },
+  { key: 'p95', rotulo: 'Muito seguro', pct: '95%', chance: 0.95, explica: 'dá em 19 de cada 20 vezes' },
+  { key: 'p99', rotulo: 'Quase certo', pct: '99%', chance: 0.99, explica: 'só 1 em 100 vezes passa disso' },
 ];
 
 export function Resultado({
@@ -76,7 +89,6 @@ export function Resultado({
   moduloEstoque?: ReactNode;
 }) {
   const sim = plano.simulacao;
-  const margemInfo = MARGENS.find((m) => m.key === margem)!;
   // Um aviso que muda a decisão (o item quebra, o alvo não fecha, um preço está
   // zerado) precisa ser lido ANTES do número que ele desmente. O que é só
   // contexto pode esperar o fim da página.
@@ -163,19 +175,7 @@ export function Resultado({
         </ul>
       )}
 
-      <Painel
-        titulo="Quanto vai custar"
-        aside={
-          sim ? (
-            <Segmentado
-              rotulo="Margem de segurança"
-              value={margem}
-              onChange={onMargem}
-              opcoes={MARGENS.map((m) => ({ key: m.key, rotulo: m.rotulo, dica: m.explica }))}
-            />
-          ) : undefined
-        }
-      >
+      <Painel titulo="Quanto vai custar">
         <Trajetoria plano={plano} itemNome={itemNome} itemId={itemId} itemSlots={itemSlots} />
 
         {/* O orçamento é a resposta; média e valor justo são apoio. Antes os
@@ -185,9 +185,10 @@ export function Resultado({
           <div className="md-rotulo-p flex items-center gap-1 text-suave">
             Orçamento recomendado
             <Info titulo="Orçamento recomendado">
-              O custo total da campanha no percentil que você escolheu ao lado. Numa margem de 90%,
-              nove de cada dez campanhas simuladas fecharam gastando isto ou menos — é quanto
-              separar para começar sem depender de sorte.
+              Quanto zeny separar para chegar ao alvo sem depender de sorte. No nível{' '}
+              <strong className="text-texto">Seguro</strong>, 9 de cada 10 campanhas simuladas
+              fecharam gastando isto ou menos — é o percentil 90 do custo total. Os outros níveis,
+              logo abaixo, trocam o percentil.
             </Info>
           </div>
           {sim ? (
@@ -198,9 +199,7 @@ export function Resultado({
               >
                 {zeny(sim.custo[margem])}
               </div>
-              <div className="md-corpo-m mt-1 text-suave">
-                Margem de {margemInfo.rotulo.toLowerCase()} — {margemInfo.explica}.
-              </div>
+              <Resposta plano={plano} margem={margem} />
             </>
           ) : (
             <>
@@ -221,6 +220,13 @@ export function Resultado({
           )}
         </div>
 
+        {/* O nível de segurança vem colado na frase que ele muda, e é o único
+            seletor da margem: havia um segmentado no canto do painel e a
+            legenda clicável do gráfico fazendo a mesma coisa, e dois controles
+            para uma escolha só é um a mais para quem ainda não entendeu a
+            primeira. */}
+        {sim && <NivelDeSeguranca custo={sim.custo} margem={margem} onMargem={onMargem} />}
+
         <SemRisco plano={plano} margem={margem} />
 
         {sim && (
@@ -229,27 +235,31 @@ export function Resultado({
             amostras={sim.amostras.custo}
             media={plano.custoEsperado}
             margem={margem}
-            onMargem={onMargem}
           />
         )}
 
-        <div className="mt-5 grid gap-4 border-t border-borda pt-4 sm:grid-cols-3">
-          <Copias plano={plano} margem={margem} />
-          <Secundario
-            rotulo="Custo médio"
-            valor={zeny(plano.custoEsperado)}
-            titulo={zenyExato(plano.custoEsperado)}
-            nota="A média é puxada pelos azarados. Planejar por ela dá errado em quase metade das vezes."
-          />
-          <Secundario
-            rotulo="Valor do item pronto"
-            valor={zeny(plano.valorJusto)}
-            titulo={zenyExato(plano.valorJusto)}
-            nota={`Preço no +0 (${zeny(plano.input.precoItem)}) mais o custo médio do caminho. Se alguém vender o item já refinado por menos que isso, comprar pronto sai mais barato — e sem o risco.`}
-          />
+        {/* A frase de cima já diz o que estes três decidem — quanto separar e
+            se o item quebra. Abertos, eram três números grandes disputando com
+            o orçamento, e média e valor do item quase iguais pareciam erro. */}
+        <div className="mt-5 border-t border-borda pt-3">
+          <Recolhivel rotulo="mais números" aside={precisao}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Copias plano={plano} margem={margem} />
+              <Secundario
+                rotulo="Custo médio"
+                valor={zeny(plano.custoEsperado)}
+                titulo={zenyExato(plano.custoEsperado)}
+                nota="A média é puxada pelos azarados. Planejar por ela dá errado em quase metade das vezes."
+              />
+              <Secundario
+                rotulo="Valor do item pronto"
+                valor={zeny(plano.valorJusto)}
+                titulo={zenyExato(plano.valorJusto)}
+                nota={`Preço no +0 (${zeny(plano.input.precoItem)}) mais o custo médio do caminho. Se alguém vender o item já refinado por menos que isso, comprar pronto sai mais barato — e sem o risco.`}
+              />
+            </div>
+          </Recolhivel>
         </div>
-
-        {precisao && <div className="mt-4 text-right">{precisao}</div>}
       </Painel>
 
       {/* As abas vêm DEPOIS do orçamento, e não no lugar dele: a resposta da
@@ -291,7 +301,7 @@ function SemRisco({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey 
 
   const linhas: { rotulo: string; aqui: string; la: string }[] = [];
   if (aqui !== null && la !== null) {
-    linhas.push({ rotulo: `Orçamento (${margemInfo.rotulo.toLowerCase()})`, aqui: zeny(aqui), la: zeny(la) });
+    linhas.push({ rotulo: `Orçamento (${margemInfo.pct})`, aqui: zeny(aqui), la: zeny(la) });
   }
   linhas.push({
     rotulo: 'Custo médio',
@@ -313,7 +323,7 @@ function SemRisco({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey 
     >
       <div className="md-rotulo-p flex items-center gap-1">
         {maisBarato
-          ? 'Nesta margem, o plano sem risco de quebra sai mais barato'
+          ? `No nível ${margemInfo.rotulo}, o plano sem risco de quebra sai mais barato`
           : 'Dá para fazer isto sem nenhum risco de quebrar o item'}
         <Info titulo="Plano sem risco de quebra">
           O mesmo alvo resolvido sem nenhuma tentativa que possa destruir o equipamento. A
@@ -439,6 +449,9 @@ function Estrategia({
  * O item aparece como vai FICAR — no refino e no grau alvo, com a arte e o nome
  * no formato do jogo. É o que o orçamento logo abaixo está comprando, e ver
  * `+10 [B] Adaga [2]` pronto é o que dá sentido ao número.
+ *
+ * O ponto de partida não é repetido aqui: ele está no formulário ao lado, e a
+ * linha "Saindo do +0 e do sem grau" só afastava o item do orçamento.
  */
 function Trajetoria({
   plano,
@@ -452,29 +465,123 @@ function Trajetoria({
   itemSlots?: number;
 }) {
   const i = plano.input;
-  const mudaGrau = i.grauAlvo !== i.grauAtual;
 
   return (
-    <div className="space-y-2">
-      <CartaoItem
-        itemId={itemId ?? null}
-        itemNome={itemNome ?? null}
-        kind={i.kind}
-        refino={i.refinoAlvo}
-        grau={i.grauAlvo}
-        slots={itemSlots ?? 0}
-        preco={i.precoItem}
-      />
-      <p className="text-sm leading-relaxed text-suave">
-        Saindo do <strong className="text-texto tabular-nums">+{i.refinoAtual}</strong>
-        {mudaGrau && (
-          <>
-            {' '}
-            e do <strong className="text-texto">{ROTULO_GRAU[i.grauAtual].toLowerCase()}</strong>
-          </>
-        )}
-        .
-      </p>
+    <CartaoItem
+      itemId={itemId ?? null}
+      itemNome={itemNome ?? null}
+      kind={i.kind}
+      refino={i.refinoAlvo}
+      grau={i.grauAlvo}
+      slots={itemSlots ?? 0}
+      preco={i.precoItem}
+    />
+  );
+}
+
+/**
+ * A resposta da página numa frase, embaixo do número grande.
+ *
+ * O número sozinho é um percentil, e quem chega não sabe disso: lê "938 mi" e
+ * acha que é o que vai gastar. A frase diz as duas pontas — o caso comum (a
+ * mediana) e até onde pode ir (a margem escolhida) — e o que acontece com o
+ * item, que é a outra metade da pergunta de quem vai refinar.
+ */
+function Resposta({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
+  const sim = plano.simulacao;
+  if (!sim) return null;
+
+  const comum = sim.custo.p50;
+  const teto = sim.custo[margem];
+  // Média de itens destruídos: zero só quando nenhuma tentativa do plano pode
+  // quebrar o item. A margem diz quantas cópias separar quando pode.
+  const quebra = plano.itensQuebrados > 1e-9;
+  const copias = sim.quebras[margem] + 1;
+
+  return (
+    <p className="md-corpo-m mt-1 max-w-prose text-suave">
+      {margem === 'p50' ? (
+        <>
+          Metade das vezes você gasta até{' '}
+          <strong className="text-texto tabular-nums">{zeny(comum)}</strong>; na outra metade, passa
+          disso.
+        </>
+      ) : (
+        <>
+          Na maioria das vezes você gasta perto de{' '}
+          <strong className="text-texto tabular-nums">{zeny(comum)}</strong>, podendo chegar até{' '}
+          <strong className="text-texto tabular-nums">{zeny(teto)}</strong>.
+        </>
+      )}{' '}
+      {!quebra ? (
+        <>O item não quebra nesse plano.</>
+      ) : copias > 1 ? (
+        <>
+          O item pode quebrar no caminho: tenha{' '}
+          <strong className="text-texto tabular-nums">{copias.toLocaleString('pt-BR')} cópias</strong>{' '}
+          dele.
+        </>
+      ) : (
+        <>O item pode quebrar no caminho, mas com esse orçamento uma cópia basta.</>
+      )}
+    </p>
+  );
+}
+
+/**
+ * Quão seguro o orçamento deve ser: o único seletor da margem.
+ *
+ * Cada opção mostra o próprio valor, então comparar e escolher são o mesmo
+ * gesto — em vez de escolher às cegas e só depois ver no que deu. O percentil
+ * fica em letra pequena, para quem o conhece.
+ */
+function NivelDeSeguranca({
+  custo,
+  margem,
+  onMargem,
+}: {
+  custo: Percentis;
+  margem: MargemKey;
+  onMargem: (m: MargemKey) => void;
+}) {
+  return (
+    <div className="mt-4">
+      <div className="md-rotulo-p text-suave">Quão seguro você quer estar?</div>
+      <div
+        role="radiogroup"
+        aria-label="Margem de segurança"
+        className="mt-2 grid grid-cols-3 gap-1 sm:grid-cols-5"
+      >
+        {MARGENS.map((m) => {
+          const ativo = m.key === margem;
+          return (
+            <button
+              key={m.key}
+              type="button"
+              role="radio"
+              aria-checked={ativo}
+              onClick={() => onMargem(m.key)}
+              title={`${m.explica} (${m.pct}) — ${zenyExato(custo[m.key])}`}
+              className={
+                'estado cursor-pointer rounded-lg border px-2 py-1.5 text-left text-xs ' +
+                'transition-colors duration-200 ease-padrao ' +
+                (ativo
+                  ? 'border-transparent bg-realce-container text-no-realce-container'
+                  : 'border-borda text-suave hover:text-texto')
+              }
+            >
+              {/* O percentil divide a linha com o valor, e não com o nome: na
+                  largura de celular, nome e percentil juntos quebravam
+                  "Muito seguro" em duas linhas. */}
+              <span className="block font-semibold whitespace-nowrap">{m.rotulo}</span>
+              <span className="flex items-baseline justify-between gap-1">
+                <span className="tabular-nums">{zeny(custo[m.key])}</span>
+                <span className="opacity-70">{m.pct}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -537,12 +644,15 @@ function Copias({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey })
           até o alvo é refeito desde o zero: quebrar não devolve o refino que já estava pago.
         </Info>
       </div>
+      {/* Na margem a contagem é inteira — é a cópia que se compra —, e
+          `quantidade` a escreveria "1,0". A média, sem simulação, é fração de
+          verdade. */}
       <div className="md-titulo-g mt-1 tabular-nums">
-        {naMargem === null ? quantidade(plano.copiasItem) : quantidade(naMargem)}
+        {naMargem === null ? quantidade(plano.copiasItem) : naMargem.toLocaleString('pt-BR')}
       </div>
       <div className="md-corpo-p mt-1 text-suave">
         {reposicoes <= 0 ? (
-          <>Nessa margem o item não quebra.</>
+          <>Com esse orçamento, o item não quebra.</>
         ) : (
           <>
             A sua, no <strong className="text-texto">+{inicial}</strong>, mais{' '}
@@ -563,56 +673,30 @@ function Copias({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey })
  * que é o que explica o preço de cada margem, ficava de fora. O desenho a
  * mostra inteira (ver `CurvaDeCusto`), com o ponto pousado na margem atual.
  *
- * A legenda dos cinco percentis é clicável: ela já mostra o valor de cada
- * margem, então é o lugar em que comparar e escolher são o mesmo gesto — em vez
- * de escolher às cegas num campo e só depois ver no que deu. Clicar move o
- * ponto no gráfico logo acima.
+ * A legenda clicável dos cinco percentis que morava aqui virou o seletor
+ * `NivelDeSeguranca`, logo acima — era a mesma escolha feita em dois lugares.
  */
 function Distribuicao({
   custo,
   amostras,
   media,
   margem,
-  onMargem,
 }: {
   custo: Percentis;
   /** Custo de cada campanha simulada, cru: é dele que sai a forma da curva. */
   amostras: Float64Array;
   media: number;
   margem: MargemKey;
-  onMargem: (m: MargemKey) => void;
 }) {
   const info = MARGENS.find((m) => m.key === margem)!;
 
   return (
-    <div className="mt-5">
-      <CurvaDeCusto
-        amostras={amostras}
-        media={media}
-        escolhida={{ rotulo: info.rotulo, chance: info.chance, valor: custo[margem] }}
-        margens={MARGENS.map((m) => custo[m.key])}
-      />
-      <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-5">
-        {MARGENS.map((m) => (
-          <button
-            key={m.key}
-            type="button"
-            onClick={() => onMargem(m.key)}
-            title={`${m.explica} — ${zenyExato(custo[m.key])}`}
-            className={
-              'estado cursor-pointer rounded-lg px-2 py-1.5 text-left text-xs ' +
-              'transition-colors duration-200 ease-padrao ' +
-              (m.key === margem
-                ? 'bg-realce-container text-no-realce-container'
-                : 'text-suave hover:text-texto')
-            }
-          >
-            <span className="md-rotulo-p block">{m.rotulo}</span>
-            <span className="block tabular-nums">{zeny(custo[m.key])}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <CurvaDeCusto
+      amostras={amostras}
+      media={media}
+      escolhida={{ rotulo: info.pct, chance: info.chance, valor: custo[margem] }}
+      margens={MARGENS.map((m) => custo[m.key])}
+    />
   );
 }
 

@@ -53,6 +53,26 @@ ancestral com `overflow-x-auto` (toda tabela larga desta página tem um) o recor
 rolagem. Explicar uma coluna é, na prática, explicar a seção — o botão sobe para o
 `TituloDeSecao` acima da tabela.
 
+## Para quem chega pela primeira vez
+
+O balão serve a quem volta. Quem chega não sabe por onde começar, então a página tem um guia
+**"Como usar"** acima das colunas: quatro passos, com o mesmo número que cada painel do
+formulário leva no título, e uma linha dizendo onde a resposta aparece. Fechado em "Entendi",
+ele não volta sozinho (a chave `refinometro:guia:v1` no `localStorage`); o botão "Como usar" do
+cabeçalho o reabre.
+
+O resultado fala a língua de quem joga, não a do motor:
+
+- **A margem se chama pelo que garante.** *Arriscado, Moderado, Seguro, Muito seguro, Quase
+  certo*, com o percentil em letra pequena. "Mediana" e "90%" sozinhos eram o primeiro controle
+  do resultado e o menos legível. Há um seletor só, colado na frase que ele muda.
+- **Uma frase embaixo do número grande** dá as duas pontas e o destino do item: *"Na maioria das
+  vezes você gasta perto de 432 mi z, podendo chegar até 789 mi z. O item não quebra nesse
+  plano."* Cópias, custo médio e valor do item pronto ficam em "mais números".
+- **"Vezes", não "tentativas".** No jogo, tentativa é cada clique no refinador.
+- **O risco do caminho cabe em uma linha** embaixo da trilha de refino, começando pelo mesmo
+  símbolo da opção escolhida na lista (↓ ou ⚠). A conta dos degraus vai para o balão.
+
 ## A lista de compras
 
 Ela mostra a arte de cada item, servida pelo próprio Divine Pride a partir do id (ver

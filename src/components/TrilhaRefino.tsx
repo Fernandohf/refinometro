@@ -69,6 +69,12 @@ export function TrilhaRefino({
           />
         ))}
       </div>
+      {/* Uma linha só, e ela diz o que muda a decisão: se o caminho falha e,
+          falhando, o que se perde. A conta dos degraus, a frase inteira de cada
+          risco e a legenda das marcas da lista vão para o balão — impressas,
+          eram quatro linhas laranja embaixo de dois campos. O símbolo abre a
+          linha porque é o mesmo da opção escolhida na lista: é aqui que ele
+          ganha legenda. */}
       <p className="md-corpo-p mt-2 text-suave">
         {alvo < atual ? (
           <span className="text-perigo">
@@ -78,50 +84,52 @@ export function TrilhaRefino({
           <>O item já está no alvo.</>
         ) : (
           <>
-            <strong className="text-texto tabular-nums">
-              +{atual} → +{alvo}
-            </strong>{' '}
-            — {total} {total === 1 ? 'tentativa bem-sucedida' : 'tentativas bem-sucedidas'} no
-            mínimo.{' '}
             {arriscados === 0 ? (
-              <>
-                <span className="text-ok">
-                  Tudo dentro da faixa de 100% de sucesso (até +{limite}).
-                </span>{' '}
-                {/* Nenhum degrau deste caminho falha, mas a lista de alvos está
-                    cheia de marcas — é aqui que elas ganham legenda, senão o
-                    símbolo aparece antes de significar alguma coisa. Fica no
-                    botão porque é legenda: vale para a lista inteira, para
-                    sempre, e não muda com a escolha. */}
-                <Info titulo="As marcas da lista de alvos">
-                  Na lista, {MARCA_RISCO.quebra} marca os alvos que não dá para alcançar sem
-                  arriscar o item, e {MARCA_RISCO.derruba} os que só derrubam o refino na falha.
-                </Info>
-              </>
+              <span className="text-ok">Sem risco: tudo com 100% de sucesso.</span>
+            ) : risco === 'quebra' ? (
+              <span className="text-perigo">
+                {MARCA_RISCO.quebra} Acima do +{limite} o refino pode falhar, e o item pode quebrar.
+              </span>
+            ) : risco === 'derruba' ? (
+              <span className="text-atencao">
+                {MARCA_RISCO.derruba} Acima do +{limite} o refino pode falhar e cair. O item não
+                quebra.
+              </span>
             ) : (
-              <>
-                <span className="text-atencao">
-                  {arriscados} {arriscados === 1 ? 'degrau passa' : 'degraus passam'} do +{limite},
-                  onde a tentativa pode falhar.
-                </span>{' '}
-                {/* Falhar e falhar não são a mesma coisa: perder um refino
-                    custa mais uma tentativa, perder o item custa o item inteiro
-                    e todo o refino já pago. É a diferença entre os dois planos
-                    possíveis, e a lista de alvos marca cada um com um símbolo. */}
-                {risco === 'quebra' && (
-                  <span className="text-perigo">
-                    {MARCA_RISCO.quebra} Não há caminho até lá sem arriscar o equipamento: alguma
-                    tentativa pode destruí-lo.
-                  </span>
-                )}
-                {risco === 'derruba' && (
-                  <span className="text-atencao">
-                    {MARCA_RISCO.derruba} Dá para chegar lá sem nunca arriscar o equipamento — a
-                    falha derruba o refino, mas o item sobrevive.
-                  </span>
-                )}
-              </>
-            )}
+              <span className="text-atencao">Acima do +{limite} o refino pode falhar.</span>
+            )}{' '}
+            <Info titulo="O caminho até o alvo">
+              <strong className="text-texto tabular-nums">
+                +{atual} → +{alvo}
+              </strong>{' '}
+              — {total} {total === 1 ? 'tentativa bem-sucedida' : 'tentativas bem-sucedidas'} no
+              mínimo.{' '}
+              {arriscados === 0 ? (
+                <>Tudo dentro da faixa de 100% de sucesso (até +{limite}).</>
+              ) : (
+                <>
+                  {arriscados} {arriscados === 1 ? 'degrau passa' : 'degraus passam'} do +
+                  {limite}, onde a tentativa pode falhar.
+                </>
+              )}{' '}
+              {/* Falhar e falhar não são a mesma coisa: perder um refino custa
+                  mais uma tentativa, perder o item custa o item inteiro e todo
+                  o refino já pago. */}
+              {arriscados > 0 && risco === 'quebra' && (
+                <>
+                  Não há caminho até lá sem arriscar o equipamento: alguma tentativa pode
+                  destruí-lo.{' '}
+                </>
+              )}
+              {arriscados > 0 && risco === 'derruba' && (
+                <>
+                  Dá para chegar lá sem nunca arriscar o equipamento — a falha derruba o refino, mas
+                  o item sobrevive.{' '}
+                </>
+              )}
+              Na lista de alvos, {MARCA_RISCO.quebra} marca os que não dá para alcançar sem arriscar
+              o item, e {MARCA_RISCO.derruba} os que só derrubam o refino na falha.
+            </Info>
           </>
         )}
       </p>

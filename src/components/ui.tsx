@@ -570,6 +570,7 @@ export function Painel({
   titulo,
   aside,
   info,
+  passo,
   nivel = 'normal',
   children,
 }: {
@@ -577,6 +578,12 @@ export function Painel({
   aside?: ReactNode;
   /** Explicação do painel inteiro, ao lado do título. */
   info?: ReactNode;
+  /**
+   * A ordem de preenchimento, para os painéis do formulário. É o mesmo número
+   * do guia "Como usar", e é ele que diz a quem chega que a coluna se preenche
+   * de cima para baixo.
+   */
+  passo?: number;
   /** `alto` para o que flutua sobre outro cartão. */
   nivel?: 'normal' | 'alto';
   children: ReactNode;
@@ -591,6 +598,7 @@ export function Painel({
       {titulo && (
         <header className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <h2 className="md-rotulo-p flex items-center gap-1 text-suave">
+            {passo !== undefined && <NumeroDoPasso n={passo} />}
             {titulo}
             {info}
           </h2>
@@ -599,6 +607,21 @@ export function Painel({
       )}
       {children}
     </section>
+  );
+}
+
+/** O número de um passo do formulário, no título do painel e no guia. */
+export function NumeroDoPasso({ n }: { n: number }) {
+  return (
+    <span
+      aria-hidden
+      className={
+        'mr-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full ' +
+        'bg-realce-container text-[0.6875rem] font-semibold tracking-normal text-no-realce-container'
+      }
+    >
+      {n}
+    </span>
   );
 }
 
@@ -671,6 +694,43 @@ function useRevelavelPelaBusca<T extends HTMLElement>(escondido: boolean, revela
   }, [escondido]);
 
   return alvo;
+}
+
+/**
+ * Um trecho fechado atrás de um botão de texto, e ainda achável pelo Ctrl+F.
+ *
+ * É para o número que só quem já entendeu a resposta quer ver: fechado, ele
+ * não disputa atenção com ela; aberto, fica no mesmo cartão. O conteúdo vai no
+ * documento mesmo fechado, pelo mesmo `until-found` das abas.
+ */
+export function Recolhivel({
+  rotulo,
+  aside,
+  children,
+}: {
+  rotulo: string;
+  /** O que divide a linha do botão, à direita. */
+  aside?: ReactNode;
+  children: ReactNode;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const alvo = useRevelavelPelaBusca<HTMLDivElement>(!aberto, () => setAberto(true));
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <BotaoDoPainel aberto={aberto} onClick={() => setAberto((a) => !a)}>
+          {rotulo}
+        </BotaoDoPainel>
+        {aside}
+      </div>
+      {/* O respiro vai por dentro: o elemento escondido continua ocupando o que
+          for dele (ver `PainelDeAba`). */}
+      <div ref={alvo} hidden={!aberto}>
+        <div className="pt-3">{children}</div>
+      </div>
+    </div>
+  );
 }
 
 /* ────────────────────────────────────────────────────────────────────── abas */

@@ -37,7 +37,7 @@ const PASSO_TECLA = X_LIMITE / N_FAIXAS;
 
 /** A margem escolhida, já resolvida em chance e em zeny. */
 export interface PontoDaCurva {
-  /** Como a margem se chama na tela: "Mediana", "90%". */
+  /** O percentil da margem, como a tela o escreve: "90%". */
   rotulo: string;
   /** Fração das campanhas que ela cobre. */
   chance: number;
@@ -316,7 +316,7 @@ export function CurvaDeCusto({
           explicado. Impressa, ela ocupava mais altura que o gráfico — e o
           gráfico é que responde a pergunta. */}
       <figcaption className="md-corpo-p mt-1 flex items-center gap-1 text-suave">
-        A área acesa cobre {porcento(chance)} das campanhas simuladas.
+        A área acesa cobre {porcento(chance)} das simulações.
         <Info titulo="Como ler esta curva">
           Cada faixa é a fatia das campanhas simuladas que custou aquilo. A área acesa vai até o
           orçamento escolhido: são {porcento(escolhida.chance)} das campanhas, e é exatamente isso

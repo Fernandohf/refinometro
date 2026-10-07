@@ -464,14 +464,14 @@ function Veredito({
           <strong className="text-perigo tabular-nums" title={zenyExato(faltaNaMargem)}>
             {zeny(faltaNaMargem)}
           </strong>{' '}
-          para a margem de {margemInfo.rotulo.toLowerCase()} ({margemInfo.explica})
+          no nível {margemInfo.rotulo} ({margemInfo.explica})
           {margem !== 'p50' && (
             <>
               , e{' '}
               <span className="tabular-nums" title={zenyExato(faltaAgora)}>
                 {zeny(faltaAgora)}
               </span>{' '}
-              para a campanha mediana
+              no caso comum
             </>
           )}
           .
@@ -526,7 +526,7 @@ function Veredito({
                   <th className="pb-2">Material</th>
                   <th className="pb-2 text-right">Você tem</th>
                   <th className="pb-2 text-right">Acaba em</th>
-                  <th className="pb-2 text-right">Falta ({margemInfo.rotulo})</th>
+                  <th className="pb-2 text-right">Falta ({margemInfo.pct})</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-borda/60">

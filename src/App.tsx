@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
-import { DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
+import { COTACAO, DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
 import { GRADE_ORDER, type Grade } from './data/grade';
 import type { ItemKind } from './data/ores';
 import { CATEGORIAS, ROTULO_GRAU } from './data/rotulos';
@@ -13,6 +13,7 @@ import type { CalcInput, PriceTable } from './engine/types';
 import { Resultado, type MargemKey } from './components/Resultado';
 import { ESTOQUE_VAZIO, SimuladorDeEstoque, type EstoqueSalvo } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
+import { BotaoDoGuia, ComoUsar, useGuia } from './components/ComoUsar';
 import { LinkDasPerguntas, Sobre } from './components/Sobre';
 import { Apoie, LinkDeApoio } from './components/Apoie';
 import { BotaoTema } from './components/BotaoTema';
@@ -28,7 +29,7 @@ import {
 } from './components/ui';
 import { SlotItem } from './components/ItemNoJogo';
 import { rotuloDoAlvo, TrilhaRefino } from './components/TrilhaRefino';
-import { zeny } from './format';
+import { dataBR, zeny } from './format';
 
 interface Estado {
   /** Nome do item escolhido na busca, só para exibição. */
@@ -123,6 +124,7 @@ export default function App() {
   // Estado das perguntas frequentes: mora aqui porque o atalho do cabeçalho e a
   // seção lá embaixo são as duas pontas da página, e o atalho ABRE além de rolar.
   const [perguntas, setPerguntas] = useState(false);
+  const guia = useGuia();
 
   useEffect(() => {
     localStorage.setItem(CHAVE_STORAGE, JSON.stringify(e));
@@ -243,14 +245,17 @@ export default function App() {
             Na embalagem, e não em cada botão, senão eles desalinham entre si. */}
         <div className="-mt-0.5 ml-auto flex shrink-0 items-center gap-1">
           <BotaoTema />
+          <BotaoDoGuia aberto={guia.visivel} onAlternar={guia.alternar} />
           <LinkDasPerguntas onAbrir={() => setPerguntas(true)} />
           <LinkDeApoio />
         </div>
       </header>
 
+      <ComoUsar visivel={guia.visivel} onFechar={guia.fechar} />
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
         <div className="min-w-0 space-y-4">
-          <Painel titulo="O item">
+          <Painel titulo="O item" passo={1}>
             <div className="space-y-4">
               <BuscaItem
                 selecionado={e.itemNome}
@@ -289,7 +294,7 @@ export default function App() {
               antes de preço e condições: mudar o +10 para +12 muda a resposta em
               ordens de grandeza, mudar o preço de um minério muda alguns por
               cento. */}
-          <Painel titulo="Aonde você quer chegar">
+          <Painel titulo="Aonde você quer chegar" passo={2}>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <Campo label="Refino atual">
@@ -360,7 +365,7 @@ export default function App() {
             </div>
           </Painel>
 
-          <Painel titulo="Condições">
+          <Painel titulo="Condições" passo={3}>
             <div className="divide-y divide-borda/60">
               <Toggle
                 label="Evento de Refino ativo"
@@ -502,7 +507,7 @@ function Precisao({ afinando, plano }: { afinando: boolean; plano: ResultadoPlan
         <span className="text-realce/80">afinando a simulação…</span>
       ) : sim ? (
         <>
-          percentis de {sim.execucoes.toLocaleString('pt-BR')} campanhas simuladas
+          calculado em {sim.execucoes.toLocaleString('pt-BR')} simulações
           {sim.limitadoPorTempo ? ' (limitado pelo tempo)' : ''}
         </>
       ) : (
@@ -531,6 +536,7 @@ function Precos({
   return (
     <Painel
       titulo="Preços do mercado"
+      passo={4}
       info={
         <Info titulo="Preços do mercado">
           Os valores que já vêm preenchidos são um retrato do mercado do LATAM, não uma tabela do
@@ -580,6 +586,13 @@ function Precos({
           ))}
         </dl>
       )}
+
+      {/* A data fica à vista, e não só no balão: ela diz a quem chega que os
+          números são uma cotação, e de quando — preço velho é a causa mais
+          comum de um orçamento que não bate com o jogo. */}
+      <p className="md-corpo-p mt-3 text-suave">
+        Cotação do mercado do LATAM em {dataBR(COTACAO.geradoEm)}.
+      </p>
 
       {aberto && (
         <div className="mt-5 space-y-5">
