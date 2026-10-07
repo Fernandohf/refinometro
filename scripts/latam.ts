@@ -1,6 +1,6 @@
 // Acesso à busca de preço de mercado do site oficial do LATAM.
 //
-//   https://ro.gnjoylatam.com/pt/intro/shop-search/market-price
+//   https://ro.gnjoyamericas.com/pt/intro/shop-search/market-price
 //
 // É o histórico de transações reais das lojas de jogador, por servidor e por
 // janela de tempo (1, 7 ou 30 dias). Usado por `scripts/precos-latam.ts`.
@@ -22,12 +22,41 @@
 // o caminho normal — ver o comentário em `descobrirAcaoDetalhe`.
 //
 // Nada daqui roda no navegador: o site não manda `Access-Control-Allow-Origin`.
+//
+// O transporte é o `curl`, e não o `fetch` do Node. Desde 2026-09-15 o site
+// mora em `ro.gnjoyamericas.com` atrás de um managed challenge da Cloudflare, que
+// barra o fingerprint de TLS do undici em 100% das tentativas — com ou sem
+// headers de navegador. O `curl` com o conjunto completo de headers passa. Nem
+// ele passa de IP de datacenter, então isto só roda de máquina em IP
+// residencial; o workflow `precos.yml` está desativado por isso.
+
+import { execFile } from 'node:child_process';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+  '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
-const BASE = 'https://ro.gnjoylatam.com/pt/intro/shop-search/market-price';
+/**
+ * O que um Chrome de verdade manda numa navegação de topo. Só o UA, sem o
+ * resto, passa ~1 vez em 6; com tudo, ~9 em 10.
+ */
+const HEADERS_NAVEGACAO = [
+  'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language: pt-BR,pt;q=0.9,en;q=0.8',
+  'sec-ch-ua: "Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+  'sec-ch-ua-mobile: ?0',
+  'sec-ch-ua-platform: "Windows"',
+  'Sec-Fetch-Dest: document',
+  'Sec-Fetch-Mode: navigate',
+  'Sec-Fetch-Site: none',
+  'Sec-Fetch-User: ?1',
+  'Upgrade-Insecure-Requests: 1',
+];
+
+const ORIGEM = 'https://ro.gnjoyamericas.com';
+// No domínio novo direto: o velho responde 301, e um 301 sobre POST vira GET —
+// era isso que quebrava a série diária.
+const BASE = `${ORIGEM}/pt/intro/shop-search/market-price`;
 
 /** Servidores do LATAM. O site aceita um por consulta. */
 export const SERVIDORES = ['FREYA', 'NIDHOGG', 'YGGDRASIL'] as const;
@@ -178,23 +207,55 @@ export function urlDaConsulta(termo: string, servidor: Servidor, periodo: Period
   return `${BASE}?${p}`;
 }
 
+/** Marca que separa o corpo do status no stdout do `curl`. */
+const FIM_DO_CORPO = '\n<<curl-status>>';
+
+/**
+ * Uma requisição pelo `curl`. Rejeita só quando ele não completou (rede,
+ * timeout, `curl` ausente); qualquer status HTTP volta como resposta.
+ */
+function curl(
+  url: string,
+  headers: string[],
+  post?: string,
+): Promise<{ status: number; corpo: string }> {
+  const args = ['-sS', '--compressed', '--max-time', '30', '-A', UA];
+  for (const h of headers) args.push('-H', h);
+  if (post !== undefined) args.push('--data-binary', post);
+  args.push('-w', `${FIM_DO_CORPO}%{http_code}`, url);
+
+  return new Promise((ok, falha) => {
+    execFile('curl', args, { maxBuffer: 64 * 1024 * 1024, encoding: 'utf8' }, (erro, stdout, stderr) => {
+      if (erro) return falha(new Error(stderr.trim() || erro.message));
+      const corte = stdout.lastIndexOf(FIM_DO_CORPO);
+      if (corte === -1) return falha(new Error('o curl não devolveu o status'));
+      ok({
+        status: Number(stdout.slice(corte + FIM_DO_CORPO.length)),
+        corpo: stdout.slice(0, corte),
+      });
+    });
+  });
+}
+
 /**
  * Baixa uma página, insistindo quando a falha parece passageira.
  *
  * Mesmo critério da varredura do Divine Pride: 429 e 5xx podem melhorar na
- * próxima; 404 e 403 não vão.
+ * próxima; 404 não vai. O 403 é a exceção: o desafio da Cloudflare é
+ * intermitente mesmo para o cliente certo, então ele ganha nova tentativa.
  */
 async function baixar(url: string, tentativas = 3): Promise<string | null> {
   for (let tentativa = 1; ; tentativa++) {
     let status: number;
     try {
-      const res = await fetch(url, { headers: { 'User-Agent': UA } });
-      if (res.ok) return res.text();
+      const res = await curl(url, HEADERS_NAVEGACAO);
+      if (res.status >= 200 && res.status < 300) return res.corpo;
       status = res.status;
-      if (status < 429) {
+      if (status < 429 && status !== 403) {
         console.error(`  HTTP ${status} em ${url}`);
         return null;
       }
+      if (tentativa >= tentativas) console.error(`  HTTP ${status} em ${url}`);
     } catch (erro) {
       status = 0;
       if (tentativa >= tentativas) console.error(`  rede: ${(erro as Error).message}`);
@@ -299,7 +360,7 @@ async function descobrirAcaoDetalhe(): Promise<string | null> {
     : [];
 
   for (const caminho of chunks) {
-    const js = await baixar(`https://ro.gnjoylatam.com${caminho}`);
+    const js = await baixar(`${ORIGEM}${caminho}`);
     const m = js?.match(/createServerReference\)?\(\s*"([0-9a-f]{40,})"[^)]*?"getDetail"/);
     if (m) {
       acaoDetalhe = m[1]!;
@@ -329,21 +390,28 @@ export async function serieDiaria(itemId: number, svrId: number): Promise<DiaDeM
   const acao = await descobrirAcaoDetalhe();
   if (acao === null) return null;
 
+  const url = urlDaConsulta('Oridecon', 'FREYA', 30);
   let texto: string;
   try {
-    const res = await fetch(urlDaConsulta('Oridecon', 'FREYA', 30), {
-      method: 'POST',
-      headers: {
-        'User-Agent': UA,
-        'Next-Action': acao,
-        'Content-Type': 'text/plain;charset=UTF-8',
-      },
+    const res = await curl(
+      url,
+      [
+        'Accept: text/x-component',
+        'Accept-Language: pt-BR,pt;q=0.9,en;q=0.8',
+        `Origin: ${ORIGEM}`,
+        `Referer: ${url}`,
+        'Sec-Fetch-Dest: empty',
+        'Sec-Fetch-Mode: cors',
+        'Sec-Fetch-Site: same-origin',
+        `Next-Action: ${acao}`,
+        'Content-Type: text/plain;charset=UTF-8',
+      ],
       // O limite alto pega a janela inteira de uma vez; o site pagina de 10 em
       // 10 porque desenha uma tabela, e nós queremos a série toda.
-      body: JSON.stringify([{ type: 'price', params: { itemId, svrId, page: 1, limit: 100 } }]),
-    });
-    if (!res.ok) return null;
-    texto = await res.text();
+      JSON.stringify([{ type: 'price', params: { itemId, svrId, page: 1, limit: 100 } }]),
+    );
+    if (res.status < 200 || res.status >= 300) return null;
+    texto = res.corpo;
   } catch {
     return null;
   }

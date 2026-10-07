@@ -21,11 +21,14 @@ name: Atualizar os preços
 # `precos.json` de virar "mercado vazio". Mas um agendamento que só pode falhar
 # é alarme sem informação, e é por isso que o `schedule` saiu daqui.
 #
-# O `workflow_dispatch` FICOU de propósito: é o jeito de testar se o bloqueio
-# caiu, e se cair basta devolver o `cron`. O parser não precisa de conserto
-# nenhum — `parsearMercado` lê a página nova sem alteração; o que falta é
-# transporte (domínio novo, headers completos, e um cliente que não seja o
-# `fetch` do Node) rodando de um IP que não seja de datacenter.
+# Em 2026-10-07 o workflow foi desligado também no GitHub
+# (`gh workflow disable precos.yml`), e a cotação passou a rodar À MÃO, da
+# máquina de casa: `npm run precos`, `npm test`, comitar `src/data/precos.json`
+# e dar push — o push na `main` já dispara o deploy.yml. O transporte de
+# `scripts/latam.ts` já foi consertado (domínio novo, headers completos, `curl`
+# no lugar do `fetch` do Node); o que falta aqui é só um IP que não seja de
+# datacenter. Se um dia a Cloudflare liberar, `gh workflow enable precos.yml`
+# e descomentar o `cron`.
 #
 # ---
 #

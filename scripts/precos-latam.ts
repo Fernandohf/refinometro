@@ -580,7 +580,7 @@ const corpo = precos.map((l) => `    ${JSON.stringify(l)}`).join(',\n');
 await writeFile(
   PRECOS_JSON,
   `{
-  "_fonte": "https://ro.gnjoylatam.com/pt/intro/shop-search/market-price",
+  "_fonte": "https://ro.gnjoyamericas.com/pt/intro/shop-search/market-price",
   "_servidor": ${JSON.stringify(servidor)},
   "_janela": ${JSON.stringify(
     `media de ${longo} dias conferida contra a de ${curto}, ` +

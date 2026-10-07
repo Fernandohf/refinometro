@@ -42,7 +42,7 @@ de cima, e a discordância vira um aviso na tela em vez de sumir na conta.
    refinador até ela ser medida no jogo, e errava sete das nove categorias.
 
 Preço tem uma quarta fonte, de outra natureza: a
-[consulta de preço de mercado](https://ro.gnjoylatam.com/pt/intro/shop-search/market-price) do
+[consulta de preço de mercado](https://ro.gnjoyamericas.com/pt/intro/shop-search/market-price) do
 site oficial, que publica o histórico de transações das lojas de jogador. Ela não decide nada no
 cálculo — a cotação que entra na conta é a sua, sempre. Ela decide o número que está no campo
 antes de você digitar o seu, e é atualizada por `npm run precos`. Ver [Preços](dados-precos.md).

@@ -87,7 +87,7 @@ describe('cotação do mercado', () => {
   });
 
   it('credita a fonte e o servidor', () => {
-    expect(COTACAO.fonte).toMatch(/^https:\/\/ro\.gnjoylatam\.com\//);
+    expect(COTACAO.fonte).toMatch(/^https:\/\/ro\.gnjoyamericas\.com\//);
     expect(COTACAO.servidor).toMatch(/^[A-Z]+$/);
     expect(COTACAO.total).toBe(precos.length);
   });

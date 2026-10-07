@@ -100,7 +100,7 @@ export function Fontes() {
 
           <Fonte
             o_que="Taxa do refinador"
-            href="https://ro.gnjoylatam.com/"
+            href="https://ro.gnjoyamericas.com/"
             nome="o balcão do NPC"
           >
             {' '}
