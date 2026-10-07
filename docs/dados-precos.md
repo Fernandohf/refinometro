@@ -177,6 +177,11 @@ Três coisas que a consulta não cobre, e que valem saber antes de confiar no n�
 - **Oridecon e Elunium Enriquecido** não são vendidos avulsos, só em `Cx ... [10]`. O preço
   unitário sai da caixa dividida por 10, e é uma cotação pior que as outras: são poucas caixas
   negociadas, e quem compra a caixa fechada não paga o mesmo por unidade.
+- **Pergaminhos de Arma e Armadura** circulam quase só como a Caixa de Arma +X do Cash Shop, que
+  entrega um pergaminho; o **Martelo de Refino Sombrio**, em caixa de três. Mesmo mecanismo: sem
+  o item avulso, vale a caixa dividida. Os pergaminhos são buscados pela raiz do nome
+  ("Pergaminho de Arma"), uma consulta para os quinze, e o script avisa se a resposta vier
+  truncada. Ver [Cubos, martelos e pergaminhos](dados-atalhos.md#preço).
 - **Item com menos de mil transações** sai marcado com `~`. O número passou na conferência entre
   as duas janelas, mas duas janelas concordarem sobre pouco negócio não é o mesmo que preço.
 

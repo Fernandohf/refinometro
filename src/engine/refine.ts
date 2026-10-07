@@ -7,9 +7,10 @@ import {
   type ItemKind,
   type Ore,
 } from '../data/ores';
+import { refinoMaximoDoEfeito, type Atalho } from '../data/atalhos';
 import { oreCost, unitCost } from './pricing';
 import { fatorarLU, resolverLU } from './linear';
-import type { PolicyEntry, PriceTable, RefineAction, ResourceUsage } from './types';
+import type { Destino, PolicyEntry, PriceTable, RefineAction, ResourceUsage } from './types';
 
 type ChanceTab = 'normal' | 'normalEvent' | 'special' | 'specialEvent';
 const TABS = refineChances.chances as Record<ChanceTab, Record<string, Record<string, number | null>>>;
@@ -68,6 +69,11 @@ export interface RefineOptions {
   precoItem: number;
   /** Refino do item de reposição comprado após uma quebra. */
   refinoReposicao: number;
+  /**
+   * Cubos, martelos e pergaminhos que servem para ESTE item (ver `atalhosDoItem`). Vazio
+   * quando o jogador desliga a opção, ou quando nenhum serve.
+   */
+  atalhos: readonly Atalho[];
 }
 
 /** Todas as ações viáveis para sair do refino `de` e tentar `de + 1`. */
@@ -94,6 +100,7 @@ export function actionsAt(de: number, opts: RefineOptions): RefineAction[] {
 
     // Sem Bênção: a penalidade do minério vale.
     acoes.push({
+      tipo: 'minerio',
       ore,
       bencaos: 0,
       chance,
@@ -105,6 +112,7 @@ export function actionsAt(de: number, opts: RefineOptions): RefineAction[] {
     // Com Bênção do Ferreiro: o item não quebra nem perde refino.
     if (qtdBencao !== null && Number.isFinite(precoBencao)) {
       acoes.push({
+        tipo: 'minerio',
         ore,
         bencaos: qtdBencao,
         chance,
@@ -115,7 +123,80 @@ export function actionsAt(de: number, opts: RefineOptions): RefineAction[] {
     }
   }
 
-  return semDominadas(acoes);
+  for (const atalho of opts.atalhos) {
+    const acao = usoDeAtalho(atalho, de, opts.precos);
+    if (acao) acoes.push(acao);
+  }
+
+  return semDominadas(acoes, de);
+}
+
+/**
+ * O uso de um atalho no refino `de`, ou `null` quando ele não serve ali.
+ *
+ * Fora da faixa aceita não serve, e sem preço também não — a mesma regra do minério sem preço
+ * nem receita: o atalho que ninguém informou quanto custa sai das estratégias possíveis, em vez
+ * de entrar de graça. É o que mantém os Tickets presos na conta fora do plano até alguém dizer
+ * que tem um.
+ *
+ * Também não serve o atalho que não leva a lugar nenhum: um Cubo Ilusional num item +10 só
+ * poderia manter ou baixar o refino, e o Mestre do Refino recusa o pergaminho que não sobe.
+ */
+function usoDeAtalho(atalho: Atalho, de: number, precos: PriceTable): RefineAction | null {
+  if (de < atalho.aceitaDe[0] || de > atalho.aceitaDe[1]) return null;
+  if (refinoMaximoDoEfeito(atalho.efeito, de) <= de) return null;
+
+  let custo = unitCost(atalho.itemId, precos);
+  for (const mat of atalho.materiais) custo += unitCost(mat.itemId, precos) * mat.qtd;
+  if (!Number.isFinite(custo)) return null;
+
+  const e = atalho.efeito;
+  const destinos: Destino[] =
+    e.tipo === 'fixo'
+      ? [{ refino: e.refino, p: 1 }]
+      : e.tipo === 'soma'
+        ? [{ refino: de + e.refinos, p: 1 }]
+        : e.resultados.map((r) => ({ refino: r.refino, p: r.p }));
+
+  return { tipo: 'atalho', atalho, destinos, custo, taxa: 0 };
+}
+
+/**
+ * Para onde uma ação tomada no refino `de` leva o item, e com que probabilidade. `null` é o
+ * item destruído.
+ *
+ * É a única leitura de transição do motor: o solver, a análise de segurança e a simulação
+ * perguntam aqui, e por isso não precisam saber se a ação é um minério ou um cubo. Destinos de
+ * probabilidade zero ficam de fora — num degrau de 100% a penalidade do minério existe no
+ * papel, mas não é um lugar aonde o item possa ir.
+ */
+export function destinosDe(a: RefineAction, de: number): Destino[] {
+  if (a.tipo === 'atalho') return a.destinos.filter((d) => d.p > 0);
+  const saida: Destino[] = [];
+  if (a.chance > 0) saida.push({ refino: de + 1, p: a.chance });
+  if (a.chance < 1) saida.push({ refino: a.falhaVaiPara, p: 1 - a.chance });
+  return saida;
+}
+
+/** O que uma ação consome por uso. A taxa do refinador fica de fora: é zeny, não item. */
+export function consumoDe(a: RefineAction): { itemId: number; qtd: number }[] {
+  if (a.tipo === 'atalho') {
+    return [
+      { itemId: a.atalho.itemId, qtd: 1 },
+      ...a.atalho.materiais.map((m) => ({ itemId: m.itemId, qtd: m.qtd })),
+    ];
+  }
+  return a.bencaos > 0
+    ? [
+        { itemId: a.ore.itemId, qtd: 1 },
+        { itemId: BLESSING_ITEM_ID, qtd: a.bencaos },
+      ]
+    : [{ itemId: a.ore.itemId, qtd: 1 }];
+}
+
+/** Probabilidade de a ação, tomada no refino `de`, destruir o item. */
+export function chanceDeQuebra(a: RefineAction, de: number): number {
+  return destinosDe(a, de).reduce((s, d) => s + (d.refino === null ? d.p : 0), 0);
 }
 
 /**
@@ -131,10 +212,14 @@ export function actionsAt(de: number, opts: RefineOptions): RefineAction[] {
  * duas ações têm o mesmo destino de falha, tirar uma não muda o conjunto de
  * destinos alcançáveis a partir do nível.
  */
-function semDominadas(acoes: RefineAction[]): RefineAction[] {
+function semDominadas(acoes: RefineAction[], de: number): RefineAction[] {
   const melhorPorTransicao = new Map<string, RefineAction>();
   for (const a of acoes) {
-    const chave = `${a.chance}|${a.falhaVaiPara ?? 'quebra'}`;
+    // Pelos destinos, e não pelo tipo: o martelo de +1 e um degrau de 100% levam
+    // ao mesmo lugar, e a cara dos dois nunca seria escolhida.
+    const chave = destinosDe(a, de)
+      .map((d) => `${d.refino ?? 'quebra'}:${d.p}`)
+      .join('|');
     const atual = melhorPorTransicao.get(chave);
     if (!atual || a.custo < atual.custo) melhorPorTransicao.set(chave, a);
   }
@@ -149,9 +234,9 @@ function semDominadas(acoes: RefineAction[]): RefineAction[] {
  * derrubar o refino para um nível de onde só se sai arriscando o equipamento.
  * É por isso que a legalidade depende do `piso`, e não só do minério.
  */
-function acaoLegal(a: RefineAction, piso: number, opts: RefineOptions): boolean {
+function acaoLegal(a: RefineAction, de: number, piso: number, opts: RefineOptions): boolean {
   if (opts.perdaAceitavel) return true;
-  return a.falhaVaiPara !== null && a.falhaVaiPara >= piso;
+  return destinosDe(a, de).every((d) => d.refino !== null && d.refino >= piso);
 }
 
 /**
@@ -186,8 +271,11 @@ export function pisoSeguro(alvo: number, opts: RefineOptions): number {
 function niveisSeguros(ate: number, opts: RefineOptions): boolean[] {
   const seguro: boolean[] = [];
   for (let r = 0; r < ate; r++) {
-    seguro[r] = actionsAt(r, opts).some(
-      (a) => a.falhaVaiPara !== null && (a.falhaVaiPara === r || seguro[a.falhaVaiPara]!),
+    // Para cima não precisa conferir: o piso é o começo de um trecho seguro CONTÍGUO até o
+    // alvo, então quem sobe a partir de um nível do trecho cai dentro dele. Para baixo, o
+    // destino já foi decidido nesta mesma passada.
+    seguro[r] = actionsAt(r, opts).some((a) =>
+      destinosDe(a, r).every((d) => d.refino !== null && (d.refino >= r || seguro[d.refino]!)),
     );
   }
   return seguro;
@@ -217,7 +305,7 @@ export type RiscoDaFalha =
  */
 export type CondicoesDeRisco = Pick<
   RefineOptions,
-  'kind' | 'precos' | 'evento' | 'usarBencaoFerreiro' | 'usarMineriosEspeciais'
+  'kind' | 'precos' | 'evento' | 'usarBencaoFerreiro' | 'usarMineriosEspeciais' | 'atalhos'
 >;
 
 /**
@@ -321,7 +409,7 @@ export function solveRefine(de: number, para: number, opts: RefineOptions): Refi
   const n = para - piso; // `para` é absorvente e fica fora do sistema
   const acoesPorEstado: RefineAction[][] = [];
   for (let r = piso; r < para; r++) {
-    const acoes = actionsAt(r, opts).filter((a) => acaoLegal(a, piso, opts));
+    const acoes = actionsAt(r, opts).filter((a) => acaoLegal(a, r, piso, opts));
     if (acoes.length === 0) {
       throw opts.perdaAceitavel
         ? new RefineImpossivel(
@@ -360,7 +448,7 @@ export function solveRefine(de: number, para: number, opts: RefineOptions): Refi
       let melhor = Infinity;
       let melhorIdx = escolha[i]!;
       for (let k = 0; k < acoes.length; k++) {
-        const v = valorDaAcao(acoes[k]!, piso + i, E, piso, opts);
+        const v = valorDaAcao(acoes[k]!, piso + i, E, piso, para, opts);
         if (v < melhor - 1e-6) {
           melhor = v;
           melhorIdx = k;
@@ -401,16 +489,16 @@ function valorDaAcao(
   r: number,
   E: Float64Array,
   piso: number,
+  para: number,
   opts: RefineOptions,
 ): number {
-  const destinoFalha = a.falhaVaiPara ?? opts.refinoReposicao;
-  const penalidade = a.falhaVaiPara === null ? opts.precoItem : 0;
-  return (
-    a.custo +
-    (1 - a.chance) * penalidade +
-    a.chance * E[r + 1 - piso]! +
-    (1 - a.chance) * E[destinoFalha - piso]!
-  );
+  let v = a.custo;
+  for (const d of destinosDe(a, r)) {
+    // Quebrar cobra a reposição e recomeça dela; passar do alvo é chegar nele.
+    if (d.refino === null) v += d.p * (opts.precoItem + E[opts.refinoReposicao - piso]!);
+    else v += d.p * E[Math.min(d.refino, para) - piso]!;
+  }
+  return v;
 }
 
 /** O alvo é inalcançável sem arriscar o item; a mensagem diz o que fazer. */
@@ -450,11 +538,13 @@ function avaliarPolitica(
 
   for (let i = 0; i < n; i++) {
     const a = acoesPorEstado[i]![escolha[i]!]!;
-    const destinoFalha = (a.falhaVaiPara === null ? opts.refinoReposicao : a.falhaVaiPara) - piso;
-    A[i * n + i] = (A[i * n + i] ?? 0) + 1;
-    // O estado `para` é absorvente e vale 0, então some da matriz.
-    if (i + 1 < n) A[i * n + (i + 1)] = A[i * n + (i + 1)]! - a.chance;
-    A[i * n + destinoFalha] = A[i * n + destinoFalha]! - (1 - a.chance);
+    A[i * n + i] = A[i * n + i]! + 1;
+    for (const d of destinosDe(a, piso + i)) {
+      // O estado `para` é absorvente e vale 0, então some da matriz — e quem passa do alvo
+      // chega nele.
+      const j = (d.refino === null ? opts.refinoReposicao : Math.min(d.refino, para)) - piso;
+      if (j < n) A[i * n + j] = A[i * n + j]! - d.p;
+    }
   }
 
   const lu = fatorarLU(A, n);
@@ -470,30 +560,27 @@ function avaliarPolitica(
     return completo;
   };
 
-  const custo = resolver(
-    (a) => a.custo + (a.falhaVaiPara === null ? (1 - a.chance) * opts.precoItem : 0),
-  );
+  const custo = resolver((a, r) => a.custo + chanceDeQuebra(a, r) * opts.precoItem);
 
   const recursos = (de: number, politica: PolicyEntry[]): ResourceUsage => {
     const itensUsados = new Set<number>();
-    for (const p of politica) {
-      itensUsados.add(p.acao.ore.itemId);
-      if (p.acao.bencaos > 0) itensUsados.add(BLESSING_ITEM_ID);
-    }
+    for (const p of politica) for (const c of consumoDe(p.acao)) itensUsados.add(c.itemId);
 
+    // Um uso de cubo conta como uma tentativa: é uma ida ao balcão, e é a unidade com que a
+    // simulação mede o trabalho de uma campanha.
     const tentativas = resolver(() => 1);
-    const quebras = resolver((a) => (a.falhaVaiPara === null ? 1 - a.chance : 0));
+    const quebras = resolver((a, r) => chanceDeQuebra(a, r));
     const taxas = resolver((a) => a.taxa);
 
     const itens: Record<number, number> = {};
     for (const itemId of itensUsados) {
-      const v = resolver((a) => {
-        let q = 0;
-        if (a.ore.itemId === itemId) q += 1;
-        if (itemId === BLESSING_ITEM_ID) q += a.bencaos;
-        return q;
-      });
-      itens[itemId] = v[de - piso]!;
+      const v = resolver((a) =>
+        consumoDe(a).reduce((q, c) => q + (c.itemId === itemId ? c.qtd : 0), 0),
+      );
+      // A política cobre todo estado, inclusive os que o plano nunca visita: com
+      // um cubo do +0 ao +11, o Oridecon escolhido para o +5 tem consumo zero, e
+      // não pode virar uma linha "0 Oridecon" na lista de compras.
+      if (v[de - piso]! > 1e-9) itens[itemId] = v[de - piso]!;
     }
 
     return {

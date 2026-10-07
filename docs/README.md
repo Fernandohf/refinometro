@@ -26,6 +26,7 @@ caminho.
 | [Chances e custos](dados-chances.md) | As tabelas oficiais da GNJOY, o parser e as divergências registradas. |
 | [Itens](dados-itens.md) | A base do Divine Pride: varredura semanal, armadilhas do scraper e o que não é refinável. |
 | [Preços](dados-precos.md) | A cotação do mercado LATAM e por que a média de 30 dias não serve. |
+| [Cubos, martelos e pergaminhos](dados-atalhos.md) | Os itens que mudam o refino sem tentativa: as chances do Browiki, os alvos do Divine Pride e a regra do Mestre do Refino. |
 
 ## O repositório
 
@@ -44,4 +45,6 @@ caminho.
 - *Por que a busca não acha um item que existe?* →
   [Itens](dados-itens.md#duas-armadilhas-da-busca)
 - *De onde veio o preço que já estava no campo?* → [Preços](dados-precos.md)
+- *Quando o plano usa um cubo ou martelo?* →
+  [Cubos, martelos e pergaminhos](dados-atalhos.md)
 - *O que a calculadora não considera?* → [O motor](motor.md#o-que-não-é-considerado)

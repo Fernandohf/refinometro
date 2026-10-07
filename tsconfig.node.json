@@ -34,6 +34,8 @@
     "src/data/tema.ts",
     "src/data/ores.ts",
     "src/data/grade.ts",
+    "src/data/atalhos.ts",
+    "src/data/atalhos.json",
     "src/data/rotulos.ts",
     "src/data/refineChances.json",
     "src/data/gradeChances.json",

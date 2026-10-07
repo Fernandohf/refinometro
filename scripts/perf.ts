@@ -20,6 +20,8 @@ const base: CalcInput = {
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
   perdaAceitavel: true,
+  itemId: null,
+  usarAtalhos: false,
 };
 
 const casos: [string, Partial<CalcInput>][] = [

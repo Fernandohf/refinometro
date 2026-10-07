@@ -317,3 +317,38 @@
     registrada (H10) — o único que deu para medir estava errado em 50%.
   - Bradium e Carnium: quem jogou não viu a quebra rara que o Hazy Forest descreve. Segue fora do
     cálculo, e o aviso passou a dizer isso em vez de "nenhuma fonte confirma".
+- [x] Cubos, martelos e pergaminhos de refino: os itens que levam o equipamento a um refino sem
+      tentativa no refinador.
+  - **Entram como mais uma ação do MDP**, e não como uma opção à parte: no nível em que o atalho
+    é aceito, ele compete com os minérios pelo custo esperado do caminho que pula. Três efeitos —
+    refino fixo (cubos do Hollgrehenn, Martelo Sombrio +9, Tickets, Pergaminhos +5 a +19), sorteado
+    (Cubos Ilusionais, Martelo de Refino Sombrio, com as chances da página de Combinação do
+    Browiki) e somado (+1 por uso nos Martelos de Refino, cobrando materiais). Ver
+    `docs/dados-atalhos.md`.
+  - A ação de refino virou uma união (`TentativaDeRefino | UsoDeAtalho`) e toda leitura de
+    transição passou por `destinosDe()`. O solver, a análise de segurança, a contagem de recursos
+    e a simulação leem dali e não perguntam o tipo — o sorteio do Cubo Ilusional, que **substitui**
+    o refino e pode baixá-lo, entra no mesmo sistema linear que o Bradium que derruba 3.
+  - **Os alvos vêm das abas estruturadas do Divine Pride** ("This box can upgrade" e "Can be used
+    to reform"), com o id de cada equipamento — `npm run data:atalhos` regrava
+    `src/data/atalhos.json`. Casar a descrição ("Armas OS") com a base por nome seria adivinhar
+    tradução. Duas armadilhas achadas no parser: os cubos que só existem no LATAM vêm com `-` na
+    coluna de refino mínimo, e a aba de reforma de cada martelo lista também, numa segunda seção,
+    uma reforma de OUTRO item que usa o martelo como material (um NPC do kRO que leva ao +7).
+  - Os Pergaminhos de Arma/Armadura não têm lista de alvos: a regra é a do Mestre do Refino no
+    rAthena (arma nv1–4, equipamento nv1, refino atual menor que o do pergaminho). O mercado vende
+    a Caixa de Arma +X, que entrega o pergaminho; a cotação usa a caixa quando o avulso não aparece.
+  - **Achado no caminho**: o degrau de 100% contava como risco de quebra, porque a penalidade do
+    minério entrava na análise mesmo com chance 1. A Arma nv1 tinha piso seguro no +7 e recusava,
+    sem aceitar a perda, um +10 que nunca arriscou nada. Com as transições lidas por
+    `destinosDe()`, que descarta destino de probabilidade zero, o piso caiu ao +0; as 72
+    combinações de opções foram reconferidas sem nenhuma recusa espúria.
+  - Num item insubstituível o atalho muda a resposta de segurança: o Pergaminho +7 de uma arma nv4
+    pula a faixa em que todo minério quebra, e o alvo que era recusado a partir do +0 passa a ter
+    caminho.
+  - A simulação marca o nível de atalho com um sentinela no vetor de falha (chance −1), para a
+    tentativa de minério continuar exatamente como era: a primeira versão testava um byte a cada
+    tentativa e saiu ~8% mais lenta no `npm run perf`; a de sentinela ficou no ruído.
+  - Travado por `tests/atalhos.test.ts` (27 testes: catálogo, os três efeitos, a perda do item,
+    os marcos do estoque num salto, o martelo num preparo de Grau e os parsers com HTML real
+    recortado) e por um teste de render.

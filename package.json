@@ -12,6 +12,7 @@
     "data:fetch": "node scripts/fetch-gnjoy.mjs",
     "data:parse": "node scripts/parse-gnjoy.mjs",
     "data:items": "vite-node scripts/atualizar-base.ts --",
+    "data:atalhos": "vite-node scripts/atalhos.ts --",
     "test:watch": "vitest",
     "perf": "vite-node scripts/perf.ts",
     "demo": "vite-node scripts/demo.ts",

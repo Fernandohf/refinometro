@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
 import { COTACAO, DEFAULT_PRICES, PRICE_FIELDS } from './data/defaultPrices';
+import { atalhosDoItem, type Atalho } from './data/atalhos';
 import { GRADE_ORDER, type Grade } from './data/grade';
 import type { ItemKind } from './data/ores';
 import { CATEGORIAS, ROTULO_GRAU } from './data/rotulos';
@@ -48,6 +49,7 @@ interface Estado {
   usarBencaoFerreiro: boolean;
   usarMineriosEspeciais: boolean;
   perdaAceitavel: boolean;
+  usarAtalhos: boolean;
   precos: PriceTable;
   margem: MargemKey;
 }
@@ -75,6 +77,7 @@ const INICIAL: Estado = {
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
   perdaAceitavel: true,
+  usarAtalhos: true,
   precos: DEFAULT_PRICES,
   margem: 'p90',
 };
@@ -138,6 +141,10 @@ export default function App() {
   const limite = safeLimit(e.kind);
   const temGrau = suportaGrau(e.kind);
 
+  // Os cubos e martelos que servem para ESTE item. Independem da opção de usá-los:
+  // os campos de preço aparecem mesmo desligados, para quem quer comparar.
+  const atalhos = useMemo(() => atalhosDoItem(e.itemId, e.kind), [e.itemId, e.kind]);
+
   /**
    * O que uma falha pode fazer no caminho até cada alvo da lista.
    *
@@ -153,8 +160,18 @@ export default function App() {
         evento: e.evento,
         usarBencaoFerreiro: e.usarBencaoFerreiro,
         usarMineriosEspeciais: e.usarMineriosEspeciais,
+        atalhos: e.usarAtalhos ? atalhos : [],
       }),
-    [e.refinoAtual, e.kind, e.precos, e.evento, e.usarBencaoFerreiro, e.usarMineriosEspeciais],
+    [
+      e.refinoAtual,
+      e.kind,
+      e.precos,
+      e.evento,
+      e.usarBencaoFerreiro,
+      e.usarMineriosEspeciais,
+      e.usarAtalhos,
+      atalhos,
+    ],
   );
   const riscoDoAlvo = riscos[e.refinoAlvo] ?? 'nenhuma';
 
@@ -189,6 +206,8 @@ export default function App() {
       usarBencaoFerreiro: adiado.usarBencaoFerreiro,
       usarMineriosEspeciais: adiado.usarMineriosEspeciais,
       perdaAceitavel: adiado.perdaAceitavel,
+      itemId: adiado.itemId,
+      usarAtalhos: adiado.usarAtalhos,
     };
     try {
       // Passe rápido: orçamento curto, síncrono, só para a tela nunca ficar
@@ -391,6 +410,12 @@ export default function App() {
                 checked={e.perdaAceitavel}
                 onChange={(v) => set('perdaAceitavel', v)}
               />
+              <Toggle
+                label="Posso usar cubos, martelos e pergaminhos"
+                dica={dicaDosAtalhos(atalhos)}
+                checked={e.usarAtalhos}
+                onChange={(v) => set('usarAtalhos', v)}
+              />
             </div>
           </Painel>
 
@@ -399,6 +424,7 @@ export default function App() {
             onChange={(p) => set('precos', p)}
             precoItem={e.precoItem}
             onPrecoItem={(v) => set('precoItem', v)}
+            atalhos={atalhos}
           />
         </div>
 
@@ -517,20 +543,76 @@ function Precisao({ afinando, plano }: { afinando: boolean; plano: ResultadoPlan
   );
 }
 
+/**
+ * O que a opção dos atalhos diz, conforme o item.
+ *
+ * Contar quantos servem é o ponto: sem item da busca sobram só os Pergaminhos, e
+ * quem escolheu a categoria à mão precisa saber que o cubo do item dele só entra
+ * se o item vier da busca.
+ */
+function dicaDosAtalhos(atalhos: Atalho[]): string {
+  const doItem = atalhos.filter((a) => a.grupo !== 'pergaminho');
+  const pergaminhos = atalhos.length - doItem.length;
+  const partes = [
+    doItem.length > 0
+      ? `Para este item: ${doItem.map((a) => a.nome).join(', ')}.`
+      : 'Nenhum cubo ou martelo serve para este item — ou ele não veio da busca, que é o que diz quais servem.',
+    pergaminhos > 0 ? 'Valem também os Pergaminhos +5 a +19 do Mestre do Refino.' : '',
+  ];
+  return `${partes.filter(Boolean).join(' ')} O plano só usa um deles quando sai mais barato que refinar.`;
+}
+
+const GRUPO_DO_ITEM = 'Cubos e martelos deste item';
+
+/**
+ * Os campos de preço dos atalhos do item, em dois grupos.
+ *
+ * Os do item são poucos e decidem o plano, então aparecem também no painel
+ * fechado. Os Pergaminhos são quinze por categoria e valem para qualquer arma ou
+ * armadura — à vista, soterrariam o formulário.
+ */
+function gruposDeAtalho(atalhos: Atalho[]): { grupo: string; itens: { itemId: number; nome: string }[] }[] {
+  const doItem: { itemId: number; nome: string }[] = atalhos.filter((a) => a.grupo !== 'pergaminho');
+  const pergaminhos = atalhos.filter((a) => a.grupo === 'pergaminho');
+  // O que os martelos cobram por uso e o formulário ainda não pergunta — a Bênção
+  // do Ferreiro já tem campo; o Núcleo COR, não.
+  const jaPerguntados = new Set(PRICE_FIELDS.flatMap((g) => g.itens.map((i) => i.itemId)));
+  for (const a of atalhos) {
+    for (const m of a.materiais) {
+      if (!jaPerguntados.has(m.itemId) && !doItem.some((i) => i.itemId === m.itemId)) {
+        doItem.push({ itemId: m.itemId, nome: m.nome });
+      }
+    }
+  }
+  return [
+    { grupo: GRUPO_DO_ITEM, itens: doItem },
+    { grupo: 'Pergaminhos de refino (ou a caixa que os entrega)', itens: pergaminhos },
+  ].filter((g) => g.itens.length > 0);
+}
+
 function Precos({
   precos,
   onChange,
   precoItem,
   onPrecoItem,
+  atalhos,
 }: {
   precos: PriceTable;
   onChange: (p: PriceTable) => void;
   precoItem: number;
   onPrecoItem: (v: number) => void;
+  atalhos: Atalho[];
 }) {
   const [aberto, setAberto] = useState(false);
-  const padrao = PRICE_FIELDS.every(
+  const grupos = [...PRICE_FIELDS, ...gruposDeAtalho(atalhos)];
+  const padrao = grupos.every(
     (g) => g.itens.every((i) => (precos[i.itemId] ?? 0) === (DEFAULT_PRICES[i.itemId] ?? 0)),
+  );
+  // Os cubos e martelos do item mexem no plano tanto quanto o Oridecon: entram
+  // nos destaques do painel fechado.
+  const doItem = gruposDeAtalho(atalhos).find((g) => g.grupo === GRUPO_DO_ITEM)?.itens ?? [];
+  const destaques = [...DESTAQUES, ...doItem].filter(
+    (d, i, todos) => todos.findIndex((x) => x.itemId === d.itemId) === i,
   );
 
   return (
@@ -575,7 +657,7 @@ function Precos({
           lado: ele é lido uma vez e depois só afastava os números. */}
       {!aberto && (
         <dl className="md-corpo-m mt-4 space-y-1">
-          {DESTAQUES.map((d) => (
+          {destaques.map((d) => (
             <div key={d.itemId} className="flex items-center justify-between gap-3">
               <dt className="flex min-w-0 items-center gap-2">
                 <SlotItem id={d.itemId} tamanho="mini" />
@@ -596,7 +678,7 @@ function Precos({
 
       {aberto && (
         <div className="mt-5 space-y-5">
-          {PRICE_FIELDS.map((grupo) => (
+          {grupos.map((grupo) => (
             <div key={grupo.grupo}>
               <TituloDeSecao>{grupo.grupo}</TituloDeSecao>
               <div className="space-y-2">

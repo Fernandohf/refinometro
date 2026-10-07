@@ -23,6 +23,8 @@ const input = (over: Partial<CalcInput> = {}): CalcInput => ({
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
   perdaAceitavel: true,
+  itemId: null,
+  usarAtalhos: false,
   ...over,
 });
 

@@ -30,6 +30,8 @@ const input: CalcInput = {
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
   perdaAceitavel: true,
+  itemId: null,
+  usarAtalhos: false,
 };
 
 const r = calcular(input, { tempoMs: 4_000 });

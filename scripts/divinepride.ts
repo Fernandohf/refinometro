@@ -80,6 +80,7 @@ export function textoDe(html: string): string {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
+    .replace(/&times;/g, '×')
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
     .replace(/\s+/g, ' ')
@@ -403,8 +404,141 @@ export function extrairFicha(id: number, html: string): Ficha | null {
 
 /** Baixa e parseia a ficha completa de um item. */
 export async function pegarFicha(id: number): Promise<Ficha | null> {
-  const html = await baixar(`${BASE}/database/item/${id}/`);
+  const html = await pegarPagina(id);
   return html === null ? null : extrairFicha(id, html);
+}
+
+/** A página crua de um item, para quem precisa ler mais que a ficha. */
+export function pegarPagina(id: number): Promise<string | null> {
+  return baixar(`${BASE}/database/item/${id}/`);
+}
+
+// ------------------------------------------------- cubos, martelos e reformas
+//
+// A página de um cubo ou martelo de refino traz, além da descrição, uma aba com
+// a lista ESTRUTURADA de equipamentos em que ele funciona — com link para cada
+// um. É ela que `scripts/atalhos.ts` lê: casar os nomes da descrição ("Armas
+// OS", "Thanos Dagger") com a base exigiria adivinhar tradução, e o link já
+// entrega o id.
+//
+// São duas abas, porque o jogo tem dois mecanismos diferentes por trás da mesma
+// "janela de Combinação":
+//
+// - **melhoria** (`lapine-upgrade`): o cubo DEFINE o refino — "refina para o
+//   +11", "sorteia entre +7 e +10". A tabela traz o refino mínimo exigido;
+//   o resultado não está nela, está na descrição e no Browiki.
+// - **reforma** (`reform`): o martelo SOMA ao refino (+1), cobrando materiais
+//   a cada uso. Cada linha traz a faixa aceita, a mudança e os materiais.
+
+/** Um equipamento que um cubo de refino aceita. */
+export interface AlvoDeMelhoria {
+  id: number;
+  nome: string;
+  /** Refino mínimo que o equipamento precisa ter para entrar no cubo. */
+  refinoMinimo: number;
+}
+
+/**
+ * Lê a aba "This box can upgrade". `null` quando a página não tem a aba — e é
+ * diferente de `[]`: um cubo cuja aba sumiu do site precisa falhar alto, não
+ * virar um cubo que não serve para nada.
+ */
+export function extrairMelhoria(html: string): AlvoDeMelhoria[] | null {
+  const aba = recortarAba(html, 'lapine-upgrade');
+  if (aba === null) return null;
+  const alvos: AlvoDeMelhoria[] = [];
+  const re =
+    /<tr>\s*<td[^>]*>\s*<a href="\/database\/item\/(\d+)"[^>]*>([\s\S]*?)<\/a>\s*<\/td>\s*<td>\s*(\d+|-)\s*<\/td>/g;
+  for (const m of aba.matchAll(re)) {
+    // Os cubos mais novos (os que só existem no LATAM) vêm com "-" na coluna: a tabela não
+    // registra exigência nenhuma, e a descrição deles também não cita uma.
+    const minimo = m[3] === '-' ? 0 : Number(m[3]);
+    alvos.push({ id: Number(m[1]), nome: textoDe(m[2]!), refinoMinimo: minimo });
+  }
+  return alvos;
+}
+
+/** Um equipamento que um martelo de reforma aceita, com o que ele cobra. */
+export interface Reforma {
+  /** O equipamento que entra. */
+  base: number;
+  nome: string;
+  /** O que sai — nos martelos de refino é o próprio item. */
+  resultado: number;
+  refinoMinimo: number;
+  refinoMaximo: number;
+  /** Quanto o refino muda a cada uso. */
+  mudanca: number;
+  materiais: { itemId: number; nome: string; qtd: number }[];
+}
+
+/**
+ * Lê a aba "Can be used to reform" da página do martelo `id`. `null` quando a
+ * página não tem a aba.
+ *
+ * A mesma aba tem uma segunda seção, "Required material for reforming": as
+ * reformas em que este martelo é só MATERIAL de outro item — no kRO, um NPC que
+ * leva do +0~+4 ao +7 cobrando o martelo e 5 Bênçãos. Ela fica de fora pelo
+ * primeiro link do cartão, que é o item que dispara a reforma: tem de ser o
+ * próprio martelo.
+ */
+export function extrairReformas(id: number, html: string): Reforma[] | null {
+  const aba = recortarAba(html, 'reform');
+  if (aba === null) return null;
+
+  const reformas: Reforma[] = [];
+  // Um cartão por equipamento aceito. O primeiro link é o próprio martelo; o
+  // segundo, depois do "on", o equipamento; o terceiro, depois da seta, o
+  // resultado. Os materiais são os links seguintes, com "×N" no texto.
+  for (const cartao of aba.split('<div class="card card-compact">').slice(1)) {
+    const links = [...cartao.matchAll(/<a href="\/database\/item\/(\d+)"[^>]*>([\s\S]*?)<\/a>/g)].map(
+      (m) => ({ id: Number(m[1]), texto: textoDe(m[2]!) }),
+    );
+    const faixa = cartao.match(/Refine \+(\d+) ~ \+(\d+)/);
+    const mudanca = textoDe(cartao.match(/Refine change:([^<]*)</)?.[1] ?? '').match(/([+-]?\d+)/);
+    if (links.length < 3 || !faixa || !mudanca || links[0]!.id !== id) continue;
+
+    const materiais = links.slice(3).flatMap((l) => {
+      const m = l.texto.match(/^(.*?)\s*×\s*(\d+)$/);
+      return m ? [{ itemId: l.id, nome: m[1]!.trim(), qtd: Number(m[2]) }] : [];
+    });
+    reformas.push({
+      base: links[1]!.id,
+      nome: links[1]!.texto,
+      resultado: links[2]!.id,
+      refinoMinimo: Number(faixa[1]),
+      refinoMaximo: Number(faixa[2]),
+      mudanca: Number(mudanca[1]),
+      materiais,
+    });
+  }
+  return reformas;
+}
+
+/** O conteúdo de uma aba da página do item, até o começo da próxima. */
+function recortarAba(html: string, id: string): string | null {
+  const inicio = html.indexOf(`<div id="${id}"`);
+  if (inicio === -1) return null;
+  const fim = html.indexOf('<div id="', inicio + 1);
+  return html.slice(inicio, fim === -1 ? undefined : fim);
+}
+
+/**
+ * As linhas da descrição de um servidor, já sem marcação e sem os separadores
+ * ("-----"). `[]` quando a página não tem o cartão daquele servidor.
+ */
+export function descricaoDoServidor(html: string, servidor: string): string[] {
+  const minusculo = html.toLowerCase();
+  const i = minusculo.indexOf(servidor.toLowerCase());
+  if (i === -1) return [];
+  const fim = minusculo.indexOf('<div class="card"', i + 1);
+  const bloco = html.slice(i, fim === -1 ? undefined : fim);
+  const corpo = bloco.match(/<p [^>]*>(.*?)<\/p>/s)?.[1] ?? '';
+  return corpo
+    .replace(/<br\s*\/?>/g, '\n')
+    .split('\n')
+    .map((l) => textoDe(l).trim())
+    .filter((l) => l && !/^-+$/.test(l) && l !== '_');
 }
 
 /**

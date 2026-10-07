@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { COTACAO } from '../data/defaultPrices';
 import { META } from '../data/items';
+import { META_ATALHOS } from '../data/atalhos';
 import { dataBR } from '../format';
 
 /** Uma fonte da tabela de créditos: o que ela fornece e de onde. */
@@ -127,6 +128,20 @@ export function Fontes() {
           </Fonte>
 
           <Fonte
+            o_que="Cubos, martelos e pergaminhos"
+            href="https://browiki.org/wiki/Combina%C3%A7%C3%A3o"
+            nome="Browiki e Divine Pride"
+          >
+            {' '}
+            — as chances dos que <strong className="text-texto">sorteiam</strong> o refino (Cubos
+            Ilusionais, Martelo de Refino Sombrio) são as da página de Combinação do Browiki. Para{' '}
+            <strong className="text-texto">que equipamentos cada um serve</strong>, e a partir de
+            que refino, vem da página de cada cubo e martelo no Divine Pride, lida em{' '}
+            {dataBR(META_ATALHOS.geradoEm)}. Os Pergaminhos de Arma e Armadura valem para toda arma
+            nv1 a nv4 e todo equipamento nv1, pela regra do Mestre do Refino.
+          </Fonte>
+
+          <Fonte
             o_que="Preços de mercado"
             href={COTACAO.fonte}
             nome={`Consulta de preço — servidor ${COTACAO.servidor}`}
@@ -144,8 +159,9 @@ export function Fontes() {
 
       <p>
         <strong className="text-texto">O que a calculadora não considera:</strong> cartas nos itens.
-        Também não considera encantamentos, bônus aleatórios, nem Pergaminhos, Cubos e Martelos de
-        Refino — que pulam direto para um refino fixo em vez de tentar.
+        Também não considera encantamentos, bônus aleatórios, nem as caixas que sorteiam qual
+        pergaminho vem. Cubos, martelos e pergaminhos de refino entram no plano quando o item veio
+        da busca e sai mais barato usá-los.
       </p>
       <p>
         Projeto de fã, sem vínculo com a Gravity, a GNJOY Latam ou o Divine Pride. Tudo aqui é do

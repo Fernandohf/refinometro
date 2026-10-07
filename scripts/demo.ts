@@ -21,6 +21,8 @@ function run(nome: string, over: Partial<CalcInput>) {
     usarBencaoFerreiro: true,
     usarMineriosEspeciais: true,
     perdaAceitavel: true,
+    itemId: null,
+    usarAtalhos: false,
     ...over,
   };
   const r = calcular(input, { execucoes: 20_000 });
@@ -73,6 +75,8 @@ function runEstoque(nome: string, over: Partial<CalcInput>) {
     usarBencaoFerreiro: true,
     usarMineriosEspeciais: true,
     perdaAceitavel: true,
+    itemId: null,
+    usarAtalhos: false,
     ...over,
   };
   const r = calcular(input, { execucoes: 20_000 });

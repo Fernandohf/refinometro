@@ -43,6 +43,10 @@ e quem se planeja pela média fica sem recursos no meio do caminho quase metade 
 - **Modo "não posso perder o item".** Com carta ou encanto, a quebra vira restrição e não
   custo: o motor deriva o piso seguro e recusa o alvo quando não existe caminho.
 - **Cópias do equipamento como material.** Na faixa de quebra, o item também é consumo.
+- **Cubos, martelos e pergaminhos.** O cubo que leva o item direto a um refino, o martelo que
+  soma +1, o pergaminho que deixa a arma no +9 e o cubo que sorteia o refino entram no plano como
+  mais uma escolha, com o preço de mercado de cada um — e o motor os usa quando saem mais baratos
+  que refinar. → [Cubos, martelos e pergaminhos](docs/dados-atalhos.md)
 - **Comprar × fabricar.** Cada minério é cotado pelo menor entre o mercado e a receita de NPC,
   e a lista de compras vem em duas partes: o que comprar e o que fabricar no balcão.
 - **"Dá com o que eu tenho?"** O painel de estoque responde o inverso: dado o seu zeny, os seus
@@ -54,7 +58,7 @@ e quem se planeja pela média fica sem recursos no meio do caminho quase metade 
 - **Preços seus, salvos no navegador**, com a cotação real do mercado LATAM como palpite
   inicial. → [Preços](docs/dados-precos.md)
 
-O que ela **não** considera (cartas, encantamentos, pergaminhos e martelos) está em
+O que ela **não** considera (cartas, encantamentos e as caixas que sorteiam pergaminho) está em
 [O motor · O que não é considerado](docs/motor.md#o-que-não-é-considerado).
 
 ## Rodando

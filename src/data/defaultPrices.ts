@@ -1,6 +1,7 @@
 import type { PriceTable } from '../engine/types';
 
 import cotacao from './precos.json';
+import { MATERIAIS_DE_ATALHO, TODOS_OS_ATALHOS } from './atalhos';
 
 /**
  * Chutes de ordem de grandeza, para o que a cotação não alcança.
@@ -160,3 +161,33 @@ export const PRICE_FIELDS: { grupo: string; itens: { itemId: number; nome: strin
     ],
   },
 ];
+
+/**
+ * Campos de preço dos cubos, martelos e pergaminhos — de TODOS, não só dos que servem para o
+ * item da tela.
+ *
+ * A tela mostra só os do item (ver `App.tsx`); esta lista completa é a de quem precisa de todos:
+ * o `npm run precos`, que cota cada um, e o teste que confere que nada no `precos.json` é preço
+ * de item que a interface não pergunta. Os presos na conta ficam de fora: não há mercado para
+ * cotar, e o campo deles começa em branco de propósito.
+ */
+export const CAMPOS_DE_ATALHO: { grupo: string; itens: { itemId: number; nome: string }[] }[] = [
+  {
+    grupo: 'Cubos e martelos',
+    itens: [
+      ...TODOS_OS_ATALHOS.filter((a) => a.grupo !== 'pergaminho' && !a.presoNaConta),
+      // Bênção do Ferreiro já tem campo; os insumos de conteúdo (Núcleo COR...) não.
+      ...MATERIAIS_DE_ATALHO.filter((m) => !PRICE_FIELDS.some((g) => g.itens.some((i) => i.itemId === m.itemId))),
+    ].map((i) => ({ itemId: i.itemId, nome: i.nome })),
+  },
+  {
+    grupo: 'Pergaminhos de refino',
+    itens: TODOS_OS_ATALHOS.filter((a) => a.grupo === 'pergaminho').map((a) => ({
+      itemId: a.itemId,
+      nome: a.nome,
+    })),
+  },
+];
+
+/** Todo campo de preço que existe, na tela ou não. */
+export const TODOS_OS_CAMPOS = [...PRICE_FIELDS, ...CAMPOS_DE_ATALHO];

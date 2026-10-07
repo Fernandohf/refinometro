@@ -131,7 +131,9 @@ describe('página', () => {
     // acompanha a ordem de grandeza do campo, então vem no rótulo do botão.
     expect(html).toContain('Zeny para as taxas: mais ');
     expect(html).toContain('Cópias do item: menos 1');
-    expect(html).toMatch(/aria-label="Oridecon[^"]*: mais \d/);
+    // "Oridecon" ou "Minério de Oridecon": qual dos dois se compra depende da
+    // cotação do dia, e o teste é sobre o passo, não sobre o fornecedor.
+    expect(html).toMatch(/aria-label="(?:Minério de )?Oridecon: mais \d/);
     // No recomendado a chance passa de 50%, e aí "onde eu travo?" é curiosidade
     // sobre a minoria azarada — o bloco não aparece.
     expect(html).not.toContain('Onde a campanha para');
@@ -182,7 +184,7 @@ describe('página', () => {
     // que sobe de Éter e nunca quebra.
     localStorage.setItem(
       'refinometro:v1',
-      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none' }),
+      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none', usarAtalhos: false }),
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
@@ -336,6 +338,8 @@ describe('página', () => {
       usarBencaoFerreiro: true,
       usarMineriosEspeciais: true,
       perdaAceitavel: true,
+      itemId: null,
+      usarAtalhos: false,
     };
     const fase = calcular(input).fases.find((f) => f.politica?.length)!;
     const politica = fase.politica!;
@@ -375,6 +379,8 @@ describe('página', () => {
       usarBencaoFerreiro: true,
       usarMineriosEspeciais: true,
       perdaAceitavel: true,
+      itemId: null,
+      usarAtalhos: false,
     };
     const plano = calcular(alvo, { execucoes: 4_000, tempoMs: 30_000, comparar: true });
     const html = renderToString(
@@ -398,6 +404,35 @@ describe('página', () => {
     expect(semBloco).not.toContain('sem risco de quebra');
   });
 
+  it('mostra o cubo pelo que ele faz, sem chance e sem falha', () => {
+    // Um cubo que leva ao +11 não é uma tentativa: "100%" ao lado dele leria
+    // como uma tentativa garantida, e "na falha, …" inventaria um risco.
+    const plano = calcular(
+      {
+        kind: 'a1',
+        precoItem: 30_000_000,
+        refinoAtual: 0,
+        refinoAlvo: 11,
+        grauAtual: 'none',
+        grauAlvo: 'none',
+        evento: false,
+        precos: { ...PRECOS_FIXOS, 100268: 60_000_000 },
+        usarBencaoFerreiro: true,
+        usarMineriosEspeciais: true,
+        perdaAceitavel: true,
+        itemId: 15278,
+        usarAtalhos: true,
+      },
+      { execucoes: 500 },
+    );
+    const html = renderToString(<Resultado plano={plano} margem="p90" onMargem={() => {}} />);
+    const estrategia = html.slice(html.indexOf('Cubo de Refino Temporal'));
+
+    expect(html).toContain('Cubo de Refino Temporal');
+    expect(html).toContain('leva direto ao +11, sem chance de falha');
+    expect(estrategia.slice(0, 400)).not.toContain('na falha');
+  });
+
   it('desenha o Sankey do custo colado na lista de compras', () => {
     // O desenho e a tabela são a mesma conta lida de dois jeitos, no mesmo
     // percentil: são painéis vizinhos de propósito, e nessa ordem — a
@@ -409,7 +444,7 @@ describe('página', () => {
     // equipamento, e a nv5 do padrão não faz nem uma coisa nem outra.
     localStorage.setItem(
       'refinometro:v1',
-      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none' }),
+      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none', usarAtalhos: false }),
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
@@ -435,7 +470,7 @@ describe('página', () => {
     // minério destrói o equipamento.
     localStorage.setItem(
       'refinometro:v1',
-      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10 }),
+      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, usarAtalhos: false }),
     );
     const doZero = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
@@ -447,7 +482,7 @@ describe('página', () => {
 
     localStorage.setItem(
       'refinometro:v1',
-      JSON.stringify({ kind: 'w4', refinoAtual: 10, refinoAlvo: 12 }),
+      JSON.stringify({ kind: 'w4', refinoAtual: 10, refinoAlvo: 12, usarAtalhos: false }),
     );
     const doDez = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
@@ -502,6 +537,8 @@ describe('página', () => {
         usarBencaoFerreiro: true,
         usarMineriosEspeciais: true,
         perdaAceitavel: true,
+        itemId: null,
+        usarAtalhos: false,
       };
       const r = calcular(input);
       const c = r.simulacao!.custo;
@@ -595,7 +632,7 @@ describe('página', () => {
   it('diz o risco do caminho em uma linha, e o detalhe no balão', () => {
     localStorage.setItem(
       'refinometro:v1',
-      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none' }),
+      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none', usarAtalhos: false }),
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
