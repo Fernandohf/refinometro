@@ -1148,9 +1148,16 @@ function Fase({
                   traduzir cada passo antes de executá-lo no jogo. */}
               <SlotItem id={t.minerioItemId} tamanho="mini" />
               <span className="font-medium">{t.minerio}</span>
+              {/* Um cubo não tem chance nem falha: o que ele faz já é a informação
+                  inteira, e "100%" ao lado dele sugeriria uma tentativa. */}
+              {t.atalho && (
+                <span className="md-corpo-p text-suave">— {t.naFalha}</span>
+              )}
               {t.bencaos > 0 && <Pastilha tom="ok">+{t.bencaos} Bênção do Ferreiro</Pastilha>}
-              <span className="md-corpo-p text-suave tabular-nums">{porcento(t.chance)}</span>
-              {t.chance < 1 && (
+              {!t.atalho && (
+                <span className="md-corpo-p text-suave tabular-nums">{porcento(t.chance)}</span>
+              )}
+              {!t.atalho && t.chance < 1 && (
                 <span
                   className={'md-corpo-p ' + (t.arriscaQuebrar ? 'text-perigo' : 'text-suave')}
                 >

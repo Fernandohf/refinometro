@@ -8,6 +8,7 @@ vem, qual fonte ganha quando duas discordam, e onde está o detalhe de cada uma.
 | [Chances e custos](dados-chances.md) | As tabelas oficiais da GNJOY, o parser e as divergências registradas |
 | [Itens](dados-itens.md) | A base do Divine Pride: varredura semanal, armadilhas do scraper e o que não é refinável |
 | [Preços](dados-precos.md) | A cotação do mercado LATAM, a mediana ponderada e por que a média de 30 dias não serve |
+| [Cubos, martelos e pergaminhos](dados-atalhos.md) | As chances do Browiki, os alvos lidos do Divine Pride e a regra do Mestre do Refino |
 
 Nenhum desses comandos é necessário para rodar o site: os arquivos gerados estão versionados
 no repositório.

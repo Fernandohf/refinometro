@@ -5,7 +5,7 @@
 // `npm run descricoes` — a saída é longa de propósito, para dar para reconferir a
 // tabela inteira de uma vez quando o servidor mudar um texto.
 import { ORES } from '../src/data/ores';
-import { textoDe } from './divinepride';
+import { descricaoDoServidor } from './divinepride';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -22,20 +22,6 @@ const CHANCE =
 /** Uma pausa entre requisições: são 22 páginas atrás de Cloudflare. */
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** As linhas úteis do cartão de um servidor. `[]` quando o cartão não existe. */
-function cartao(html: string, servidor: string): string[] {
-  const i = html.toLowerCase().indexOf(servidor.toLowerCase());
-  if (i === -1) return [];
-  const fim = html.toLowerCase().indexOf('<div class="card"', i + 1);
-  const bloco = html.slice(i, fim === -1 ? undefined : fim);
-  const corpo = bloco.match(/<p [^>]*>(.*?)<\/p>/s)?.[1] ?? '';
-  return corpo
-    .replace(/<br\s*\/?>/g, '\n')
-    .split('\n')
-    .map((l) => textoDe(l).trim())
-    .filter((l) => l && !/^-+$/.test(l) && l !== '_');
-}
-
 for (const ore of ORES) {
   const res = await fetch(`https://www.divine-pride.net/database/item/${ore.itemId}`, {
     headers: { 'User-Agent': UA, Cookie: COOKIES },
@@ -44,7 +30,7 @@ for (const ore of ORES) {
 
   console.log(`\n===== ${ore.nome} (${ore.itemId}) — chanceAumentada: ${ore.chanceAumentada}`);
   for (const s of SERVIDORES) {
-    const linhas = cartao(html, s);
+    const linhas = descricaoDoServidor(html, s);
     if (!linhas.length) continue;
     const promete = linhas.some((l) => CHANCE.test(l));
     console.log(`  [${s}]${promete ? '  <<< PROMETE CHANCE MAIOR' : ''}`);

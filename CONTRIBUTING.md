@@ -86,6 +86,7 @@ Não são necessários para rodar o site — os arquivos gerados já estão no r
 | --- | --- | --- |
 | `npm run data:fetch` / `data:parse` | Chances, da divulgação oficial da GNJOY | [Chances e custos](docs/dados-chances.md) |
 | `npm run data:items` | A base de itens, do Divine Pride | [Itens](docs/dados-itens.md) |
+| `npm run data:atalhos` | Para quem serve cada cubo e martelo de refino, do Divine Pride | [Cubos, martelos e pergaminhos](docs/dados-atalhos.md) |
 | `npm run precos` | A cotação inicial dos minérios | [Preços](docs/dados-precos.md) |
 | `npm run descricoes` | Imprime as descrições dos 22 minérios, para reconferir | [Chances e custos](docs/dados-chances.md) |
 

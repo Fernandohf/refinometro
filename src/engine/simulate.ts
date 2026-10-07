@@ -1,7 +1,7 @@
 import { BLESSING_ITEM_ID } from '../data/ores';
 import { ETHER_BLESSING_ITEM_ID } from '../data/grade';
 import type { Percentis, PolicyEntry, ResourceUsage } from './types';
-import type { RefineOptions } from './refine';
+import { destinosDe, type RefineOptions } from './refine';
 import type { GradeAttemptPlan } from './grade';
 
 /**
@@ -189,13 +189,37 @@ interface Trilha {
   custo: Float64Array;
   /** Parcela de `custo` que é taxa do refinador, para poder ser somada à parte. */
   taxa: Float64Array;
-  /** Nível para onde a falha leva; -1 significa que o item é destruído. */
+  /**
+   * Nível para onde a falha leva; `QUEBRA` (-1) é o item destruído, e `SALTO` (-2)
+   * marca um nível em que a política usa um cubo, martelo ou pergaminho.
+   */
   falha: Int32Array;
   /** Índice do minério consumido, dentro do vetor de contagem. */
   slotMinerio: Int32Array;
   /** Bênçãos do Ferreiro gastas na tentativa. */
   qtdBencao: Float64Array;
+  /**
+   * Nos níveis de atalho não há chance nem falha: o destino sai de
+   * `saltoDestino`, sorteado por `saltoAcum` entre `saltoIni` e `saltoFim`, e
+   * `slotMinerio` aponta para o próprio atalho.
+   */
+  saltoIni: Int32Array;
+  saltoFim: Int32Array;
+  /** Refino de chegada de cada resultado possível, já limitado ao alvo da fase. */
+  saltoDestino: Int32Array;
+  /** Probabilidade acumulada até cada resultado — o último vale 1. */
+  saltoAcum: Float64Array;
+  /** Materiais que o atalho cobra além de si mesmo, entre `extraIni` e `extraFim`. */
+  extraIni: Int32Array;
+  extraFim: Int32Array;
+  extraSlot: Int32Array;
+  extraQtd: Float64Array;
 }
+
+/** `falha` de uma tentativa que destrói o item. */
+const QUEBRA = -1;
+/** `falha` de um nível em que a política usa um atalho (ver `Trilha`). */
+const SALTO = -2;
 
 type FaseCompilada =
   | { tipo: 'refino'; trilha: Trilha }
@@ -227,6 +251,14 @@ function compilarTrilha(
   const falha = new Int32Array(para);
   const slotMinerio = new Int32Array(para);
   const qtdBencao = new Float64Array(para);
+  const saltoIni = new Int32Array(para);
+  const saltoFim = new Int32Array(para);
+  const extraIni = new Int32Array(para);
+  const extraFim = new Int32Array(para);
+  const destinos: number[] = [];
+  const acumuladas: number[] = [];
+  const extraSlots: number[] = [];
+  const extraQtds: number[] = [];
 
   // Os vetores são indexados pelo nível de refino, mas a política pode não
   // começar no +0: sem aceitar a perda do item ela só existe do piso para cima.
@@ -234,15 +266,60 @@ function compilarTrilha(
   // política leva para lá.
   for (const p of politica) {
     const a = p.acao;
-    chance[p.de] = a.chance;
     custo[p.de] = a.custo;
     taxa[p.de] = a.taxa;
-    falha[p.de] = a.falhaVaiPara ?? -1;
+
+    if (a.tipo === 'atalho') {
+      // Chance negativa: nenhum sorteio passa, e a "falha" leva ao SALTO. É o que
+      // deixa a tentativa de minério — milhões por segundo — exatamente como era:
+      // o atalho só custa uma comparação no ramo da falha, que já é o raro.
+      chance[p.de] = -1;
+      falha[p.de] = SALTO;
+      slotMinerio[p.de] = slot(a.atalho.itemId);
+      saltoIni[p.de] = destinos.length;
+      let acc = 0;
+      for (const d of destinosDe(a, p.de)) {
+        acc += d.p;
+        destinos.push(Math.min(d.refino!, para));
+        acumuladas.push(acc);
+      }
+      // A soma das chances do Browiki é 100% no papel e 0,99999… em ponto
+      // flutuante; o último resultado tem de pegar o que sobrar.
+      acumuladas[acumuladas.length - 1] = 1;
+      saltoFim[p.de] = destinos.length;
+      extraIni[p.de] = extraSlots.length;
+      for (const m of a.atalho.materiais) {
+        extraSlots.push(slot(m.itemId));
+        extraQtds.push(m.qtd);
+      }
+      extraFim[p.de] = extraSlots.length;
+      continue;
+    }
+
+    chance[p.de] = a.chance;
+    falha[p.de] = a.falhaVaiPara ?? QUEBRA;
     slotMinerio[p.de] = slot(a.ore.itemId);
     qtdBencao[p.de] = a.bencaos;
   }
 
-  return { de, para, chance, custo, taxa, falha, slotMinerio, qtdBencao };
+  return {
+    de,
+    para,
+    chance,
+    custo,
+    taxa,
+    falha,
+    slotMinerio,
+    qtdBencao,
+    saltoIni,
+    saltoFim,
+    saltoDestino: Int32Array.from(destinos),
+    saltoAcum: Float64Array.from(acumuladas),
+    extraIni,
+    extraFim,
+    extraSlot: Int32Array.from(extraSlots),
+    extraQtd: Float64Array.from(extraQtds),
+  };
 }
 
 /**
@@ -409,7 +486,24 @@ export function simulateCampaign(
           }
         } else {
           const destino = trilha.falha[r]!;
-          if (destino < 0) {
+          if (destino === SALTO) {
+            for (let k = trilha.extraIni[r]!; k < trilha.extraFim[r]!; k++) {
+              contagem[trilha.extraSlot[k]!]! += trilha.extraQtd[k]!;
+            }
+            const u = rand();
+            let k = trilha.saltoIni[r]!;
+            const ultimo = trilha.saltoFim[r]! - 1;
+            while (k < ultimo && u >= trilha.saltoAcum[k]!) k++;
+            r = trilha.saltoDestino[k]!;
+            // Um salto do +0 ao +11 atravessa onze marcos de uma vez: a campanha
+            // chegou em cada um deles com o mesmo gasto.
+            if (marca) {
+              while (maisLonge < r) {
+                maisLonge++;
+                marcar();
+              }
+            }
+          } else if (destino < 0) {
             quebrou++;
             zeny += precoItem;
             r = refinoReposicao;

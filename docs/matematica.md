@@ -101,6 +101,11 @@ aceitável, `L = 0`). Defina o MDP `(S, A, P, c)` — na formulação padrão de
   (`actionsAt()`, [src/engine/refine.ts](../src/engine/refine.ts)). A lista é filtrada: minério
   bloqueado pelas opções, chance nula naquele nível, ou material sem preço nem receita (`u = ∞`)
   saem.
+- **Atalhos** (`usoDeAtalho()`): para cada cubo, martelo ou pergaminho `h` que serve para o item
+  e aceita o refino `r`, uma ação a mais, sem falha, com distribuição de chegada `D_h(r)` sobre
+  refinos absolutos — `{ R_h }` (fixo), `{ r + 1 }` (somado) ou a tabela do Browiki (sorteado) — e
+  custo `u(h) + Σ m · u(material)`. Um destino `≥ N` é o estado `N`. O atalho que não pode subir o
+  refino (`max D_h(r) ≤ r`) é descartado, e o sem preço também.
 - **Chance de sucesso** `pₐ = q(k, r+1, σ(o), ε) > 0`.
 - **Destino da falha**
 
@@ -121,6 +126,12 @@ aceitável, `L = 0`). Defina o MDP `(S, A, P, c)` — na formulação padrão de
 
   O último termo é o preço esperado da reposição cobrado *na própria transição*; é assim que
   `valorDaAcao()` e `avaliarPolitica()` o tratam.
+
+  Para as duas famílias de ação o código lê a transição pelo mesmo lugar, `destinosDe()`: uma
+  lista `{(destino, probabilidade)}` com `⊥` para o item destruído. Uma tentativa de minério é a
+  lista `{(r+1, pₐ), (φ(r,a), 1−pₐ)}`; um atalho é `D_h(r)`. Destinos de probabilidade zero ficam
+  de fora — num degrau de 100% a penalidade do minério não é um lugar aonde o item possa ir, e
+  contá-la marcava como arriscado um nível que nunca falha (§5.2).
 
 Duas escolhas de modelagem merecem registro porque mudam a resposta:
 
@@ -148,11 +159,13 @@ Uma **política estacionária determinística** é um mapa `π: S∖{N} → A` c
 > `p̄ = min_{r,a} pₐ > 0`. Em particular `T < ∞` q.c., `𝔼[T] < ∞` e todos os momentos de `T` são
 > finitos.
 >
-> *Demonstração.* Toda ação tem `pₐ > 0` (chances nulas são filtradas) e um sucesso sempre move o
-> estado de `r` para `r+1`. Logo, de qualquer estado, uma sequência de `N − L` sucessos
-> consecutivos leva a `N`, e essa sequência tem probabilidade `≥ p̄^(N−L) > 0` a cada bloco de
-> `N − L` tentativas, uniformemente no estado de partida. A cauda geométrica segue por Markov
-> forte, bloco a bloco. ∎
+> *Demonstração.* Toda ação tem probabilidade positiva de **subir** o refino: o minério, `pₐ > 0`
+> (chances nulas são filtradas); o atalho, porque o que não pode subir é descartado. Seja `p̄` o
+> mínimo dessas probabilidades. Cada subida aumenta o estado em pelo menos 1, então de qualquer
+> estado uma sequência de `N − L` subidas consecutivas leva a `N`, com probabilidade
+> `≥ p̄^(N−L) > 0` a cada bloco de `N − L` ações, uniformemente no estado de partida. A cauda
+> geométrica segue por Markov forte, bloco a bloco. O Cubo Ilusional, que pode *baixar* o refino,
+> não estraga o argumento: ele só entra onde também pode subir. ∎
 
 A Proposição 2.2 é mais forte do que a hipótese usual de [1] (existe *alguma* política própria, e
 as impróprias têm custo infinito): aqui **não existe** política imprópria. Isso simplifica tudo o
@@ -339,13 +352,15 @@ escolhido decidiria a resposta.
 > **Definição 5.1.** `r < N` é **seguro** quando
 >
 > ```
-> ∃ a ∈ A(r) :  φ(r,a) ≠ ⊥   e   ( φ(r,a) = r   ou   φ(r,a) é seguro )
+> ∃ a ∈ A(r) :  ∀ (d, p) ∈ destinos(r, a), p > 0 :  d ≠ ⊥   e   ( d ≥ r   ou   d é seguro )
 > ```
 
-A definição é bem fundada porque `φ(r,a) ≤ r` sempre: falhar nunca sobe o refino. Logo a recursão
-em `r` estritamente decrescente termina, o menor e o maior ponto fixo coincidem, e uma **única
-passada de baixo para cima** calcula o conjunto — é o laço de `pisoSeguro()`. O caso base `φ = r`
-é a Bênção do Ferreiro, que segura o refino no lugar.
+Para cima ninguém confere, e não precisa: o piso (Definição 5.2) é o começo de um trecho seguro
+**contíguo** até o alvo, então quem sobe a partir de um nível do trecho cai dentro dele. Para baixo
+a recursão é bem fundada — `r` estritamente decrescente —, o menor e o maior ponto fixo coincidem,
+e uma **única passada de baixo para cima** calcula o conjunto: é o laço de `pisoSeguro()`. O caso
+`d = r` é a Bênção do Ferreiro, que segura o refino no lugar; o caso `d > r` com probabilidade 1 é
+o atalho fixo, que torna seguro todo nível em que é aceito.
 
 > **Definição 5.2 (piso).** `L = min { r : [r, N−1] ⊆ Seguro }`, com `L = N` quando `N−1` não é
 > seguro (não há caminho seguro nenhum, e o alvo é recusado com essa explicação).
@@ -357,8 +372,8 @@ embaixo não serve se, para chegar até ele, o item tiver que atravessar um beco
 > `φ(r,a) ≠ ⊥` e `φ(r,a) ≥ L` (função `acaoLegal()`), o sub-MDP é fechado: nenhuma trajetória sai
 > de `[L, N]` nem destrói o item.
 >
-> *Demonstração.* Sucesso move para `r+1 ≤ N`; falha move para `φ ≥ L` por construção do filtro;
-> e `⊥` foi eliminado. ∎
+> *Demonstração.* Sucesso move para `r+1 ≤ N`, e o atalho para `min(d, N)`; falha move para
+> `φ ≥ L` por construção do filtro; e `⊥` foi eliminado. ∎
 
 ### 5.2 Suficiência, e onde a construção é conservadora
 
@@ -368,21 +383,31 @@ Definição 5.1 pode testemunhar a segurança de `r` com uma ação que cai *aba
 ação é depois eliminada por `acaoLegal()`. Isso só pode acontecer se o conjunto seguro **não for
 um intervalo**.
 
-Verificação sobre as tabelas efetivamente distribuídas — 9 categorias × {evento, sem evento} ×
-{com, sem Bênção} × {com, sem minério especial} = **72 combinações**: em todas o conjunto seguro
-é um intervalo, e a restrição não perde nada. Os padrões, com as opções padrão (Bênção e
-minério especial liberados, sem evento) e bit `r` = "o refino `r` é seguro", do +0 ao +19:
+Verificação sobre as tabelas efetivamente distribuídas, sem atalhos — 9 categorias ×
+{evento, sem evento} × {com, sem Bênção} × {com, sem minério especial} = **72 combinações**, e em
+cada uma todo alvo `N`: em nenhuma o solucionador recusa um alvo cujo piso existe. Os padrões, com
+as opções padrão (Bênção e minério especial liberados, sem evento) e bit `r` = "o refino `r` é
+seguro", do +0 ao +19:
 
 ```
-w1, w2, w3, w4, a1     0000000 1111111111111    seguro do +7 para cima: a Bênção cobre
-                                                +7..+13 e o Perfeito só derruba 1 nível
+w1                     11111111111111111111     seguro em tudo: até o +6 toda tentativa
+                                                passa, e do +7 a Bênção segura
+w2                     111111 0 1111111111111   ilhas: o trecho de 100% embaixo, um degrau
+w3                     11111 00 1111111111111   que quebra no meio, e o trecho da Bênção
+w4, a1                 1111 000 1111111111111   em cima — o piso é o +7
 w5, a2                 11111111111111 000000    seguro até o +13, porque o Eteridecon desce
                                                 3 e nunca quebra; do +14 para cima, todo
                                                 minério da faixa pode destruir o item
-shadowW, shadowA       00000000000000000000     nunca seguro: a Bênção não funciona em
-                                                Sombrio e o Perfeito derruba para a faixa
-                                                que quebra
+shadowW, shadowA       1111 000000              só o trecho de 100%: a Bênção não funciona
+                                                em Sombrio e o Perfeito derruba para a
+                                                faixa que quebra
 ```
+
+As ilhas de baixo nunca servem de testemunha para um nível do trecho de cima — o menor destino de
+falha acima do +7 é o próprio +7 —, e por isso não há recusa espúria. Elas só existem desde que o
+degrau de 100% deixou de contar como risco (antes a penalidade do minério entrava mesmo com
+chance 1, e a Arma nv1 tinha piso no +7 para um caminho que nunca arriscava nada). Com atalhos o
+conjunto muda por item: o Pergaminho +7 de uma arma nv4 preenche o buraco, e o piso cai ao +0.
 
 Se uma tabela futura quebrar a propriedade de intervalo, o solucionador não devolve plano errado:
 algum nível fica sem ação legal e `solveRefine()` lança `RefineImpossivel` com a explicação do
@@ -947,9 +972,11 @@ Reunidas num lugar só, na ordem em que apareceram:
 | H9 | Os três degraus de grau acima do D custam o que o Browiki diz | `GRADE_STEPS` | O único degrau medido estava errado em 50%; campanhas de grau alto sairiam subestimadas |
 | H10 | Do +10 para cima a taxa do refinador é a mesma da faixa medida (+0 a +9) | `TAXA_REFINO` | Erra o custo justo onde a campanha fica cara, e a escolha de minério na margem |
 
-Fora do modelo por decisão de escopo: cartas, encantamentos, Pergaminhos/Cubos/Martelos de Refino
-(que pulam direto para um refino fixo) e qualquer valor de revenda do item refinado além de
-`V₀ + custo do caminho`.
+| H11 | O resultado de um atalho acima do alvo da fase equivale a chegar no alvo | §2.1 | Num preparo de Grau, a tentativa sairia num refino maior, com chance de Grau igual ou maior: a conta é pessimista |
+| H12 | Os alvos de cada cubo e martelo são os que o Divine Pride lista, e o teto aceito é o maior refino que o atalho dá | [Atalhos](dados-atalhos.md) | Item fora da lista fica sem o atalho; um teto real menor deixaria o plano usar o cubo onde o jogo recusa |
+
+Fora do modelo por decisão de escopo: cartas, encantamentos, as caixas que sorteiam qual
+pergaminho vem e qualquer valor de revenda do item refinado além de `V₀ + custo do caminho`.
 
 ### 11.1 Verificação numérica
 

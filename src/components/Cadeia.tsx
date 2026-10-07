@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import type { Grade } from '../data/grade';
-import type { PolicyEntry } from '../engine/types';
+import type { PolicyEntry, RefineAction, UsoDeAtalho } from '../engine/types';
 import { porcento, zeny, zenyExato } from '../format';
 import { NomeNoJogo, SlotItem } from './ItemNoJogo';
 import { Botao, BotaoDoPainel, Info, Pastilha, TituloDeSecao } from './ui';
@@ -35,11 +35,39 @@ import { Botao, BotaoDoPainel, Info, Pastilha, TituloDeSecao } from './ui';
  * tem.
  */
 function destinoDaFalha(e: PolicyEntry): { texto: string; perigo: boolean } {
+  // Cubo, martelo e pergaminho não falham: o que ele faz já está na coluna do estado.
+  if (e.acao.tipo === 'atalho') return { texto: 'não falha', perigo: false };
   if (e.acao.chance >= 1) return { texto: 'não falha', perigo: false };
   const para = e.acao.falhaVaiPara;
   if (para === null) return { texto: 'quebra', perigo: true };
   if (para === e.de) return { texto: 'nada muda', perigo: false };
   return { texto: `cai para +${para}`, perigo: false };
+}
+
+/** Aonde o atalho leva o item: `+11`, ou `+7 a +10` quando o refino é sorteado. */
+function chegadaDoAtalho(a: UsoDeAtalho): string {
+  const refinos = a.destinos.map((d) => d.refino!);
+  const menor = Math.min(...refinos);
+  const maior = Math.max(...refinos);
+  return menor === maior ? `+${maior}` : `+${menor} a +${maior}`;
+}
+
+/** Chance de a ação deixar o item mais alto do que estava. */
+function chanceDeSubir(a: RefineAction, de: number): number {
+  if (a.tipo === 'minerio') return a.chance;
+  return a.destinos.reduce((s, d) => s + (d.refino! > de ? d.p : 0), 0);
+}
+
+/** Sorteia o destino de uma ação, como o jogo sortearia. `null` = o item quebrou. */
+function sortear(a: RefineAction, de: number): number | null {
+  if (a.tipo === 'minerio') return Math.random() < a.chance ? de + 1 : a.falhaVaiPara;
+  const u = Math.random();
+  let acc = 0;
+  for (const d of a.destinos) {
+    acc += d.p;
+    if (u < acc) return d.refino;
+  }
+  return a.destinos[a.destinos.length - 1]!.refino;
 }
 
 export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; alvo: number }) {
@@ -97,24 +125,37 @@ export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; a
             return (
               <tr key={e.de}>
                 <td className="py-1.5 pr-3 font-mono text-xs whitespace-nowrap tabular-nums">
-                  +{e.de} <span className="text-suave">→</span> +{e.de + 1}
+                  +{e.de} <span className="text-suave">→</span>{' '}
+                  {e.acao.tipo === 'atalho' ? chegadaDoAtalho(e.acao) : `+${e.de + 1}`}
                 </td>
                 <td className="py-1.5 pr-3">
-                  <span className="flex items-center gap-1.5">
-                    <SlotItem id={e.acao.ore.itemId} tamanho="mini" />
-                    {e.acao.ore.nome}
-                    {e.acao.bencaos > 0 && (
-                      <span className="text-xs whitespace-nowrap text-ok">
-                        +{e.acao.bencaos} Bênção
-                      </span>
-                    )}
-                  </span>
+                  {e.acao.tipo === 'atalho' ? (
+                    <span className="flex items-center gap-1.5">
+                      <SlotItem id={e.acao.atalho.itemId} tamanho="mini" />
+                      {e.acao.atalho.nome}
+                      {e.acao.atalho.materiais.map((m) => (
+                        <span key={m.itemId} className="text-xs whitespace-nowrap text-suave">
+                          +{m.qtd} {m.nome}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5">
+                      <SlotItem id={e.acao.ore.itemId} tamanho="mini" />
+                      {e.acao.ore.nome}
+                      {e.acao.bencaos > 0 && (
+                        <span className="text-xs whitespace-nowrap text-ok">
+                          +{e.acao.bencaos} Bênção
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </td>
                 <td className="py-1.5 pr-3">
                   <Medida
-                    fracao={e.acao.chance}
+                    fracao={chanceDeSubir(e.acao, e.de)}
                     cor="bg-ok"
-                    texto={porcento(e.acao.chance)}
+                    texto={porcento(chanceDeSubir(e.acao, e.de))}
                   />
                 </td>
                 <td
@@ -220,8 +261,11 @@ export function Percurso({
   function tentar() {
     const e = porEstado.get(refino);
     if (!e) return;
-    const sucesso = Math.random() < e.acao.chance;
-    const destino = sucesso ? e.de + 1 : e.acao.falhaVaiPara;
+    // Passar do alvo é chegar nele — a mesma regra do motor para o cubo que dá +11
+    // num plano que para no +10.
+    const sorteado = sortear(e.acao, e.de);
+    const destino = sorteado === null ? null : Math.min(sorteado, alvo);
+    const sucesso = destino !== null && destino > e.de;
 
     setGasto((g) => g + e.acao.custo);
     setPassos((p) => [{ de: e.de, para: destino, sucesso, custo: e.acao.custo }, ...p].slice(0, 12));
@@ -270,7 +314,11 @@ export function Percurso({
                consequência: no Material ela é o botão preenchido, e recomeçar
                fica em texto ao lado. */
             <Botao variante="preenchido" tamanho="pequeno" onClick={tentar}>
-              {atual ? `tentar +${refino} → +${refino + 1}` : 'tentar'}
+              {!atual
+                ? 'tentar'
+                : atual.acao.tipo === 'atalho'
+                  ? `usar ${atual.acao.atalho.nome}`
+                  : `tentar +${refino} → +${refino + 1}`}
             </Botao>
           )}
           <BotaoDoPainel discreto onClick={recomecar}>
@@ -279,7 +327,18 @@ export function Percurso({
         </div>
       </div>
 
-      {atual && !chegou && (
+      {atual && !chegou && atual.acao.tipo === 'atalho' && (
+        <p className="mt-2 text-xs text-suave">
+          Este passo usa <strong className="text-texto">{atual.acao.atalho.nome}</strong>, custa{' '}
+          <span className="tabular-nums">{zeny(atual.acao.custo)}</span> e leva o item ao{' '}
+          <strong className="text-texto">{chegadaDoAtalho(atual.acao)}</strong>
+          {atual.acao.atalho.efeito.tipo === 'sorteio'
+            ? ' — o refino é sorteado, e substitui o atual.'
+            : ', sem chance de falha.'}
+        </p>
+      )}
+
+      {atual && !chegou && atual.acao.tipo === 'minerio' && (
         <p className="mt-2 text-xs text-suave">
           Este passo usa <strong className="text-texto">{atual.acao.ore.nome}</strong>
           {atual.acao.bencaos > 0 && <> com {atual.acao.bencaos} Bênção do Ferreiro</>}, custa{' '}

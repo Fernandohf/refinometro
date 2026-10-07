@@ -1,5 +1,6 @@
 import type { ItemKind, Ore } from '../data/ores';
 import type { Grade } from '../data/grade';
+import type { Atalho } from '../data/atalhos';
 
 /** Preço unitário em zeny, por id de item. Ausente/0 = desconhecido. */
 export type PriceTable = Record<number, number>;
@@ -30,10 +31,25 @@ export interface CalcInput {
    * tentativas que não podem destruí-lo, custe o que custar.
    */
   perdaAceitavel: boolean;
+  /**
+   * Id do item no Divine Pride, quando ele veio da busca. É o que diz quais cubos e
+   * martelos servem para ele; sem o id, sobram só os Pergaminhos, que valem pela
+   * categoria (ver `atalhosDoItem`).
+   */
+  itemId: number | null;
+  /** Permitir cubos, martelos e pergaminhos de refino como alternativa ao refinador. */
+  usarAtalhos: boolean;
 }
 
-/** Uma ação possível numa tentativa de refino: um minério, com ou sem Bênção. */
-export interface RefineAction {
+/**
+ * Uma ação possível num nível de refino: uma tentativa no refinador, ou o uso de um cubo,
+ * martelo ou pergaminho. As duas mudam o refino; só a primeira pode falhar.
+ */
+export type RefineAction = TentativaDeRefino | UsoDeAtalho;
+
+/** Uma tentativa no refinador: um minério, com ou sem Bênção. */
+export interface TentativaDeRefino {
+  tipo: 'minerio';
   ore: Ore;
   /** Quantas Bênçãos do Ferreiro acompanham a tentativa (0 = nenhuma). */
   bencaos: number;
@@ -45,6 +61,30 @@ export interface RefineAction {
   custo: number;
   /** Para onde o refino vai em caso de falha; `null` = item destruído. */
   falhaVaiPara: number | null;
+}
+
+/** Para onde uma ação leva o item, e com que probabilidade. `null` = item destruído. */
+export interface Destino {
+  refino: number | null;
+  p: number;
+}
+
+/**
+ * O uso de um cubo, martelo ou pergaminho de refino (ver `src/data/atalhos.ts`).
+ *
+ * Não há falha, nem taxa do refinador, nem Bênção: o atalho define o refino de chegada — fixo,
+ * sorteado ou somado — e cobra o próprio item mais os materiais dele. Um destino acima do alvo da
+ * fase conta como chegar ao alvo.
+ */
+export interface UsoDeAtalho {
+  tipo: 'atalho';
+  atalho: Atalho;
+  /** Para onde o refino vai, em refino absoluto. Nunca `null`: atalho não destrói o item. */
+  destinos: Destino[];
+  /** Custo em zeny de um uso: o atalho mais os materiais. */
+  custo: number;
+  /** Sempre 0, e existe para a taxa poder ser lida de qualquer ação sem perguntar o tipo. */
+  taxa: 0;
 }
 
 /** A ação escolhida para cada nível de refino, mais o custo esperado dali em diante. */

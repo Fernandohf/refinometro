@@ -71,6 +71,18 @@ necessário é dinheiro que evapora — e a regra de bolso "suba até o +11 ante
 é falsa, quando o trecho até lá é caro o bastante. A busca é exaustiva sobre um espaço pequeno,
 com cache dos trechos de refino que os degraus repetem.
 
+**Cubos, martelos e pergaminhos** → §2.1. Alguns itens mudam o refino sem tentativa: o cubo
+que leva a Armadura Temporal ao +11, o martelo que soma +1 numa Arma Consertada cobrando 14
+Bênçãos, o pergaminho que deixa qualquer arma nv1–4 no +9, o Cubo Ilusional que sorteia entre +7
+e +10. Cada um entra como **mais uma ação** no nível em que é aceito, com destino fixo, somado ou
+sorteado em vez de sucesso e falha — e o otimizador o escolhe quando ele sai mais barato que o
+caminho que pula. O sorteado *substitui* o refino, e pode baixá-lo; a conta sabe disso e não o usa
+onde ele mais atrasa do que adianta. Passar do alvo conta como chegar nele. Quais servem para o
+item vem da busca: sem item, sobram só os pergaminhos, que valem pela categoria. Num item
+insubstituível o atalho também muda a resposta de **segurança**: o Pergaminho +7 numa arma nv4
+pula a faixa em que todo minério quebra, e o alvo que era recusado a partir do +0 passa a ter
+caminho. → [Cubos, martelos e pergaminhos](dados-atalhos.md)
+
 **Comprar ou fabricar** → §7. Metade dos minérios ninguém compra pronto: fabrica no NPC.
 `unitCost()` devolve o menor entre o preço de mercado informado e o da receita, recursivamente;
 sem preço nem receita o custo é infinito e o motor descarta toda estratégia que dependeria do
@@ -162,7 +174,8 @@ preciso alcança alvos que o passe rápido recusa. → §8.5
 
 - Cartas nos itens
 - Encantamentos e bônus aleatórios
-- Pergaminhos, Cubos e Martelos de Refino, que pulam direto para um refino fixo
+- As caixas que sorteiam *qual* pergaminho vem, e os itens que trocam o equipamento por outro já
+  refinado — ver [Cubos, martelos e pergaminhos](dados-atalhos.md#o-que-fica-de-fora)
 
 As hipóteses do modelo — o que ele assume sobre chances, preços, liquidez e risco, e o que
 muda se cada uma for falsa — estão tabeladas em

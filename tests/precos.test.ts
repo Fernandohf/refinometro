@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { COTACAO, DEFAULT_PRICES, PRICE_FIELDS } from '../src/data/defaultPrices';
+import { COTACAO, DEFAULT_PRICES, TODOS_OS_CAMPOS } from '../src/data/defaultPrices';
 import cotacao from '../src/data/precos.json';
 
 // `src/data/precos.json` é gerado por `npm run precos` e regravado sempre que
@@ -9,7 +9,7 @@ import cotacao from '../src/data/precos.json';
 // verdade responde por si.
 
 const precos = cotacao.precos as [number, number, string, number, string][];
-const idsConhecidos = new Set(PRICE_FIELDS.flatMap((g) => g.itens.map((i) => i.itemId)));
+const idsConhecidos = new Set(TODOS_OS_CAMPOS.flatMap((g) => g.itens.map((i) => i.itemId)));
 
 describe('cotação do mercado', () => {
   it('cota preço positivo para item que a interface pergunta', () => {

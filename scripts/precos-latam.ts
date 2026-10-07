@@ -78,7 +78,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { DEFAULT_PRICES, PRICE_FIELDS } from '../src/data/defaultPrices';
+import { DEFAULT_PRICES, TODOS_OS_CAMPOS } from '../src/data/defaultPrices';
+import { PERGAMINHOS_DE_ARMA, PERGAMINHOS_DE_ARMADURA } from '../src/data/atalhos';
 import {
   consultar,
   medianaPonderada,
@@ -159,6 +160,21 @@ const UNIDADES_MINIMAS = 100;
 const CAIXAS: Record<number, { itemId: number; termo: string; unidades: number }> = {
   7620: { itemId: 22598, termo: 'Cx Oridecon Enriquecido', unidades: 10 },
   7619: { itemId: 22599, termo: 'Cx Elunium Enriquecido', unidades: 10 },
+  // O Martelo de Refino Sombrio sai do Cash Shop em caixa de três. O termo é o
+  // nome do martelo, que a caixa contém: com o ponto de "Cx." a busca devolve uma
+  // página sem o bloco de resultados.
+  23436: { itemId: 101048, termo: 'Martelo de Refino Sombrio', unidades: 3 },
+  // Os pergaminhos de refino quase não circulam avulsos: o que se vende é a
+  // "Caixa de Arma +9" que, aberta, entrega UM "Pergaminho de Arma +9".
+  ...Object.fromEntries(
+    PERGAMINHOS_DE_ARMA.map((p) => [p.itemId, { itemId: p.caixa, termo: 'Caixa de Arma', unidades: 1 }]),
+  ),
+  ...Object.fromEntries(
+    PERGAMINHOS_DE_ARMADURA.map((p) => [
+      p.itemId,
+      { itemId: p.caixa, termo: 'Caixa de Armadura', unidades: 1 },
+    ]),
+  ),
 };
 
 // ----------------------------------------------------------------- argumentos
@@ -194,13 +210,20 @@ if (!(tolerancia > 1)) {
 
 // -------------------------------------------------------------------- consulta
 
-const alvos = PRICE_FIELDS.flatMap((g) => g.itens.map((i) => ({ ...i, grupo: g.grupo })));
+const alvos = TODOS_OS_CAMPOS.flatMap((g) => g.itens.map((i) => ({ ...i, grupo: g.grupo })));
 
 // A busca é por trecho do nome, então o nome inteiro é o termo mais previsível:
 // devolve o item e, de brinde, os parentes dele. Termos-raiz ("Oridecon") dariam
 // menos requisições ao custo de adivinhar o agrupamento, que é justamente a
 // parte que quebra quando o site renomeia alguma coisa.
-const termos = [...new Set([...alvos.map((a) => a.nome), ...Object.values(CAIXAS).map((c) => c.termo)])];
+//
+// A exceção são as séries numeradas — "Pergaminho de Arma +5" a "+19", quinze nomes
+// que diferem só no fim: a raiz devolve a série inteira numa consulta só, em vez de
+// quinze. A busca avisa se a resposta vier truncada (ver `varrerJanela`).
+const raiz = (nome: string) => nome.replace(/ \+\d+$/, '');
+const termos = [
+  ...new Set([...alvos.map((a) => raiz(a.nome)), ...Object.values(CAIXAS).map((c) => c.termo)]),
+];
 
 /** Consulta todos os termos numa janela e indexa tudo que voltar por `itemId`. */
 async function varrerJanela(periodo: Periodo): Promise<Map<number, Cotacao>> {
@@ -212,6 +235,11 @@ async function varrerJanela(periodo: Periodo): Promise<Map<number, Cotacao>> {
     if (r === null) {
       falhas++;
     } else {
+      // Termo largo demais para uma página: os itens que ficaram de fora sairiam
+      // como "não negociados", que é mentira. Melhor gritar.
+      if (r.total > r.cotacoes.length) {
+        console.warn(`  "${termo}": ${r.total} resultados, só ${r.cotacoes.length} vieram — use um termo mais específico.`);
+      }
       // Primeiro a chegar fica: o mesmo item aparece em várias buscas, sempre
       // com os mesmos números para a janela.
       for (const c of r.cotacoes) if (!porId.has(c.itemId)) porId.set(c.itemId, c);

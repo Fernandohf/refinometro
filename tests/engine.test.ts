@@ -34,7 +34,17 @@ import {
   zenyParaChance,
 } from '../src/engine/estoque';
 import { calcular, orcamentoDe } from '../src/engine/plan';
-import type { CalcInput } from '../src/engine/types';
+import type { CalcInput, RefineAction, TentativaDeRefino } from '../src/engine/types';
+
+/** Só as tentativas de minério: sem atalhos nas opções, são todas — mas o tipo não sabe. */
+const minerios = (acoes: RefineAction[]): TentativaDeRefino[] =>
+  acoes.filter((a): a is TentativaDeRefino => a.tipo === 'minerio');
+
+/** A ação de uma política, que o teste sabe ser de minério. */
+const tentativa = (a: RefineAction): TentativaDeRefino => {
+  if (a.tipo !== 'minerio') throw new Error(`esperava minério, veio ${a.atalho.nome}`);
+  return a;
+};
 
 const opts = (over: Partial<RefineOptions> = {}): RefineOptions => ({
   kind: 'w4',
@@ -45,6 +55,7 @@ const opts = (over: Partial<RefineOptions> = {}): RefineOptions => ({
   perdaAceitavel: true,
   precoItem: 10_000_000,
   refinoReposicao: 0,
+  atalhos: [],
   ...over,
 });
 
@@ -60,6 +71,8 @@ const input = (over: Partial<CalcInput> = {}): CalcInput => ({
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
   perdaAceitavel: true,
+  itemId: null,
+  usarAtalhos: false,
   ...over,
 });
 
@@ -200,7 +213,7 @@ describe('o que cada minério faz', () => {
     // vira letra morta e só sobra o preço dele. A poda de dominadas garante que
     // a versão cara nem chegue ao otimizador.
     for (let de = 7; de <= 9; de++) {
-      const acoes = actionsAt(de, opts({ kind: 'w4' })).filter((a) => a.bencaos > 0);
+      const acoes = minerios(actionsAt(de, opts({ kind: 'w4' }))).filter((a) => a.bencaos > 0);
       const perfeito = acoes.filter((a) => a.ore.id === 'oridecon-perfeito');
       expect(perfeito, `+${de}`).toEqual([]);
     }
@@ -245,7 +258,7 @@ describe('o que cada minério faz', () => {
     // promete proteção. Conferido in-game em 2026-09-04: vale a descrição, e só os
     // Enriquecidos aumentam a chance. O motor já lia assim, então o que mudou foi o
     // aviso de "as fontes discordam", que saiu junto com a dúvida.
-    const acoes = actionsAt(7, opts({ kind: 'w4', usarBencaoFerreiro: false }));
+    const acoes = minerios(actionsAt(7, opts({ kind: 'w4', usarBencaoFerreiro: false })));
     const perfeito = acoes.find((a) => a.ore.id === 'oridecon-perfeito')!;
     expect(perfeito.chance).toBe(chanceOf('w4', 8, false, false));
 
@@ -264,7 +277,7 @@ describe('o que cada minério faz', () => {
     // aparecer ao lado de um Enriquecido que dava a mesma coisa.
     for (const kind of ['w1', 'w2', 'w3', 'w4', 'w5', 'a1', 'a2'] as const) {
       for (let de = 0; de < 20; de++) {
-        const chaves = actionsAt(de, opts({ kind })).map(
+        const chaves = minerios(actionsAt(de, opts({ kind }))).map(
           (a) => `${a.chance}|${a.falhaVaiPara ?? 'quebra'}`,
         );
         expect(new Set(chaves).size, `${kind} +${de}`).toBe(chaves.length);
@@ -439,7 +452,7 @@ describe('refino abaixo do limite seguro', () => {
     expect(plan.recursos.taxas).toBeCloseTo(4 * TAXA_REFINO.w4, 6);
     expect(plan.recursos.itensQuebrados).toBeCloseTo(0, 9);
     expect(plan.recursos.tentativas).toBeCloseTo(4, 9);
-    expect(plan.politica.slice(0, 4).every((p) => p.acao.chance === 1)).toBe(true);
+    expect(plan.politica.slice(0, 4).every((p) => tentativa(p.acao).chance === 1)).toBe(true);
   });
 });
 
@@ -480,7 +493,7 @@ describe('taxa do refinador', () => {
   });
 
   it('não isenta ninguém no Equipamento nv1', () => {
-    const acoes = actionsAt(8, opts({ kind: 'a1', usarBencaoFerreiro: false }));
+    const acoes = minerios(actionsAt(8, opts({ kind: 'a1', usarBencaoFerreiro: false })));
     const usados = acoes.map((a) => a.ore.id);
     expect(usados).toContain('elunium');
     expect(usados).toContain('elunium-enriquecido');
@@ -507,7 +520,7 @@ describe('taxa do refinador', () => {
     // Se a taxa ficasse de fora de `custo`, o otimizador escolheria o minério
     // errado sempre que a diferença de preço fosse menor que a taxa.
     const precos = { 984: 100_000, 7620: 150_000, 6240: 150_000 };
-    const acoes = actionsAt(7, opts({ kind: 'w4', precos, usarBencaoFerreiro: false }));
+    const acoes = minerios(actionsAt(7, opts({ kind: 'w4', precos, usarBencaoFerreiro: false })));
 
     const comum = acoes.find((a) => a.ore.id === 'oridecon')!;
     const cashShop = acoes.find((a) => a.ore.id === 'oridecon-enriquecido')!;
@@ -622,14 +635,14 @@ describe('Bênção do Ferreiro na simulação', () => {
 describe('escolha de estratégia', () => {
   it('protege com Bênção do Ferreiro quando o item é caro', () => {
     const plan = solveRefine(7, 10, opts({ kind: 'w4', precoItem: 5_000_000_000 }));
-    const usouBencao = plan.politica.slice(7, 10).some((p) => p.acao.bencaos > 0);
+    const usouBencao = plan.politica.slice(7, 10).some((p) => tentativa(p.acao).bencaos > 0);
     expect(usouBencao).toBe(true);
   });
 
   it('não gasta Bênção quando ela custa mais do que protege', () => {
     const precos = { ...PRECOS_FIXOS, 6635: 1e12 };
     const plan = solveRefine(7, 10, opts({ kind: 'w4', precos }));
-    const usouBencao = plan.politica.slice(7, 10).some((p) => p.acao.bencaos > 0);
+    const usouBencao = plan.politica.slice(7, 10).some((p) => tentativa(p.acao).bencaos > 0);
     expect(usouBencao).toBe(false);
   });
 
@@ -639,7 +652,7 @@ describe('escolha de estratégia', () => {
     // é este o mecanismo, e não o preço do equipamento.
     const precos = { 984: 5_000_000, 6635: 200_000 };
     const plan = solveRefine(7, 10, opts({ kind: 'w4', precoItem: 1, precos }));
-    expect(plan.politica.slice(7, 10).some((p) => p.acao.bencaos > 0)).toBe(true);
+    expect(plan.politica.slice(7, 10).some((p) => tentativa(p.acao).bencaos > 0)).toBe(true);
   });
 
 
@@ -1290,7 +1303,13 @@ describe('equipamento que não pode ser perdido', () => {
     // A lista de alvos precisa dizer QUAL das duas coisas a falha faz: são a
     // mesma palavra ("arriscado") e decisões opostas — perder um refino custa
     // mais uma tentativa, perder o item custa o item e tudo que já foi pago.
-    const cond = { precos: PRECOS_FIXOS, evento: false, usarBencaoFerreiro: true, usarMineriosEspeciais: true };
+    const cond = {
+      precos: PRECOS_FIXOS,
+      evento: false,
+      usarBencaoFerreiro: true,
+      usarMineriosEspeciais: true,
+      atalhos: [],
+    };
 
     // Arma nv4 saindo do +0: até o +4 nada falha; do +5 em diante o caminho
     // atravessa a faixa em que todo minério quebra o equipamento.

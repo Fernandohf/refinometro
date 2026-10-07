@@ -2,6 +2,13 @@ import { GRADE_ORDER, type Grade } from '../data/grade';
 import { BLESSING_ITEM_ID, blessingCost, ehSombrio, type FailureMode, type ItemKind } from '../data/ores';
 import { ETHER_BLESSING_ITEM_ID } from '../data/grade';
 import {
+  atalhosDoItem,
+  refinoMaximoDoEfeito,
+  type Atalho,
+  type GrupoDoAtalho,
+} from '../data/atalhos';
+import {
+  destinosDe,
   maxRefine,
   RefineImpossivel,
   safeLimit,
@@ -35,6 +42,12 @@ export interface StrategyRange {
    * ociosa: a Bênção segura o refino no lugar de qualquer jeito.
    */
   minerioProtege: boolean;
+  /**
+   * Quando o trecho não é tentativa no refinador, e sim um cubo, martelo ou
+   * pergaminho. Aí `minerio` é o nome do atalho, `chance` é 1 (ele nunca falha) e
+   * `naFalha` descreve o que ele FAZ, porque falha não há.
+   */
+  atalho: { grupo: GrupoDoAtalho; sorteado: boolean } | null;
 }
 
 export interface Aviso {
@@ -225,6 +238,7 @@ function calcularInterno(
     // barato e ainda devolveria o item adiantado, e o otimizador aprenderia a
     // quebrar de propósito.
     refinoReposicao: 0,
+    atalhos: input.usarAtalhos ? atalhosDoItem(input.itemId, input.kind) : [],
   };
 
   const fases: Fase[] = [];
@@ -484,19 +498,62 @@ function validar(input: CalcInput) {
   }
 }
 
-/** Junta níveis consecutivos que usam a mesma ação num único trecho legível. */
+/**
+ * Junta níveis consecutivos que usam a mesma ação num único trecho legível.
+ *
+ * Só entram os níveis que o plano de fato visita. Sem atalho, são todos — cada
+ * sucesso sobe um degrau, então do `de` ao `para` não há como pular nenhum. Com
+ * um cubo que leva do +0 ao +11, os degraus do meio têm uma ação escolhida (a
+ * política cobre todo estado), mas o item nunca passa por eles; listá-los seria
+ * mandar a pessoa comprar Oridecon para um trecho que ela não vai refinar.
+ */
 function agruparTrechos(politica: PolicyEntry[], de: number, para: number): StrategyRange[] {
   const trechos: StrategyRange[] = [];
   // A política é indexada pelo refino em `de`, não pela posição: sem aceitar a
   // perda do item ela começa no piso, e não no +0.
   const porNivel = new Map(politica.map((p) => [p.de, p.acao]));
+  const visitados = alcancaveis(porNivel, de, para);
 
   for (let r = de; r < para; r++) {
+    if (!visitados.has(r)) continue;
     const a = porNivel.get(r)!;
-    const naFalha = descreverFalha(a.ore.penalidade, a.bencaos > 0);
     const ultimo = trechos[trechos.length - 1];
+    const contiguo = ultimo !== undefined && ultimo.para === r;
+
+    if (a.tipo === 'atalho') {
+      const sorteado = a.atalho.efeito.tipo === 'sorteio';
+      const mesmoAtalho = ultimo?.atalho !== null && ultimo?.minerioItemId === a.atalho.itemId;
+      // O martelo de +1 se repete degrau a degrau, e o trecho cresce com ele.
+      if (mesmoAtalho && contiguo && a.atalho.efeito.tipo === 'soma') {
+        ultimo.para = r + 1;
+        continue;
+      }
+      // O cubo sorteado é usado de novo em cada refino aonde o sorteio pode
+      // jogar o item — o Martelo de Refino Sombrio, em todos do +0 ao +7. É uma
+      // instrução só ("use o martelo até passar"), e uma linha por degrau a
+      // repetiria oito vezes.
+      if (mesmoAtalho && a.atalho.efeito.tipo !== 'soma') continue;
+      trechos.push({
+        de: r,
+        para: Math.min(refinoMaximoDoEfeito(a.atalho.efeito, r), para),
+        minerio: a.atalho.nome,
+        minerioItemId: a.atalho.itemId,
+        bencaos: 0,
+        chance: 1,
+        arriscaQuebrar: false,
+        naFalha: descreverAtalho(a.atalho, r),
+        chanceAumentada: false,
+        minerioEspecial: false,
+        minerioProtege: false,
+        atalho: { grupo: a.atalho.grupo, sorteado },
+      });
+      continue;
+    }
+
+    const naFalha = descreverFalha(a.ore.penalidade, a.bencaos > 0);
     const mesmaAcao =
-      ultimo &&
+      contiguo &&
+      ultimo.atalho === null &&
       ultimo.minerioItemId === a.ore.itemId &&
       ultimo.bencaos === a.bencaos &&
       ultimo.chance === a.chance;
@@ -518,10 +575,56 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
       chanceAumentada: a.ore.chanceAumentada,
       minerioEspecial: a.ore.especial,
       minerioProtege: a.ore.penalidade !== 'break',
+      atalho: null,
     });
   }
 
   return trechos;
+}
+
+/**
+ * Os níveis abaixo do alvo por onde o item pode passar, saindo de `de` e
+ * seguindo a política — os destinos de sucesso, de falha e de sorteio. A quebra
+ * leva ao +0, que é onde a reposição recomeça.
+ */
+function alcancaveis(
+  porNivel: Map<number, PolicyEntry['acao']>,
+  de: number,
+  para: number,
+): Set<number> {
+  const vistos = new Set<number>();
+  const fila = [de];
+  while (fila.length > 0) {
+    const r = fila.pop()!;
+    if (r >= para || vistos.has(r)) continue;
+    const a = porNivel.get(r);
+    if (!a) continue;
+    vistos.add(r);
+    for (const d of destinosDe(a, r)) fila.push(d.refino ?? 0);
+  }
+  return vistos;
+}
+
+/** O que um atalho faz, dito no lugar de "na falha" — ele não falha. */
+function descreverAtalho(atalho: Atalho, de: number): string {
+  const materiais = atalho.materiais.map((m) => `${m.qtd} ${m.nome}`).join(' e ');
+  const cobra = materiais ? `, cobrando ${materiais} a cada uso` : '';
+  const e = atalho.efeito;
+  switch (e.tipo) {
+    case 'fixo':
+      return `leva direto ao +${e.refino}, sem chance de falha${cobra}`;
+    case 'soma':
+      return `+${e.refinos} garantido por uso${cobra}`;
+    case 'sorteio': {
+      const pior = Math.min(...e.resultados.map((r) => r.refino));
+      const sorteio = e.resultados
+        .map((r) => `+${r.refino} (${pct(r.p).replace(',0%', '%')})`)
+        .join(', ');
+      // O sorteio SUBSTITUI o refino: no +9, um Cubo Ilusional pode devolver o +7.
+      const desce = pior < de ? ' — substitui o refino atual, e pode baixá-lo' : '';
+      return `sorteia o refino: ${sorteio}${desce}`;
+    }
+  }
 }
 
 function descreverFalha(penalidade: FailureMode, comBencao: boolean): string {
@@ -651,9 +754,12 @@ function gerarAvisos(
   if (ehSombrio(input.kind)) {
     avisos.push({
       nivel: 'info',
-      texto: 'Equipamentos Sombrios vão só até o +10 e não aceitam Bênção do Ferreiro nem Pergaminhos de Refino.',
+      texto:
+        'Equipamentos Sombrios vão só até o +10 e não aceitam Bênção do Ferreiro nem Pergaminhos de Refino — os atalhos deles são os Martelos Sombrios, que só entram no plano com o item escolhido na busca.',
     });
   }
+
+  avisos.push(...avisosDeAtalho(input, fases));
 
   if (!input.usarMineriosEspeciais) {
     avisos.push({
@@ -721,6 +827,45 @@ function gerarAvisos(
       // deixar isso implícito punha este aviso em contradição com o bloco que
       // compara os dois planos no percentil — onde a Bênção pode ganhar.
       texto: `Em ${faixas} a Bênção do Ferreiro é aceita mas não compensa: no preço informado, sai mais barato NA MÉDIA aceitar o risco de quebra. Se você não quer arriscar o item, use assim mesmo — e repare no orçamento, porque a proteção pode ganhar na margem que você escolheu.`,
+    });
+  }
+
+  return avisos;
+}
+
+/**
+ * O que a tela precisa dizer sobre cubos, martelos e pergaminhos.
+ *
+ * Dois casos merecem frase. O cubo sorteado, porque a média esconde o que
+ * importa nele: o refino que sai é aleatório, e a estratégia continua dali — o
+ * plano mostra o caminho mais provável, não o único. E o atalho que o item
+ * aceita mas o motor não pôde avaliar por falta de preço: um Ticket preso na
+ * conta não tem mercado, e só quem o tem sabe quanto ele vale.
+ */
+function avisosDeAtalho(input: CalcInput, fases: PlanoDeFase[]): Aviso[] {
+  if (!input.usarAtalhos) return [];
+  const avisos: Aviso[] = [];
+  const doItem = atalhosDoItem(input.itemId, input.kind);
+
+  const sorteados = fases
+    .flatMap((f) => f.trechos)
+    .filter((t) => t.atalho?.sorteado);
+  if (sorteados.length > 0) {
+    const nomes = [...new Set(sorteados.map((t) => t.minerio))].join(', ');
+    avisos.push({
+      nivel: 'atencao',
+      texto: `O plano usa ${nomes}, que SORTEIA o refino em vez de subi-lo. O custo e os percentis já contam com todos os resultados possíveis, e a estratégia lista o que fazer em cada refino por onde o item pode passar: veja o que saiu e siga dali.`,
+    });
+  }
+
+  const semPreco = doItem.filter(
+    (a) => a.presoNaConta && !((input.precos[a.itemId] ?? 0) > 0),
+  );
+  if (semPreco.length > 0) {
+    const nomes = semPreco.map((a) => a.nome).join(', ');
+    avisos.push({
+      nivel: 'info',
+      texto: `Este item também aceita ${nomes}, preso na conta e por isso sem preço de mercado. Se você tem um, informe quanto ele vale para você (0 se não pretende vendê-lo nem guardá-lo) nos preços, e o motor passa a considerá-lo.`,
     });
   }
 
