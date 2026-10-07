@@ -556,4 +556,54 @@ describe('página', () => {
     // E a calculadora não se confunde com o jogo nem com a fonte dos dados.
     expect(html).toContain('sem vínculo com a Gravity');
   });
+
+  it('responde em uma frase, e chama a margem pelo que ela garante', () => {
+    // O número grande é um percentil, e quem chega lê nele "o que vou gastar".
+    // A frase dá as duas pontas e o destino do item; o seletor diz quão seguro
+    // é o orçamento, com o percentil em letra pequena — "Mediana" e "90%"
+    // sozinhos eram vocabulário de estatística.
+    const html = renderToString(<App />);
+    const texto = html.replace(/<[^>]*>/g, '');
+
+    expect(texto).toMatch(/Na maioria das vezes você gasta perto de .+, podendo chegar até .+\./);
+    expect(texto).toContain('O item não quebra nesse plano.');
+    expect(html).toContain('Quão seguro você quer estar?');
+    expect(html.match(/role="radio"[^>]*aria-checked="true"[^>]*>(?:<[^>]*>)*([^<]+)/)?.[1]).toBe(
+      'Seguro',
+    );
+    expect(html).not.toContain('Mediana');
+    // Um seletor só: a legenda clicável do gráfico fazia a mesma escolha.
+    expect(html.match(/aria-label="Margem de segurança"/g)).toHaveLength(1);
+    // A frase de partida repetia o formulário ao lado.
+    expect(texto).not.toContain('Saindo do');
+  });
+
+  it('mostra o guia a quem chega, e não a quem já o fechou', () => {
+    const primeira = renderToString(<App />);
+    expect(primeira).toContain('id="como-usar"');
+    // Os passos do guia são os painéis do formulário, com o mesmo número.
+    expect(primeira).toContain('Confira os preços');
+
+    localStorage.setItem('refinometro:guia:v1', '1');
+    const depois = renderToString(<App />);
+    localStorage.removeItem('refinometro:guia:v1');
+    expect(depois).not.toContain('id="como-usar"');
+    // Fechado, ele continua a um clique: o atalho do cabeçalho o reabre.
+    expect(depois).toMatch(/<button[^>]*aria-expanded="false"[^>]*>(?:<[^>]*>)*Como usar/);
+  });
+
+  it('diz o risco do caminho em uma linha, e o detalhe no balão', () => {
+    localStorage.setItem(
+      'refinometro:v1',
+      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none' }),
+    );
+    const html = renderToString(<App />);
+    localStorage.removeItem('refinometro:v1');
+    const texto = html.replace(/<[^>]*>/g, '');
+
+    expect(texto).toContain('⚠ Acima do +4 o refino pode falhar, e o item pode quebrar.');
+    // A conta dos degraus continua na página, dentro do balão.
+    expect(html).toContain('O caminho até o alvo');
+    expect(texto).toContain('tentativas bem-sucedidas no');
+  });
 });
