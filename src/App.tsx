@@ -15,6 +15,7 @@ import { ESTOQUE_VAZIO, SimuladorDeEstoque, type EstoqueSalvo } from './componen
 import { BuscaItem } from './components/BuscaItem';
 import { LinkDasPerguntas, Sobre } from './components/Sobre';
 import { Apoie, LinkDeApoio } from './components/Apoie';
+import { BotaoTema } from './components/BotaoTema';
 import {
   BotaoDoPainel,
   Campo,
@@ -230,17 +231,18 @@ export default function App() {
             a ser "Refinômetro … Apoiar" para o buscador e para quem navega por
             cabeçalhos.
 
-            Os dois viajam juntos, numa embalagem com `ml-auto`, e o <h1> tem
-            largura mínima: enquanto os três couberem, título à esquerda e
+            Os botões viajam juntos, numa embalagem com `ml-auto`, e o <h1> tem
+            largura mínima: enquanto todos couberem, título à esquerda e
             botões à direita; quando não couberem, os botões descem inteiros
             para a linha de baixo AINDA à direita, em vez de espremerem o
             título até quebrá-lo no meio da palavra. A primeira versão fazia o
             botão sozinho descer encostado à esquerda, e era metade do que
             havia de esquisito nele. */}
-        {/* O `-mt-0.5` acerta a ótica do par inteiro: 32px de botão contra os
+        {/* O `-mt-0.5` acerta a ótica do conjunto: 32px de botão contra os
             ~28px da linha do título deixavam o conjunto pendendo para baixo.
-            Na embalagem, e não em cada botão, senão os dois desalinham entre si. */}
+            Na embalagem, e não em cada botão, senão eles desalinham entre si. */}
         <div className="-mt-0.5 ml-auto flex shrink-0 items-center gap-1">
+          <BotaoTema />
           <LinkDasPerguntas onAbrir={() => setPerguntas(true)} />
           <LinkDeApoio />
         </div>

@@ -16,6 +16,8 @@
   texto puro, sem link nem negrito no meio.
 */
 
+import { COR_DA_BARRA, SCRIPT_DO_TEMA } from './tema';
+
 /** Endereço público do site. Com a barra final: é a raiz do GitHub Pages. */
 const URL_BASE = 'https://fernandohf.github.io/refinometro/';
 
@@ -52,9 +54,6 @@ export const SITE = {
 
   autor: 'Fernando Ferreira',
   repositorio: 'https://github.com/Fernandohf/refinometro',
-
-  /** Cor da barra do navegador no celular: o `--color-fundo` do tema escuro. */
-  corDoTema: '#090d15',
 } as const;
 
 /**
@@ -381,8 +380,17 @@ export function cabecalhoDePagina(pagina: Pagina, dados: unknown): string {
     // linha os dois endereços competem entre si e dividem a autoridade.
     `<link rel="canonical" href="${atributo(url)}" />`,
 
-    meta('name', 'theme-color', SITE.corDoTema),
-    meta('name', 'color-scheme', 'dark'),
+    // A barra do navegador acompanha o tema. As duas linhas são o que vale sem
+    // script; com ele, o `SCRIPT_DO_TEMA` reescreve as duas para a cor do tema
+    // escolhido, que pode não ser o do sistema. Vem antes do script porque ele
+    // procura estas metas — e por isso o script também mora aqui, e não solto
+    // no `index.html`: as páginas de referência precisam dele igual.
+    `<meta name="theme-color" content="${COR_DA_BARRA.escuro}" media="(prefers-color-scheme: dark)" />`,
+    `<meta name="theme-color" content="${COR_DA_BARRA.claro}" media="(prefers-color-scheme: light)" />`,
+    // "dark" primeiro: é o tema da casa, e o que o navegador usa nos controles
+    // nativos se o CSS ainda não chegou.
+    meta('name', 'color-scheme', 'dark light'),
+    `<script>${SCRIPT_DO_TEMA}</script>`,
 
     meta('property', 'og:type', 'website'),
     meta('property', 'og:site_name', SITE.nome),
