@@ -385,7 +385,10 @@ async function copiarTexto(texto: string): Promise<boolean> {
  * codificador inteiro no bundle para servir só ao caso mais raro.
  *
  * O verde-água é a cor do Pix e fica fixo pelo mesmo motivo do amarelo do
- * `BotaoCafe`: é a única coisa que faz o botão ser reconhecido de relance. Vem
+ * `BotaoCafe`: é a única coisa que faz o botão ser reconhecido de relance. A
+ * exceção é o texto no tema claro: o verde-água sobre branco dá 2,3:1, e ali ele
+ * escurece até 4,5:1 — o contorno, que é forma e não leitura, continua o da
+ * marca. Vem
  * contornado, e não preenchido, porque o café é o pedido principal — dois
  * botões preenchidos lado a lado não têm principal nenhum.
  *
@@ -423,6 +426,7 @@ export function BotaoPix({ codigo }: { codigo: string }) {
       className={
         'estado inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 ' +
         'overflow-hidden rounded-full border border-[#32BCAD] px-5 text-[#32BCAD] md-corpo-m ' +
+        'claro:text-[#167A70] ' +
         'font-medium whitespace-nowrap transition-shadow duration-200 ease-padrao'
       }
     >

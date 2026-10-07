@@ -4,6 +4,7 @@ import { createElement } from 'react';
 
 import { arquivosDePagina, PAGINAS_DE_CONTEUDO } from '../src/paginas';
 import { enderecoDe, PAGINAS, SITE } from '../src/data/seo';
+import { SCRIPT_DO_TEMA } from '../src/data/tema';
 import { Sobre } from '../src/components/Sobre';
 import { chanceOf } from '../src/engine/refine';
 import { porcento } from '../src/format';
@@ -103,8 +104,13 @@ describe('as páginas de referência', () => {
     // tabela que não muda, e servir isso através de um bundle que monta a
     // página no cliente devolveria o problema que o `index.html` da
     // calculadora tem que contornar à mão.
+    //
+    // A única exceção é o script do tema, e ela não fura a regra: ele só
+    // escolhe entre claro e escuro, e sem ele a página abre no escuro com o
+    // conteúdo inteiro. Sai pelo texto EXATO — qualquer outro script reprova.
     for (const { html } of paginas) {
-      expect(html).not.toMatch(/<script(?![^>]*application\/ld\+json)/i);
+      const semTema = html.replace(`<script>${SCRIPT_DO_TEMA}</script>`, '');
+      expect(semTema).not.toMatch(/<script(?![^>]*application\/ld\+json)/i);
       expect(html).toContain('<table>');
     }
   });

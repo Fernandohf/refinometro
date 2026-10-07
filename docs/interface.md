@@ -15,6 +15,24 @@ de cada um. As duas decisões que mais mudam a aparência:
   focar ou pressionar, ele ganha uma camada da própria cor de conteúdo, em opacidade fixa. É o
   que faz o mesmo botão funcionar sobre qualquer superfície sem uma cor de hover por fundo.
 
+## Claro e escuro
+
+O escuro é o tema da casa e mora no `@theme`; o claro é a mesma lista de tokens com outros
+valores, sob `:root[data-tema='claro']`. Nenhum componente sabe qual tema está ativo — todos leem
+`var(--color-…)`. As poucas cores fixas que precisam mudar (o texto do Pix, a letra do Grau) usam
+a variante `claro:` do Tailwind.
+
+Quem escolhe é um script curto embutido no `<head>` (`SCRIPT_DO_TEMA`, em
+[`src/data/tema.ts`](../src/data/tema.ts)), que roda antes da primeira pintura para o claro não
+piscar no escuro a cada carregamento. Sem escolha salva, segue o sistema — inclusive se ele mudar
+com a página aberta. O botão do cabeçalho fixa a escolha no `localStorage`, e as páginas de
+referência leem a mesma chave. Sem script, tudo abre no escuro.
+
+No claro a lógica de elevação se inverte: a página é a superfície mais clara, cada container
+escurece um degrau e a sombra volta a fazer o trabalho. O dourado vira ocre — o do escuro, sobre
+branco, dá 1,8:1. [`tests/tema.test.ts`](../tests/tema.test.ts) confere que todo token tem o par
+no outro tema e que as cores copiadas para as páginas de referência continuam iguais.
+
 ## O botão informativo
 
 `Info`, em [`src/components/ui.tsx`](../src/components/ui.tsx), é a peça que enxugou a página.

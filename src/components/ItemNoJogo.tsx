@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 import type { Grade } from '../data/grade';
 import { COR_GRAU, nomeNoJogo, rotuloCurto } from '../data/rotulos';
 import type { ItemKind } from '../data/ores';
@@ -65,6 +67,10 @@ export function SlotItem({
  * Usa a variante CLARA de cada grau: as duas saem do mesmo ícone do Browiki, e
  * sobre o fundo escuro da página a dominante (`forte`) fica ilegível — o verde
  * do Grau B, em especial, some.
+ *
+ * No tema claro o problema se inverte, e vale a `forte` — escurecida mais um
+ * pouco, porque o âmbar do Grau C sobre branco dá 2,3:1. Misturar com preto
+ * mantém o matiz, que é o que se reconhece.
  */
 export function NomeNoJogo({
   nome,
@@ -86,7 +92,18 @@ export function NomeNoJogo({
     <span className={tamanho === 'grande' ? 'text-lg font-semibold' : 'text-sm font-medium'}>
       {partes.refino && <span className="text-realce">{partes.refino} </span>}
       {partes.grau && (
-        <span style={{ color: cor?.claro }} title={`Grau ${grau}`}>
+        <span
+          style={
+            cor
+              ? ({
+                  '--grau-no-escuro': cor.claro,
+                  '--grau-no-claro': `color-mix(in oklch, ${cor.forte} 72%, black)`,
+                } as CSSProperties)
+              : undefined
+          }
+          className="text-(--grau-no-escuro) claro:text-(--grau-no-claro)"
+          title={`Grau ${grau}`}
+        >
           {partes.grau}{' '}
         </span>
       )}

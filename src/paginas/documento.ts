@@ -303,6 +303,11 @@ const ICONE =
   as do tema da calculadora (ver `src/index.css`), copiadas e não importadas —
   o Tailwind do app não alcança um arquivo que o build emite à parte, e repetir
   sete cores é mais barato que acoplar as duas coisas.
+
+  Os dois temas, como lá: quem escolhe é o script que `cabecalhoDePagina` põe
+  no `<head>`, então a escolha feita na calculadora vale aqui também. Sem
+  script, fica o escuro. `tests/tema.test.ts` confere que as cores copiadas
+  continuam iguais às de lá.
 */
 const ESTILO = `
 :root {
@@ -316,6 +321,18 @@ const ESTILO = `
   --perigo: oklch(0.72 0.17 25);
   --ok: oklch(0.78 0.14 155);
   color-scheme: dark;
+}
+:root[data-tema='claro'] {
+  --fundo: oklch(0.985 0.004 265);
+  --superficie: oklch(0.965 0.006 265);
+  --painel: oklch(0.95 0.008 265);
+  --texto: oklch(0.22 0.02 265);
+  --suave: oklch(0.44 0.02 265);
+  --borda: oklch(0.86 0.012 265);
+  --realce: oklch(0.505 0.11 75);
+  --perigo: oklch(0.53 0.19 27);
+  --ok: oklch(0.5 0.12 155);
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
 body {

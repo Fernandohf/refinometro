@@ -31,6 +31,7 @@
     "src/paginas",
     "src/format.ts",
     "src/data/seo.ts",
+    "src/data/tema.ts",
     "src/data/ores.ts",
     "src/data/grade.ts",
     "src/data/rotulos.ts",
