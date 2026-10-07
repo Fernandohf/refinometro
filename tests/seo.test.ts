@@ -55,6 +55,10 @@ describe('cabeçalho da busca', () => {
       expect(SITE.descricao).toContain(termo);
     }
 
+    // A busca mais curta, do jeito que é digitada, abrindo o título: é o termo
+    // que mais pesa e o primeiro que o olho lê no resultado.
+    expect(SITE.titulo.startsWith('Refino Ragnarok Latam')).toBe(true);
+
     // O Google corta o título perto dos 60 caracteres e a descrição perto dos
     // 160. Passar disso não é erro, mas o que sobra fica de fora do resultado.
     expect(SITE.titulo.length).toBeLessThanOrEqual(70);
@@ -116,6 +120,16 @@ describe('dados estruturados', () => {
     expect(app!.isAccessibleForFree).toBe(true);
     expect(app!.inLanguage).toBe('pt-BR');
     expect(app!.about).toMatchObject({ name: 'Ragnarok Online' });
+  });
+
+  it('declara o site para onde o `isPartOf` das páginas de referência aponta', () => {
+    // As páginas de referência dizem fazer parte de `#site`; um `@id` que
+    // nenhuma página declara é uma referência para o vazio.
+    const site = grafo['@graph'].find((n) => n['@type'] === 'WebSite') as
+      | Record<string, unknown>
+      | undefined;
+    expect(site?.['@id']).toBe(`${SITE.url}#site`);
+    expect(site?.name).toBe(SITE.nome);
   });
 
   it('promete ao buscador as mesmas respostas que a tela mostra', () => {
@@ -193,6 +207,14 @@ describe('o que existe antes do JavaScript', () => {
     expect(root).toContain('alculadora');
     expect(root).toContain('simulador');
     expect(root).toContain('<noscript>');
+  });
+
+  it('linka do HTML cru para cada página de referência, e só para as que existem', () => {
+    // Quem não roda o script não vê os links que o React desenha; sem estes, o
+    // HTML servido não leva a página nenhuma. Um slug renomeado sem mexer aqui
+    // seria um link quebrado na página principal.
+    const links = [...indice.matchAll(/href="([\w-]+)\/"/g)].map((m) => m[1]);
+    expect(links.sort()).toEqual(PAGINAS.map((p) => p.slug).sort());
   });
 
   it('diz na tela o mesmo <h1> que o HTML servido mostra antes dela', () => {

@@ -1,8 +1,15 @@
 # Ser encontrado
 
 A calculadora só serve a quem chega até ela, e quem chega digita alguma variação de
-**"calculadora de refino ragnarok latam"** ou **"simulador de refino ragnarok"** num buscador.
-Ninguém procura por "Refinômetro": esse nome é a coisa que se aprende *depois*.
+**"refino ragnarok latam"**, **"calculadora de refino ragnarok latam"** ou **"simulador de refino
+ragnarok"** num buscador. Ninguém procura por "Refinômetro": esse nome é a coisa que se aprende
+*depois*.
+
+Por isso o título **abre** com "Refino Ragnarok Latam", na ordem em que a busca é digitada, e o
+nome do site vai para o fim; um teste guarda esse começo. E por isso uma das perguntas
+frequentes é "Como funciona o refino no Ragnarok Latam?": a busca curta é de quem quer entender a
+regra antes de pensar em custo, e sem essa resposta a página só falava com quem já sabia que
+queria uma calculadora.
 
 Este documento é sobre o que o site faz para aparecer nessa busca — a calculadora e as três
 páginas de referência que respondem as perguntas fechadas que ela responde mal — e sobre as duas
@@ -52,11 +59,11 @@ das perguntas — dois blocos recolhidos em sequência respondendo à mesma dúv
 
 | O quê | Para quê |
 | --- | --- |
-| `<title>` e `description` | A única coisa que o buscador lê antes de decidir renderizar a página. Carregam os termos da busca real: calculadora, simulador, refino, Ragnarok Latam. |
+| `<title>` e `description` | A única coisa que o buscador lê antes de decidir renderizar a página. Carregam os termos da busca real: refino, Ragnarok Latam, calculadora, simulador — e, na descrição, Oridecon e Elunium, que o Google põe em negrito no trecho quando são o que foi digitado. |
 | `canonical` | O mesmo conteúdo responde em `/refinometro` e em `/refinometro/`. Sem esta linha, os dois endereços competem entre si e dividem a autoridade da página. |
 | `robots` com `max-snippet:-1` | Libera o trecho longo e a miniatura grande. O padrão do Google é conservador, e na Europa é um resumo curto e imagem nenhuma. |
 | Open Graph e `twitter:` | O cartão que o Discord e o WhatsApp desenham. Sem eles, um link colado no chat da guilda é uma linha de texto cinza. |
-| `application/ld+json` | Diz, sem depender de o rastreador acertar a leitura do HTML, que isto é um aplicativo web gratuito, em português, sobre Ragnarok Online, e que responde estas perguntas. |
+| `application/ld+json` | Diz, sem depender de o rastreador acertar a leitura do HTML, que isto é um aplicativo web gratuito, em português, sobre Ragnarok Online — com "Ragnarok Latam" e "RO Latam" como nomes alternativos do jogo —, e que responde estas perguntas. O nó `WebSite` dá o nome que o Google escreve acima do título e é o `#site` para onde as páginas de referência apontam. |
 
 ## As páginas de referência
 

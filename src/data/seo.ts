@@ -25,20 +25,24 @@ export const SITE = {
 
   /*
     O título é a linha que o buscador mostra em negrito e a única que muitos
-    vão ler. Ele carrega, na ordem, o que a página é e para onde ela vale:
-    calculadora, simulador, refino, Ragnarok Latam. "Refinômetro" vem antes por
-    ser o nome pelo qual quem já usou volta a procurar.
+    vão ler. Ele ABRE com "Refino Ragnarok Latam", do jeito que a busca é
+    digitada: o peso de um termo no título cai com a distância do começo, e o
+    leitor também lê só o começo. "Refinômetro" vai para o fim — quem procura
+    pelo nome já sabe o que é, e acha a página com o nome em qualquer posição.
+    Cabe nos ~60 caracteres que o Google mostra sem cortar, com o nome junto.
   */
-  titulo: 'Refinômetro — Calculadora e Simulador de Refino do Ragnarok Latam',
+  titulo: 'Refino Ragnarok Latam: Calculadora e Simulador | Refinômetro',
 
   /*
     A descrição não muda a posição no resultado, mas decide o clique. Por isso
     ela responde à pergunta em vez de se apresentar: quanto custa, em quê, e até
-    onde. Cabe nos ~160 caracteres que o Google mostra sem cortar.
+    onde. Os minérios vão pelo nome — Oridecon e Elunium são o que se digita, e
+    o Google põe em negrito no trecho o termo da busca que encontrar. Cabe nos
+    ~160 caracteres que ele mostra sem cortar.
   */
   descricao:
-    'Calculadora e simulador de refino do Ragnarok Latam: quanto zeny, quantos ' +
-    'minérios e quantas cópias do item para chegar ao +10, ao +15 e ao Grau A.',
+    'Calculadora e simulador de refino do Ragnarok Latam, grátis: quanto zeny, Oridecon ' +
+    'e Elunium custa chegar ao +10, ao +15 ou ao Grau A, e o risco de quebrar.',
 
   /** Cartão de link (1200×630). Servido de `public/`, na raiz do site. */
   imagem: `${URL_BASE}og.png`,
@@ -81,6 +85,19 @@ export const FAQ: readonly { pergunta: string; resposta: string }[] = [
       'o refino atual e aonde quer chegar, e ele responde quanto zeny, quantos minérios e ' +
       'quantas cópias do equipamento a campanha custa — com o minério certo em cada nível, ' +
       'e não uma receita fixa.',
+  },
+  {
+    // A busca mais curta — "refino ragnarok latam" — é de quem quer entender a
+    // regra antes de pensar em custo. Sem esta resposta a página só falava com
+    // quem já sabia que queria uma calculadora.
+    pergunta: 'Como funciona o refino no Ragnarok Latam?',
+    resposta:
+      'Cada tentativa de refino tem uma chance de sucesso que cai conforme o refino sobe e ' +
+      'que depende da categoria do equipamento. Até o refino garantido nada falha: +7 numa ' +
+      'Arma nível 1, +3 numa Arma nível 5. Acima dele, a falha destrói o item ou derruba o ' +
+      'refino, conforme o minério usado. Minério Enriquecido aumenta a chance, minério ' +
+      'Perfeito troca a quebra por uma queda de refino, e o evento de refino sobe as chances ' +
+      'de todas as categorias.',
   },
   {
     pergunta: 'Os números valem para o Ragnarok Latam?',
@@ -250,10 +267,25 @@ export function tagDeDados(dados: unknown): string {
 }
 
 /**
+ * O jogo de que o site trata, como o JSON-LD o declara em todas as páginas.
+ *
+ * O nome oficial é "Ragnarok Online", mas ninguém no servidor o chama assim:
+ * é "Ragnarok Latam", "RO Latam" ou só "LATAM". Os apelidos vão em
+ * `alternateName`, que é onde o buscador procura sinônimos de uma entidade.
+ */
+export const JOGO = {
+  '@type': 'VideoGame',
+  name: 'Ragnarok Online',
+  alternateName: ['Ragnarok Latam', 'Ragnarok Online LATAM', 'RO Latam'],
+  gamePlatform: 'PC',
+} as const;
+
+/**
  * Dados estruturados, no formato que o Google lê.
  *
- * Duas coisas num grafo só: o que a página **é** (`WebApplication` — de graça,
- * em português, roda no navegador) e o que ela **responde** (`FAQPage`). O
+ * Três coisas num grafo só: de que site se trata (`WebSite`), o que a página
+ * **é** (`WebApplication` — de graça, em português, roda no navegador) e o que
+ * ela **responde** (`FAQPage`). O
  * segundo há anos não rende mais aquele bloco de perguntas embaixo do
  * resultado, e continua aqui pelo que ele ainda faz: afirmar, sem depender de o
  * rastreador acertar a leitura do HTML, que esta página responde estas
@@ -264,10 +296,28 @@ export function dadosEstruturados(): string {
     '@context': 'https://schema.org',
     '@graph': [
       {
+        // O site, e não a página. É daqui que o Google tira o nome que escreve
+        // acima do título no resultado, e é o nó para onde o `isPartOf` das
+        // páginas de referência aponta — que antes apontava para um `@id` que
+        // nenhuma página declarava. `alternateName` leva a grafia sem acento,
+        // que é como o nome costuma ser digitado.
+        '@type': 'WebSite',
+        '@id': `${SITE.url}#site`,
+        name: SITE.nome,
+        alternateName: ['Refinometro', 'Calculadora de refino do Ragnarok Latam'],
+        url: SITE.url,
+        description: SITE.descricao,
+        inLanguage: 'pt-BR',
+      },
+      {
         '@type': 'WebApplication',
         '@id': `${SITE.url}#app`,
         name: SITE.nome,
-        alternateName: 'Calculadora de refino do Ragnarok Latam',
+        alternateName: [
+          'Calculadora de refino do Ragnarok Latam',
+          'Simulador de refino do Ragnarok Latam',
+        ],
+        isPartOf: { '@id': `${SITE.url}#site` },
         url: SITE.url,
         description: SITE.descricao,
         applicationCategory: 'UtilitiesApplication',
@@ -283,7 +333,7 @@ export function dadosEstruturados(): string {
         // Sem `offers` não existe como declarar "custa zero" — e ser de graça é
         // metade do motivo de alguém clicar num resultado destes.
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'BRL' },
-        about: { '@type': 'VideoGame', name: 'Ragnarok Online', gamePlatform: 'PC' },
+        about: JOGO,
       },
       {
         '@type': 'FAQPage',
