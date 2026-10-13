@@ -343,7 +343,7 @@ describe('página', () => {
     };
     const fase = calcular(input).fases.find((f) => f.politica?.length)!;
     const politica = fase.politica!;
-    const html = renderToString(<TabelaDeEstados politica={politica} alvo={11} />);
+    const html = renderToString(<TabelaDeEstados politica={politica} de={0} alvo={11} />);
 
     expect(html).toContain('Nesta etapa');
     expect(html).toContain('Falta gastar');
@@ -431,6 +431,37 @@ describe('página', () => {
     expect(html).toContain('Cubo de Refino Temporal');
     expect(html).toContain('leva direto ao +11, sem chance de falha');
     expect(estrategia.slice(0, 400)).not.toContain('na falha');
+  });
+
+  it('lista na tabela só os estados por onde o item passa', () => {
+    // Com o cubo levando do +0 ao +11, a política ainda escolhe uma ação para
+    // cada degrau do meio — mas o item nunca está neles. A tabela tem uma
+    // linha só, e o `nesta etapa` dela é a campanha inteira.
+    const fase = calcular(
+      {
+        kind: 'a1',
+        precoItem: 30_000_000,
+        refinoAtual: 0,
+        refinoAlvo: 11,
+        grauAtual: 'none',
+        grauAlvo: 'none',
+        evento: false,
+        precos: { ...PRECOS_FIXOS, 100268: 60_000_000 },
+        usarBencaoFerreiro: true,
+        usarMineriosEspeciais: true,
+        perdaAceitavel: true,
+        itemId: 15278,
+        usarAtalhos: true,
+      },
+      { execucoes: 500 },
+    ).fases.find((f) => f.politica?.length)!;
+    const html = renderToString(
+      <TabelaDeEstados politica={fase.politica!} de={0} alvo={11} />,
+    );
+
+    expect(fase.politica!.length).toBeGreaterThan(1);
+    const linhas = [...html.matchAll(/title="[\d.]+z para sair do \+(\d+) e ficar no \+(\d+)/g)];
+    expect(linhas.map((m) => [m[1], m[2]])).toEqual([['0', '11']]);
   });
 
   it('desenha o Sankey do custo colado na lista de compras', () => {

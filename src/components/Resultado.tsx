@@ -1206,7 +1206,7 @@ function Fase({
 
           {tabela && (
             <div className="mt-3">
-              <TabelaDeEstados politica={politica} alvo={fase.para ?? 0} />
+              <TabelaDeEstados politica={politica} de={fase.de ?? 0} alvo={fase.para ?? 0} />
             </div>
           )}
 
