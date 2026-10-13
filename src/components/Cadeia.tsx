@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import type { Grade } from '../data/grade';
+import { alcancaveis } from '../engine/refine';
 import type { PolicyEntry, RefineAction, UsoDeAtalho } from '../engine/types';
 import { porcento, zeny, zenyExato } from '../format';
 import { NomeNoJogo, SlotItem } from './ItemNoJogo';
@@ -70,21 +71,39 @@ function sortear(a: RefineAction, de: number): number | null {
   return a.destinos[a.destinos.length - 1]!.refino;
 }
 
-export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; alvo: number }) {
+export function TabelaDeEstados({
+  politica,
+  de,
+  alvo,
+}: {
+  politica: PolicyEntry[];
+  de: number;
+  alvo: number;
+}) {
+  // Só os estados por onde o item pode passar. A política cobre todo refino,
+  // mas com um pergaminho que leva do +0 ao +11 os degraus do meio nunca são
+  // visitados: listá-los repetiria o mesmo salto em onze linhas, com minérios
+  // que ninguém vai comprar. É o mesmo corte que a estratégia acima faz.
+  const estados = useMemo(() => {
+    const visitados = alcancaveis(new Map(politica.map((e) => [e.de, e.acao])), de, alvo);
+    return politica.filter((e) => visitados.has(e.de));
+  }, [politica, de, alvo]);
+
   // O custo esperado do primeiro estado é o da campanha inteira: serve de
   // escala para a barra, mostrando quanto de tudo ainda está pela frente.
-  const maior = Math.max(...politica.map((e) => e.custoEsperado), 1);
+  const maior = Math.max(...estados.map((e) => e.custoEsperado), 1);
 
   // O que se espera gastar NESTE degrau: o que falta gastar aqui menos o que
-  // faltaria um refino acima. A política é contígua e termina no +alvo-1, cujo
-  // sucessor é o estado absorvente que vale 0.
+  // falta gastar no próximo estado listado — um refino acima, ou a chegada do
+  // atalho quando ele pula degraus. O último sucede o estado absorvente que
+  // vale 0, e por isso a coluna ainda soma o custo da campanha.
   //
   // Não é o preço de uma tentativa: já traz dentro as falhas que ainda vão
   // acontecer neste degrau e o custo de refazer o caminho de onde elas jogarem
   // o item. É a coluna que responde "onde o dinheiro some", porque `falta
   // gastar` é a soma acumulada dela e por isso cai suave, escondendo o degrau
   // único que come a campanha.
-  const etapas = politica.map((e, i) => e.custoEsperado - (politica[i + 1]?.custoEsperado ?? 0));
+  const etapas = estados.map((e, i) => e.custoEsperado - (estados[i + 1]?.custoEsperado ?? 0));
   const maiorEtapa = Math.max(...etapas, 1);
 
   return (
@@ -119,9 +138,10 @@ export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; a
           </tr>
         </thead>
         <tbody className="divide-y divide-borda/40">
-          {politica.map((e, i) => {
+          {estados.map((e, i) => {
             const falha = destinoDaFalha(e);
             const etapa = etapas[i]!;
+            const seguinte = estados[i + 1]?.de ?? alvo;
             return (
               <tr key={e.de}>
                 <td className="py-1.5 pr-3 font-mono text-xs whitespace-nowrap tabular-nums">
@@ -168,7 +188,7 @@ export function TabelaDeEstados({ politica, alvo }: { politica: PolicyEntry[]; a
                 </td>
                 <td
                   className="py-1.5 pr-3"
-                  title={`${zenyExato(etapa)} para sair do +${e.de} e ficar no +${e.de + 1}`}
+                  title={`${zenyExato(etapa)} para sair do +${e.de} e ficar no +${seguinte}`}
                 >
                   {/* O bronze do balcão, e não o dourado do acumulado: as duas
                       colunas são custo, e ler qual barra é qual de relance

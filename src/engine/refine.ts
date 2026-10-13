@@ -178,6 +178,29 @@ export function destinosDe(a: RefineAction, de: number): Destino[] {
   return saida;
 }
 
+/**
+ * Os níveis abaixo do alvo por onde o item pode passar, saindo de `de` e
+ * seguindo a política — os destinos de sucesso, de falha e de sorteio. A quebra
+ * leva ao +0, que é onde a reposição recomeça.
+ */
+export function alcancaveis(
+  porNivel: Map<number, RefineAction>,
+  de: number,
+  para: number,
+): Set<number> {
+  const vistos = new Set<number>();
+  const fila = [de];
+  while (fila.length > 0) {
+    const r = fila.pop()!;
+    if (r >= para || vistos.has(r)) continue;
+    const a = porNivel.get(r);
+    if (!a) continue;
+    vistos.add(r);
+    for (const d of destinosDe(a, r)) fila.push(d.refino ?? 0);
+  }
+  return vistos;
+}
+
 /** O que uma ação consome por uso. A taxa do refinador fica de fora: é zeny, não item. */
 export function consumoDe(a: RefineAction): { itemId: number; qtd: number }[] {
   if (a.tipo === 'atalho') {

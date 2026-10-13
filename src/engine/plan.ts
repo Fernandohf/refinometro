@@ -8,7 +8,7 @@ import {
   type GrupoDoAtalho,
 } from '../data/atalhos';
 import {
-  destinosDe,
+  alcancaveis,
   maxRefine,
   RefineImpossivel,
   safeLimit,
@@ -580,29 +580,6 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
   }
 
   return trechos;
-}
-
-/**
- * Os níveis abaixo do alvo por onde o item pode passar, saindo de `de` e
- * seguindo a política — os destinos de sucesso, de falha e de sorteio. A quebra
- * leva ao +0, que é onde a reposição recomeça.
- */
-function alcancaveis(
-  porNivel: Map<number, PolicyEntry['acao']>,
-  de: number,
-  para: number,
-): Set<number> {
-  const vistos = new Set<number>();
-  const fila = [de];
-  while (fila.length > 0) {
-    const r = fila.pop()!;
-    if (r >= para || vistos.has(r)) continue;
-    const a = porNivel.get(r);
-    if (!a) continue;
-    vistos.add(r);
-    for (const d of destinosDe(a, r)) fila.push(d.refino ?? 0);
-  }
-  return vistos;
 }
 
 /** O que um atalho faz, dito no lugar de "na falha" — ele não falha. */
