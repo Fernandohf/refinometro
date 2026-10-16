@@ -378,8 +378,16 @@
     no botão sugeriria que o outro não depende da escolha.
   - A taxa no kit é o zeny que sobra depois de todo material, então numa campanha de Grau ela
     inclui a taxa de cada tentativa de Grau — o rótulo diz isso.
-  - Fica para depois, do mesmo levantamento: quantidades por fase no plano (o custo de cada fase
-    ainda é a média, sem dizer), preços em destaque escolhidos pelo peso no plano atual (o Oridecon
-    fixo no painel fechado pesa 98 mil z num plano em que o Eteridecon Enriquecido pesa 200 mi), a
-    aba de estoque dizer quanto falta comprar em zeny, e o valor do item pronto deixar de ser só a
-    média.
+  - Do mesmo levantamento, feitos em seguida, um merge cada:
+    - **Preços em destaque pelo peso no plano.** O painel fechado mostrava sempre Oridecon e
+      Bênção; no padrão o Oridecon pesa 98 mil z de 300 milhões. Agora são os três materiais que
+      mais pesam no custo médio, editáveis ali, e a lista só se refaz quando muda a pergunta — não
+      o preço, para o campo em edição não sumir no meio da digitação.
+    - **Quantidade por trecho e por fase no plano.** "+5→+7 · ~40x Eteridecon Enriquecido", e o
+      consumo médio da fase no rodapé. Os usos por trecho são as visitas esperadas a cada estado,
+      a linha da partida de (I − P)⁻¹ (`visitas`, em `refine.ts`); conferidos contra o consumo
+      simulado.
+    - **O que falta para o kit, na aba de estoque.** Uma régua só (o kit) no lugar de três faltas
+      em percentis marginais; comprada a falta, a chance volta ao nível escolhido.
+    - **"Compensa comprar pronto?"** no lugar do "valor do item pronto": a pessoa digita o preço
+      pedido e a página diz em que fração das campanhas refinar sai mais barato.
