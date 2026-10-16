@@ -307,9 +307,10 @@ describe('página', () => {
     // A estratégia é o que se FAZ: vem antes da lista de compras, que é
     // derivada dela, e antes do simulador de estoque, que é conferência.
     expect(orcamento).toBeLessThan(estrategia);
-    expect(estrategia).toBeLessThan(zeny);
-    expect(zeny).toBeLessThan(compras);
-    expect(compras).toBeLessThan(estoque);
+    expect(estrategia).toBeLessThan(compras);
+    // Na aba de compras, a lista antes do diagrama: é o que o nome da aba promete.
+    expect(compras).toBeLessThan(zeny);
+    expect(zeny).toBeLessThan(estoque);
     // O consumo por minério é a segunda vista da lista, não um painel: nem o
     // cabeçalho nem a coluna dele existem até alguém pedir. ("Minérios e
     // materiais" continua na página como nome de grupo do Sankey.)
@@ -571,10 +572,9 @@ describe('página', () => {
   });
 
   it('desenha o Sankey do custo colado na lista de compras', () => {
-    // O desenho e a tabela são a mesma conta lida de dois jeitos, no mesmo
-    // percentil: são painéis vizinhos de propósito, e nessa ordem — a
-    // proporção primeiro, o que se leva ao jogo depois. Longe do orçamento,
-    // que é outro total (o percentil da soma, não a soma dos percentis).
+    // O desenho e a tabela são a mesma conta lida de dois jeitos, do mesmo
+    // kit: são painéis vizinhos de propósito, e nessa ordem — o que se leva
+    // ao jogo primeiro, que é o que a aba promete, e a proporção depois.
     //
     // Alvo fixado pelo mesmo motivo do teste da ordem: os grupos "Proteção" e
     // "Reposição do item" só aparecem em campanha que compra Bênção e quebra
@@ -590,9 +590,9 @@ describe('página', () => {
     const compras = html.indexOf('Lista de compras');
     const tabela = html.indexOf('Comprar pronto');
 
-    expect(orcamento).toBeLessThan(sankey);
-    expect(sankey).toBeLessThan(compras);
+    expect(orcamento).toBeLessThan(compras);
     expect(compras).toBeLessThan(tabela);
+    expect(tabela).toBeLessThan(sankey);
     // Os grupos por natureza do gasto, que é o que o desenho acrescenta.
     expect(html).toContain('Proteção');
     expect(html).toContain('Reposição do item');
