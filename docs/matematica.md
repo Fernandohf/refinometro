@@ -887,6 +887,46 @@ comprar, ou que o alvo é que está errado.
    estratégia condicionada ao estoque. Formalmente isto é uma restrição da classe de políticas, e
    portanto mais uma razão para a chance reportada ser um limite inferior.
 
+### 9.7 O kit: as duas respostas lado a lado
+
+O topo da página responde "quanto custa" de dois jeitos, um para cada hipótese de §9.6:
+**comprando aos poucos**, o percentil `C_α` do custo total de [§8](#8-monte-carlo-o-que-a-média-não-responde);
+e **juntando tudo antes**, o valor `V(E(q*))` do kit — o quantil comum de §9.3 aplicado ao
+consumo contado em **minério inteiro** (Eteridecon, não Minério de Oridecon), que é a moeda da
+lista de compras. `V` cota cada minério pela via mais barata, soma as reposições ao preço do item
+no +0 e a taxa que sobra (`Z₀` contado em minério inteiro é só taxa do refinador e de Grau: o
+balcão do NPC já está no preço do minério fabricado).
+
+> **Proposição 9.3 (o kit nunca é mais barato).** Se `chance(E(q*)) ≥ α`, então
+> `V(E(q*)) ≥ C_α`.
+>
+> *Demonstração.* Para toda execução que o kit fecha, cada recurso consumido é `≤` o do kit, e o
+> custo da execução é a soma desses consumos aos mesmos preços: `C^{(i)} ≤ V(E(q*))`. Essas
+> execuções são pelo menos a fração `α` da amostra, logo o quantil `α` do custo não passa de
+> `V`. ∎
+
+A diferença `V − C_α` é o preço de não voltar ao mercado: quem compra aos poucos só paga o que
+usou, e numa mesma campanha a sorte de um material compensa o azar de outro; o kit tem de cobrir
+todos os azares ao mesmo tempo. No `w5` +0 → +8 Grau C dos preços padrão, no nível Seguro, são
+378 mi contra 474 mi.
+
+O kit é a **única** fonte de quantidades da página: a lista de compras, o diagrama de custo e o
+preenchimento do painel de estoque leem dele. Antes, cada vista lia uma estatística diferente — a
+média, o percentil de cada linha, o quantil comum dos materiais desmontados — e o mesmo minério
+aparecia com três números, os três rotulados "90%" (207, 368 e 487 Eteridecon Enriquecido no
+exemplo acima).
+
+> **Proposição 9.4 (desmontar não perde chance).** Seja `D(E)` o kit desmontado até o que se
+> compra pela receita mais barata, com o balcão das receitas somado ao zeny. Então
+> `chance(D(E)) ≥ chance(E)` no painel de estoque.
+>
+> *Demonstração.* O consumo desmontado de cada insumo é uma combinação linear de coeficientes não
+> negativos dos consumos em minério inteiro, e o balcão também. Se cada minério da execução cabe
+> no kit, cada insumo e o balcão cabem em `D(E)`. ∎
+
+É o que deixa o painel de estoque abrir com o mesmo kit: a chance que ele mostra é igual ou um
+pouco acima da do nível escolhido, nunca abaixo.
+
 ---
 
 ## 10. Aritmética de ponto flutuante e complexidade

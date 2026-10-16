@@ -452,14 +452,15 @@ export default function App() {
                 onMargem={(m) => set('margem', m)}
                 afinando={preciso.afinando}
                 precisao={<Precisao afinando={preciso.afinando} plano={exibido} />}
-                moduloEstoque={
+                moduloEstoque={(kit) => (
                   <SimuladorDeEstoque
                     plano={exibido}
+                    kit={kit}
                     margem={e.margem}
                     estoque={estoque}
                     onChange={setEstoque}
                   />
-                }
+                )}
               />
             </div>
           ) : null}

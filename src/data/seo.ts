@@ -118,9 +118,10 @@ export const FAQ: readonly { pergunta: string; resposta: string }[] = [
   {
     pergunta: 'Como eu descubro quanto custa levar uma arma até o +10?',
     resposta:
-      'Busque o item pelo nome, informe o refino atual e escolha +10 como alvo. O orçamento ' +
-      'recomendado sai na margem de segurança que você escolher — 90% quer dizer que nove em ' +
-      'cada dez campanhas terminam dentro daquele valor.',
+      'Busque o item pelo nome, informe o refino atual e escolha +10 como alvo. A resposta sai ' +
+      'de dois jeitos, na margem de segurança que você escolher: quanto zeny gastar comprando ' +
+      'aos poucos, e que materiais juntar antes de começar para não voltar ao mercado. 90% quer ' +
+      'dizer que nove em cada dez campanhas terminam dentro daquele valor.',
   },
   {
     pergunta: 'A calculadora considera Grau?',

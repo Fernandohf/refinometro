@@ -111,9 +111,11 @@ jogador, e as duas estão certas: uma é sobre quem pode voltar ao mercado, a ou
 pode.
 
 Os campos pedem o estoque **no que se compra de verdade**, não em minério pronto — a mesma
-expansão da lista de compras, pela mesma razão. E já vêm **preenchidos**: escolhida a chance que
-se quer ter (10% a 99%), a tela procura o quantil comum em que a mochila inteira fecha aquela
-fração das campanhas, e põe cada recurso nele. O percentil de cada coisa lido em separado não
+expansão da lista de compras, pela mesma razão. E já vêm **preenchidos** com o kit do nível de
+segurança escolhido no topo: o quantil comum em que a mochila inteira fecha aquela fração das
+campanhas, contado em minério inteiro (`montarKit`, em `src/engine/kit.ts`) e desmontado em
+seguida (`estoqueDoKit`). É o mesmo kit do "juntando tudo antes" e da lista de compras, e
+desmontá-lo nunca baixa a chance (→ §9.7). O percentil de cada coisa lido em separado não
 serve — no `w4` +0 → +12, os quatro materiais no próprio p90 cobrem 75% das campanhas, não 90%.
 Daí em diante é ajuste: baixar o que não se tem e ver a chance responder. Abaixo do consumo da
 campanha mais sortuda o campo fica vermelho, porque aí a resposta deixa de ser "improvável" e

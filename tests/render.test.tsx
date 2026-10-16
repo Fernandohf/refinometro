@@ -8,8 +8,10 @@ import { PIX } from '../src/components/Apoie';
 import { CurvaDeCusto } from '../src/components/CurvaDeCusto';
 import { TabelaDeEstados } from '../src/components/Cadeia';
 import { Resultado } from '../src/components/Resultado';
+import { ESTOQUE_VAZIO, SimuladorDeEstoque } from '../src/components/Estoque';
 import { Sobre } from '../src/components/Sobre';
 import { PRECOS_FIXOS } from './precosFixos';
+import { campanhaEmMinerios, montarKit } from '../src/engine/kit';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -119,8 +121,8 @@ describe('página', () => {
     expect(html).toContain('Dá com o que eu tenho?');
     expect(html).toContain('Chance de chegar ao alvo');
     expect(html).toContain('Zeny para as taxas');
-    expect(html).toContain('Quero chegar com');
-    expect(html).toContain('Tudo abaixo está no recomendado para essa chance');
+    expect(html).toContain('Preenchido com o kit do nível');
+    expect(html).toContain('Tudo abaixo está no kit recomendado');
     // Preenchido de verdade: nada em vermelho, e nenhum campo no zero.
     expect(html).not.toContain('impossível abaixo de');
     expect(html).not.toContain('aria-invalid="true"');
@@ -140,12 +142,37 @@ describe('página', () => {
   });
 
   it('mostra onde a campanha para quando a chance é baixa', () => {
-    // Mirar 10% é pedir o estoque da aposta barata, e a chance cai junto: aí a
-    // pergunta deixa de ser "dá?" e passa a ser "onde eu travo, e por causa de
-    // quê?". Sai do próprio preenchimento, sem estoque forjado.
-    localStorage.setItem('refinometro:estoque:v1', JSON.stringify({ alvo: 0.1 }));
-    const html = renderToString(<App />);
-    localStorage.removeItem('refinometro:estoque:v1');
+    // Quem tem só o kit de 10% — a aposta barata — vê a chance cair junto, e aí
+    // a pergunta deixa de ser "dá?" e passa a ser "onde eu travo, e por causa
+    // de quê?". Sai do próprio preenchimento, sem estoque forjado.
+    const p = calcular(
+      {
+        kind: 'w4',
+        precoItem: 30_000_000,
+        refinoAtual: 0,
+        refinoAlvo: 10,
+        grauAtual: 'none',
+        grauAlvo: 'none',
+        evento: false,
+        precos: PRECOS_FIXOS,
+        usarBencaoFerreiro: true,
+        usarMineriosEspeciais: true,
+        perdaAceitavel: true,
+        itemId: null,
+        usarAtalhos: false,
+      },
+      { execucoes: 5_000, tempoMs: 3_000 },
+    );
+    const kit = montarKit(p, campanhaEmMinerios(p), 0.1);
+    const html = renderToString(
+      <SimuladorDeEstoque
+        plano={p}
+        kit={kit}
+        margem="p90"
+        estoque={ESTOQUE_VAZIO}
+        onChange={() => {}}
+      />,
+    );
 
     expect(html).toContain('Onde a campanha para');
     expect(html).toContain('Acaba primeiro');
@@ -154,10 +181,28 @@ describe('página', () => {
     expect(html).toMatch(/Metade das campanhas que não fecham para até/);
   });
 
+  it('mostra os dois jeitos de pagar lado a lado, e o kit bate com a lista', () => {
+    // Quem volta ao mercado e quem junta tudo antes pagam coisas diferentes,
+    // e a página diz as duas. O número do kit é o total da lista de compras:
+    // se divergissem, a página voltaria a ter dois totais para a mesma coisa.
+    const html = renderToString(<App />);
+    const aosPoucos = html.indexOf('Comprando aos poucos');
+    const tudoAntes = html.indexOf('Juntando tudo antes');
+    expect(aosPoucos).toBeGreaterThan(-1);
+    expect(tudoAntes).toBeGreaterThan(aosPoucos);
+    expect(tudoAntes).toBeLessThan(html.indexOf('role="tablist"'));
+
+    const valorApos = (marca: string, classe: string) => {
+      const depois = html.slice(html.indexOf(marca));
+      return depois.match(new RegExp(`class="[^"]*${classe}[^"]*"[^>]*>([^<]+)<`))![1];
+    };
+    expect(valorApos('Total do kit', 'md-titulo-g')).toBe(valorApos('Juntando tudo antes', 'md-display-p'));
+  });
+
   it('renderiza sem estourar e já mostra um orçamento', () => {
     const html = renderToString(<App />);
     expect(html).toContain('Refin');
-    expect(html).toContain('Orçamento recomendado');
+    expect(html).toContain('Comprando aos poucos');
     expect(html).toContain('Melhor estratégia');
     // O que levar para o jogo: quantidades da margem e cópias do equipamento.
     expect(html).toContain('Lista de compras');
@@ -190,7 +235,7 @@ describe('página', () => {
     localStorage.removeItem('refinometro:v1');
 
     const aviso = html.indexOf('Risco de quebra do item');
-    const orcamento = html.indexOf('Orçamento recomendado');
+    const orcamento = html.indexOf('Comprando aos poucos');
     const estrategia = html.indexOf('Melhor estratégia');
     const zeny = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Comprar ou fabricar');
@@ -208,7 +253,7 @@ describe('página', () => {
     // cabeçalho nem a coluna dele existem até alguém pedir. ("Minérios e
     // materiais" continua na página como nome de grupo do Sankey.)
     expect(html).not.toContain('Consumo por minério');
-    expect(html).not.toContain('Ter em mãos');
+    expect(html).not.toContain('>No kit</th>');
     expect(html).toContain('por minério');
   });
 
@@ -218,7 +263,7 @@ describe('página', () => {
     // primeira aba, ele estaria numa tela e o efeito, em outra.
     const html = renderToString(<App />);
 
-    const orcamento = html.indexOf('Orçamento recomendado');
+    const orcamento = html.indexOf('Comprando aos poucos');
     const margem = html.indexOf('aria-label="Margem de segurança"');
     const lista = html.indexOf('role="tablist"');
 
@@ -479,7 +524,7 @@ describe('página', () => {
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
-    const orcamento = html.indexOf('Orçamento recomendado');
+    const orcamento = html.indexOf('Comprando aos poucos');
     const sankey = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Lista de compras');
     const tabela = html.indexOf('Comprar pronto');
@@ -531,7 +576,7 @@ describe('página', () => {
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
 
-    const orcamento = html.indexOf('Orçamento recomendado');
+    const orcamento = html.indexOf('Comprando aos poucos');
     const curva = html.indexOf('Cada faixa é a fatia das campanhas simuladas');
     const compras = html.indexOf('Lista de compras');
 
@@ -633,7 +678,8 @@ describe('página', () => {
     const html = renderToString(<App />);
     const texto = html.replace(/<[^>]*>/g, '');
 
-    expect(texto).toMatch(/Na maioria das vezes você gasta perto de .+, podendo chegar até .+\./);
+    expect(texto).toMatch(/Em 9 de cada 10 vezes o gasto fica nisso ou abaixo; normalmente, perto de .+\./);
+    expect(texto).toContain('Leve isto e não volte ao mercado em 9 de cada 10 vezes:');
     expect(texto).toContain('O item não quebra nesse plano.');
     expect(html).toContain('Quão seguro você quer estar?');
     expect(html.match(/role="radio"[^>]*aria-checked="true"[^>]*>(?:<[^>]*>)*([^<]+)/)?.[1]).toBe(

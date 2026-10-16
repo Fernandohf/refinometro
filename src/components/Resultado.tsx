@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import { nomeDoItem } from '../data/nomes';
 import { arvoreDeCompras, sourcingOf, type ItemDaLista } from '../engine/pricing';
-import { fluxoDeCusto, quantidadesNaMargem } from '../engine/fluxoDeCusto';
+import { fluxoDeCusto } from '../engine/fluxoDeCusto';
+import { campanhaEmMinerios, montarKit, type Kit } from '../engine/kit';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
 import type { Grade } from '../data/grade';
@@ -50,12 +51,14 @@ export const MARGENS: {
   pct: string;
   chance: number;
   explica: string;
+  /** A mesma chance para encaixar numa frase: "em 9 de cada 10 vezes". */
+  fracao: string;
 }[] = [
-  { key: 'p50', rotulo: 'Arriscado', pct: '50%', chance: 0.5, explica: 'dá em metade das vezes' },
-  { key: 'p75', rotulo: 'Moderado', pct: '75%', chance: 0.75, explica: 'dá em 3 de cada 4 vezes' },
-  { key: 'p90', rotulo: 'Seguro', pct: '90%', chance: 0.9, explica: 'dá em 9 de cada 10 vezes' },
-  { key: 'p95', rotulo: 'Muito seguro', pct: '95%', chance: 0.95, explica: 'dá em 19 de cada 20 vezes' },
-  { key: 'p99', rotulo: 'Quase certo', pct: '99%', chance: 0.99, explica: 'só 1 em 100 vezes passa disso' },
+  { key: 'p50', rotulo: 'Arriscado', pct: '50%', chance: 0.5, explica: 'dá em metade das vezes', fracao: 'metade das' },
+  { key: 'p75', rotulo: 'Moderado', pct: '75%', chance: 0.75, explica: 'dá em 3 de cada 4 vezes', fracao: '3 de cada 4' },
+  { key: 'p90', rotulo: 'Seguro', pct: '90%', chance: 0.9, explica: 'dá em 9 de cada 10 vezes', fracao: '9 de cada 10' },
+  { key: 'p95', rotulo: 'Muito seguro', pct: '95%', chance: 0.95, explica: 'dá em 19 de cada 20 vezes', fracao: '19 de cada 20' },
+  { key: 'p99', rotulo: 'Quase certo', pct: '99%', chance: 0.99, explica: 'só 1 em 100 vezes passa disso', fracao: '99 de cada 100' },
 ];
 
 export function Resultado({
@@ -83,10 +86,10 @@ export function Resultado({
   precisao?: ReactNode;
   /**
    * Simulador de estoque: a terceira aba. "Dá com o que eu tenho?" é a pergunta
-   * que vem depois de "o que comprar", e ela lê as mesmas quantidades. Ausente,
-   * a aba não existe.
+   * que vem depois de "o que comprar", e ela parte do mesmo kit — por isso
+   * recebe o kit em vez de montá-lo de novo. Ausente, a aba não existe.
    */
-  moduloEstoque?: ReactNode;
+  moduloEstoque?: (kit: Kit) => ReactNode;
 }) {
   const sim = plano.simulacao;
   // Um aviso que muda a decisão (o item quebra, o alvo não fecha, um preço está
@@ -94,9 +97,13 @@ export function Resultado({
   // contexto pode esperar o fim da página.
   const criticos = plano.avisos.filter((a) => a.nivel !== 'info');
   const informativos = plano.avisos.filter((a) => a.nivel === 'info');
-  // O mesmo fluxo que a lista de compras soma: os dois painéis são leituras da
-  // mesma `listaDeCompras`, no mesmo percentil (ver `fluxoDeCusto`).
-  const fluxo = fluxoDeCusto(plano, margem);
+  // O kit é a única fonte de quantidades da página: o "juntando tudo antes" do
+  // topo, a lista de compras, o diagrama e o simulador de estoque leem dele.
+  // A campanha em minério não depende da margem, então sobrevive à troca dela.
+  const chance = MARGENS.find((m) => m.key === margem)!.chance;
+  const campanha = useMemo(() => campanhaEmMinerios(plano), [plano]);
+  const kit = useMemo(() => montarKit(plano, campanha, chance), [plano, campanha, chance]);
+  const fluxo = fluxoDeCusto(plano, kit);
   const temCompras = Object.keys(plano.recursos.itens).length > 0;
 
   // Fora das abas fica o que governa as TRÊS: os avisos, o item, o orçamento e
@@ -149,7 +156,7 @@ export function Resultado({
             </Painel>
           )}
 
-          {temCompras && <PainelDeCompras plano={plano} margem={margem} />}
+          {temCompras && <PainelDeCompras plano={plano} kit={kit} margem={margem} />}
         </div>
       ),
     });
@@ -158,7 +165,7 @@ export function Resultado({
   // O rótulo é curto, e não a pergunta inteira: ela já é o título do painel
   // logo abaixo, e a aba repetindo-a punha a mesma frase duas vezes seguidas.
   if (moduloEstoque) {
-    abas.push({ key: 'estoque', rotulo: 'O que eu tenho', conteudo: moduloEstoque });
+    abas.push({ key: 'estoque', rotulo: 'O que eu tenho', conteudo: moduloEstoque(kit) });
   }
 
   // Um alvo já alcançado não tem o que comprar, e o simulador de estoque é
@@ -178,54 +185,43 @@ export function Resultado({
       <Painel titulo="Quanto vai custar">
         <Trajetoria plano={plano} itemNome={itemNome} itemId={itemId} itemSlots={itemSlots} />
 
-        {/* O orçamento é a resposta; média e valor justo são apoio. Antes os
-            três vinham do mesmo tamanho, o que punha a média — que o próprio
-            texto desaconselha usar — no mesmo peso da recomendação. */}
-        <div className="mt-4">
-          <div className="md-rotulo-p flex items-center gap-1 text-suave">
-            Orçamento recomendado
-            <Info titulo="Orçamento recomendado">
-              Quanto zeny separar para chegar ao alvo sem depender de sorte. No nível{' '}
-              <strong className="text-texto">Seguro</strong>, 9 de cada 10 campanhas simuladas
-              fecharam gastando isto ou menos — é o percentil 90 do custo total. Os outros níveis,
-              logo abaixo, trocam o percentil.
-            </Info>
+        {/* Duas respostas, porque há dois jeitos de jogar: quem volta ao
+            mercado quando o minério acaba e quem leva tudo de uma vez ao
+            refinador. Antes a página dava só a primeira em zeny, e a segunda
+            vivia espalhada em três tabelas que discordavam entre si. O nível
+            de segurança vem antes das duas porque governa as duas. */}
+        {sim ? (
+          <>
+            <NivelDeSeguranca margem={margem} onMargem={onMargem} />
+            <DoisModos
+              plano={plano}
+              kit={kit}
+              margem={margem}
+              onVerLista={() => {
+                setAba('compras');
+                document.getElementById(ID_ABAS)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+            />
+            <Quebra plano={plano} kit={kit} />
+          </>
+        ) : (
+          <div className="mt-4">
+            <div className="md-rotulo-p text-suave">Quanto separar</div>
+            {/* Um alvo caro não cabe no passe rápido, mas pode caber no
+                preciso. Chamá-lo de inalcançável antes da hora seria dar um
+                veredito que a simulação longa ainda pode desmentir. */}
+            <div className={'md-display mt-1 ' + (afinando ? 'text-suave' : 'text-perigo')}>
+              {afinando ? 'calculando…' : 'fora de alcance'}
+            </div>
+            <div className="md-corpo-m mt-1 text-suave">
+              Este alvo pede ~{Math.round(plano.tentativasEsperadas).toLocaleString('pt-BR')}{' '}
+              tentativas de refino
+              {afinando
+                ? '. A simulação longa está tentando; pode ser que nem ela alcance.'
+                : '. Não há margem que faça sentido calcular.'}
+            </div>
           </div>
-          {sim ? (
-            <>
-              <div
-                className="md-display mt-1 text-realce tabular-nums"
-                title={zenyExato(sim.custo[margem])}
-              >
-                {zeny(sim.custo[margem])}
-              </div>
-              <Resposta plano={plano} margem={margem} />
-            </>
-          ) : (
-            <>
-              {/* Um alvo caro não cabe no passe rápido, mas pode caber no
-                  preciso. Chamá-lo de inalcançável antes da hora seria dar um
-                  veredito que a simulação longa ainda pode desmentir. */}
-              <div className={'md-display mt-1 ' + (afinando ? 'text-suave' : 'text-perigo')}>
-                {afinando ? 'calculando…' : 'fora de alcance'}
-              </div>
-              <div className="md-corpo-m mt-1 text-suave">
-                Este alvo pede ~{Math.round(plano.tentativasEsperadas).toLocaleString('pt-BR')}{' '}
-                tentativas de refino
-                {afinando
-                  ? '. A simulação longa está tentando; pode ser que nem ela alcance.'
-                  : '. Não há margem que faça sentido calcular.'}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* O nível de segurança vem colado na frase que ele muda, e é o único
-            seletor da margem: havia um segmentado no canto do painel e a
-            legenda clicável do gráfico fazendo a mesma coisa, e dois controles
-            para uma escolha só é um a mais para quem ainda não entendeu a
-            primeira. */}
-        {sim && <NivelDeSeguranca custo={sim.custo} margem={margem} onMargem={onMargem} />}
+        )}
 
         <SemRisco plano={plano} margem={margem} />
 
@@ -265,7 +261,9 @@ export function Resultado({
       {/* As abas vêm DEPOIS do orçamento, e não no lugar dele: a resposta da
           página é uma só, e as três abas são os três jeitos de continuar a
           pergunta — como eu faço, o que eu compro, dá com o que eu tenho. */}
-      <Abas rotulo="O que ver do plano" value={ativa} onChange={setAba} abas={abas} />
+      <div id={ID_ABAS} className="scroll-mt-4">
+        <Abas rotulo="O que ver do plano" value={ativa} onChange={setAba} abas={abas} />
+      </div>
     </div>
   );
 }
@@ -479,68 +477,20 @@ function Trajetoria({
   );
 }
 
-/**
- * A resposta da página numa frase, embaixo do número grande.
- *
- * O número sozinho é um percentil, e quem chega não sabe disso: lê "938 mi" e
- * acha que é o que vai gastar. A frase diz as duas pontas — o caso comum (a
- * mediana) e até onde pode ir (a margem escolhida) — e o que acontece com o
- * item, que é a outra metade da pergunta de quem vai refinar.
- */
-function Resposta({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
-  const sim = plano.simulacao;
-  if (!sim) return null;
-
-  const comum = sim.custo.p50;
-  const teto = sim.custo[margem];
-  // Média de itens destruídos: zero só quando nenhuma tentativa do plano pode
-  // quebrar o item. A margem diz quantas cópias separar quando pode.
-  const quebra = plano.itensQuebrados > 1e-9;
-  const copias = sim.quebras[margem] + 1;
-
-  return (
-    <p className="md-corpo-m mt-1 max-w-prose text-suave">
-      {margem === 'p50' ? (
-        <>
-          Metade das vezes você gasta até{' '}
-          <strong className="text-texto tabular-nums">{zeny(comum)}</strong>; na outra metade, passa
-          disso.
-        </>
-      ) : (
-        <>
-          Na maioria das vezes você gasta perto de{' '}
-          <strong className="text-texto tabular-nums">{zeny(comum)}</strong>, podendo chegar até{' '}
-          <strong className="text-texto tabular-nums">{zeny(teto)}</strong>.
-        </>
-      )}{' '}
-      {!quebra ? (
-        <>O item não quebra nesse plano.</>
-      ) : copias > 1 ? (
-        <>
-          O item pode quebrar no caminho: tenha{' '}
-          <strong className="text-texto tabular-nums">{copias.toLocaleString('pt-BR')} cópias</strong>{' '}
-          dele.
-        </>
-      ) : (
-        <>O item pode quebrar no caminho, mas com esse orçamento uma cópia basta.</>
-      )}
-    </p>
-  );
-}
+/** Onde as abas começam: o "ver a lista" do kit rola até elas. */
+const ID_ABAS = 'abas-do-plano';
 
 /**
- * Quão seguro o orçamento deve ser: o único seletor da margem.
+ * Quão seguro o orçamento deve ser: o único seletor da margem da página.
  *
- * Cada opção mostra o próprio valor, então comparar e escolher são o mesmo
- * gesto — em vez de escolher às cegas e só depois ver no que deu. O percentil
- * fica em letra pequena, para quem o conhece.
+ * Os botões não trazem mais o valor de cada nível: há dois valores por nível
+ * agora, um por modo, e só um deles no botão diria que o outro não depende da
+ * escolha. O percentil fica em letra pequena, para quem o conhece.
  */
 function NivelDeSeguranca({
-  custo,
   margem,
   onMargem,
 }: {
-  custo: Percentis;
   margem: MargemKey;
   onMargem: (m: MargemKey) => void;
 }) {
@@ -561,28 +511,182 @@ function NivelDeSeguranca({
               role="radio"
               aria-checked={ativo}
               onClick={() => onMargem(m.key)}
-              title={`${m.explica} (${m.pct}) — ${zenyExato(custo[m.key])}`}
+              title={`${m.explica} (${m.pct})`}
               className={
-                'estado cursor-pointer rounded-lg border px-2 py-1.5 text-left text-xs ' +
+                'estado flex cursor-pointer items-baseline justify-between gap-1 rounded-lg border px-2 py-1.5 text-left text-xs ' +
                 'transition-colors duration-200 ease-padrao ' +
                 (ativo
                   ? 'border-transparent bg-realce-container text-no-realce-container'
                   : 'border-borda text-suave hover:text-texto')
               }
             >
-              {/* O percentil divide a linha com o valor, e não com o nome: na
-                  largura de celular, nome e percentil juntos quebravam
-                  "Muito seguro" em duas linhas. */}
-              <span className="block font-semibold whitespace-nowrap">{m.rotulo}</span>
-              <span className="flex items-baseline justify-between gap-1">
-                <span className="tabular-nums">{zeny(custo[m.key])}</span>
-                <span className="opacity-70">{m.pct}</span>
-              </span>
+              <span className="font-semibold whitespace-nowrap">{m.rotulo}</span>
+              <span className="opacity-70">{m.pct}</span>
             </button>
           );
         })}
       </div>
     </div>
+  );
+}
+
+/** Quantos materiais o cartão do kit lista antes de mandar para a lista inteira. */
+const MATERIAIS_NO_CARTAO = 4;
+
+/**
+ * A resposta da página, nos dois jeitos de jogar.
+ *
+ * Os dois números nunca empatam, e a ordem é sempre a mesma: juntar tudo antes
+ * custa mais, porque a mochila tem de cobrir o azar de cada material na mesma
+ * campanha, enquanto quem compra aos poucos só paga o que usou. Lado a lado, a
+ * diferença deixa de parecer erro e passa a ser o preço de não voltar ao
+ * mercado.
+ */
+function DoisModos({
+  plano,
+  kit,
+  margem,
+  onVerLista,
+}: {
+  plano: ResultadoPlano;
+  kit: Kit;
+  margem: MargemKey;
+  onVerLista: () => void;
+}) {
+  const sim = plano.simulacao!;
+  const info = MARGENS.find((m) => m.key === margem)!;
+  const linhas = arvoreDeCompras(kit.itens, plano.input.precos);
+  const visiveis = linhas.slice(0, MATERIAIS_NO_CARTAO);
+  const resto = linhas.length - visiveis.length;
+
+  return (
+    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <Modo
+        rotulo="Comprando aos poucos"
+        valor={sim.custo[margem]}
+        info={
+          <Info titulo="Comprando aos poucos">
+            Para quem volta ao mercado quando o material acaba. É o percentil {info.pct} do custo
+            total: {info.fracao} campanhas simuladas fecharam gastando isto ou menos. Comprando aos
+            poucos você só paga o que usou, e a sorte de um material compensa o azar de outro — por
+            isso sai mais barato que juntar tudo antes.
+          </Info>
+        }
+      >
+        <p className="md-corpo-m text-suave">
+          Você volta ao mercado quando acaba. Em {info.fracao} vezes o gasto fica nisso ou abaixo
+          {margem === 'p50' ? (
+            '.'
+          ) : (
+            <>
+              ; normalmente, perto de{' '}
+              <strong className="text-texto tabular-nums" title={zenyExato(sim.custo.p50)}>
+                {zeny(sim.custo.p50)}
+              </strong>
+              .
+            </>
+          )}
+        </p>
+      </Modo>
+
+      <Modo
+        rotulo="Juntando tudo antes"
+        valor={kit.valor}
+        info={
+          <Info titulo="Juntando tudo antes" alinhar="direita">
+            Para quem compra tudo de uma vez e vai ao refinador sem voltar ao mercado. O kit tem de
+            cobrir o azar de todos os materiais na mesma campanha — nada falta em {info.fracao}{' '}
+            campanhas simuladas —, e por isso custa mais que comprar aos poucos. São as mesmas
+            quantidades da lista de compras e da aba “O que eu tenho”.
+          </Info>
+        }
+      >
+        <p className="md-corpo-m text-suave">
+          Leve isto e não volte ao mercado em {info.fracao} vezes:
+        </p>
+        <ul className="mt-2 space-y-1.5">
+          {visiveis.map((l) => (
+            <li key={l.itemId} className="md-corpo-m flex items-center gap-2">
+              <SlotItem id={l.itemId} tamanho="mini" />
+              <strong className="text-texto tabular-nums">{inteiro(l.qtd)}x</strong>
+              <span className="min-w-0 truncate">{nomeDoItem(l.itemId)}</span>
+            </li>
+          ))}
+          {kit.reposicoes > 0 && (
+            <li className="md-corpo-m text-perigo">
+              <strong className="tabular-nums">{inteiro(kit.reposicoes)}x</strong> cópia
+              {kit.reposicoes === 1 ? '' : 's'} do item, no +0
+            </li>
+          )}
+          <li className="md-corpo-p text-suave">
+            {resto > 0 && `e mais ${resto} ${resto === 1 ? 'material' : 'materiais'}, `}
+            <span className="tabular-nums" title={zenyExato(kit.taxas)}>
+              {zeny(kit.taxas)}
+            </span>{' '}
+            de taxas
+          </li>
+        </ul>
+        <div className="-ml-3 mt-1">
+          <BotaoDoPainel onClick={onVerLista}>ver a lista de compras</BotaoDoPainel>
+        </div>
+      </Modo>
+    </div>
+  );
+}
+
+function Modo({
+  rotulo,
+  valor,
+  info,
+  children,
+}: {
+  rotulo: string;
+  valor: number;
+  info: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl bg-superficie-baixa p-3.5">
+      <div className="md-rotulo-p flex items-center gap-1 text-suave">
+        {rotulo}
+        {info}
+      </div>
+      <div className="md-display-p mt-1 text-realce tabular-nums" title={zenyExato(valor)}>
+        {zeny(valor)}
+      </div>
+      <div className="mt-1.5">{children}</div>
+    </div>
+  );
+}
+
+/** Contagem inteira: o que se separa é cópia e minério, não fração. */
+const inteiro = (n: number) => Math.ceil(n).toLocaleString('pt-BR');
+
+/**
+ * O destino do item, que vale para os dois modos: a reposição está nas duas
+ * contas, e quem lê só o número não sabe que parte dele é equipamento novo.
+ */
+function Quebra({ plano, kit }: { plano: ResultadoPlano; kit: Kit }) {
+  // Média de itens destruídos: zero só quando nenhuma tentativa do plano pode
+  // quebrar o item.
+  const quebra = plano.itensQuebrados > 1e-9;
+
+  return (
+    <p className="md-corpo-m mt-3 text-suave">
+      {!quebra ? (
+        <>O item não quebra nesse plano.</>
+      ) : kit.reposicoes > 0 ? (
+        <>
+          O item pode quebrar no caminho: as reposições estão nas duas contas — no kit, são{' '}
+          <strong className="text-texto tabular-nums">
+            {inteiro(kit.reposicoes)} {kit.reposicoes === 1 ? 'cópia' : 'cópias'}
+          </strong>{' '}
+          a mais.
+        </>
+      ) : (
+        <>O item pode quebrar no caminho, mas nesse nível uma cópia basta.</>
+      )}
+    </p>
   );
 }
 
@@ -711,7 +815,15 @@ function Distribuicao({
  * pergunta que se está fazendo: o que eu compro, ou quanto eu gasto de cada
  * minério na média e na margem.
  */
-function PainelDeCompras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
+function PainelDeCompras({
+  plano,
+  kit,
+  margem,
+}: {
+  plano: ResultadoPlano;
+  kit: Kit;
+  margem: MargemKey;
+}) {
   const [vista, setVista] = useState<'compras' | 'minerios'>('compras');
 
   return (
@@ -730,9 +842,9 @@ function PainelDeCompras({ plano, margem }: { plano: ResultadoPlano; margem: Mar
       }
     >
       {vista === 'compras' ? (
-        <Compras plano={plano} margem={margem} />
+        <Compras plano={plano} kit={kit} margem={margem} />
       ) : (
-        <Materiais plano={plano} margem={margem} />
+        <Materiais plano={plano} kit={kit} />
       )}
     </Painel>
   );
@@ -744,12 +856,14 @@ const ROTULO_VIA: Record<string, string> = {
   indisponivel: 'sem preço',
 };
 
-function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
+function Materiais({ plano, kit }: { plano: ResultadoPlano; kit: Kit }) {
+  // Sem simulação o kit É a média, e a segunda coluna só a repetiria.
+  const noKit = kit.chance !== null;
   const linhas = Object.entries(plano.recursos.itens)
     .map(([id, media]) => ({
       itemId: Number(id),
       media,
-      naMargem: plano.simulacao?.itens[Number(id)]?.[margem] ?? null,
+      naMargem: noKit ? (kit.itens[Number(id)] ?? 0) : null,
       via: sourcingOf(Number(id), plano.input.precos),
     }))
     .filter((l) => l.media > 0)
@@ -758,7 +872,7 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
   // Quantas cópias do equipamento a campanha consome: a que você começa
   // segurando, mais uma para cada quebra. É o número que decide se dá para
   // começar hoje — de nada adianta ter minério se falta item para refinar.
-  const copiasNaMargem = plano.simulacao ? plano.simulacao.quebras[margem] + 1 : null;
+  const copiasNaMargem = noKit ? kit.reposicoes + 1 : null;
 
   return (
     <div>
@@ -769,9 +883,9 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
           <Info titulo="Por minério" alinhar="direita">
             Conferência, não decisão: aqui os minérios aparecem prontos, como o motor os conta, e
             não desmontados no que se compra — quem vai ao jogo leva a outra vista. A coluna{' '}
-            <strong className="text-texto">ter em mãos</strong> é quanto separar para não ficar sem
-            material no meio do caminho na margem escolhida: cada linha está no percentil dela,
-            então a soma passa do orçamento — é o preço de não faltar nada de uma vez só.
+            <strong className="text-texto">no kit</strong> é o “juntando tudo antes” do topo: o
+            quanto separar de cada um para nada faltar no nível escolhido. A média é o consumo de
+            uma campanha típica, e fica sempre abaixo.
           </Info>
         }
       >
@@ -785,7 +899,7 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
             <th className="pb-2">Material</th>
             <th className="pb-2">Como obter</th>
             <th className="pb-2 text-right">Média</th>
-            {plano.simulacao && <th className="pb-2 text-right">Ter em mãos</th>}
+            {noKit && <th className="pb-2 text-right">No kit</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-borda/60">
@@ -801,7 +915,7 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
               <td className="py-2 text-right tabular-nums">{quantidade(l.media)}</td>
               {l.naMargem !== null && (
                 <td className="py-2 text-right font-medium tabular-nums">
-                  {quantidade(Math.ceil(l.naMargem))}
+                  {Math.ceil(l.naMargem).toLocaleString('pt-BR')}
                 </td>
               )}
             </tr>
@@ -815,7 +929,7 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
             <td className="py-2 text-right tabular-nums">{quantidade(plano.copiasItem)}</td>
             {copiasNaMargem !== null && (
               <td className="py-2 text-right font-medium tabular-nums">
-                {quantidade(copiasNaMargem)}
+                {copiasNaMargem.toLocaleString('pt-BR')}
               </td>
             )}
           </tr>
@@ -839,18 +953,17 @@ function Materiais({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey
  * Minério de Oridecon do mercado ao NPC. Uma lista achatada dá a conta e esconde
  * a viagem; a árvore põe as duas na mesma linha e deixa a pessoa decidir.
  */
-function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }) {
-  const arvore = arvoreDeCompras(quantidadesNaMargem(plano, margem), plano.input.precos);
+function Compras({ plano, kit, margem }: { plano: ResultadoPlano; kit: Kit; margem: MargemKey }) {
+  const arvore = arvoreDeCompras(kit.itens, plano.input.precos);
   const materiais = arvore.reduce((s, l) => s + l.total, 0);
+  const info = MARGENS.find((m) => m.key === margem)!;
 
-  const quebras = Math.ceil(
-    plano.simulacao ? plano.simulacao.quebras[margem] : plano.recursos.itensQuebrados,
-  );
+  const quebras = kit.reposicoes;
   const custoReposicao = quebras * plano.input.precoItem;
   const tentativas = Math.round(plano.recursos.tentativas);
-  // A taxa não é `tentativas x valor fixo`: ela some nos minérios de Cash Shop das
-  // armas nv1 a nv4, então vem somada do motor.
-  const taxas = Math.ceil(plano.simulacao?.taxas[margem] ?? plano.recursos.taxas);
+  const taxas = kit.taxas;
+  // É o valor do kit, somado pelas mesmas parcelas: o número do topo e o desta
+  // lista não podem divergir em um zeny.
   const total = materiais + custoReposicao + taxas;
 
   return (
@@ -866,20 +979,22 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
             carregar mil minérios para poupar alguns milhares não compensa. O total abaixo segue a
             via mais barata, então trocar uma linha por comprar pronto o encarece exatamente na
             economia daquela linha.
-            {plano.simulacao ? (
-              <>
-                {' '}
-                O total desta lista fica <strong className="text-texto">acima do orçamento</strong>{' '}
-                porque cada linha está no seu próprio percentil — é o preço de não faltar nada de
-                uma vez só. O orçamento é o percentil do custo total, em que a sorte de um material
-                compensa o azar de outro.
-              </>
-            ) : null}
           </Info>
         }
       >
         Comprar ou fabricar
       </TituloDeSecao>
+
+      <p className="md-corpo-p text-suave">
+        {kit.chance !== null ? (
+          <>
+            O kit do “juntando tudo antes”: com ele, nada falta em {info.fracao} vezes. Quem compra
+            aos poucos gasta menos — é o outro número, lá em cima.
+          </>
+        ) : (
+          <>O consumo médio da campanha — sem simulação, não há margem para calcular.</>
+        )}
+      </p>
 
       <ul className="divide-y divide-borda/60">
         {arvore.map((l) => (
@@ -897,15 +1012,15 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
         <LinhaDeConta rotulo="Materiais (com o balcão do NPC)" valor={materiais} />
         {taxas > 0 && (
           <LinhaDeConta
-            rotulo="Taxa do refinador"
-            detalhe={`${tentativas.toLocaleString('pt-BR')} tentativas`}
+            rotulo={plano.fases.some((f) => f.grau) ? 'Taxas do refinador e de Grau' : 'Taxa do refinador'}
+            detalhe={`~${tentativas.toLocaleString('pt-BR')} tentativas na média`}
             valor={taxas}
           />
         )}
         {quebras > 0 && (
           <LinhaDeConta
             rotulo="Reposição do item quebrado (no +0)"
-            detalhe={`${quebras}x ${zeny(plano.input.precoItem)}`}
+            detalhe={`${quebras.toLocaleString('pt-BR')}x ${zeny(plano.input.precoItem)}`}
             valor={custoReposicao}
             perigo
           />
@@ -913,7 +1028,7 @@ function Compras({ plano, margem }: { plano: ResultadoPlano; margem: MargemKey }
       </dl>
 
       <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-borda pt-3">
-        <span className="md-titulo-m">Total da lista</span>
+        <span className="md-titulo-m">Total do kit</span>
         <span className="md-titulo-g text-realce tabular-nums" title={zenyExato(total)}>
           {zeny(total)}
         </span>
@@ -948,7 +1063,7 @@ function LinhaDeCompra({ linha, nivel = 0 }: { linha: ItemDaLista; nivel?: numbe
                   'tabular-nums ' + (raiz ? 'md-titulo-g text-realce' : 'md-corpo-m text-texto')
                 }
               >
-                {quantidade(linha.qtd)}x
+                {Number.isInteger(linha.qtd) ? inteiro(linha.qtd) : quantidade(linha.qtd)}x
               </strong>
               <span className={(raiz ? 'md-corpo-m' : 'md-corpo-p') + ' font-medium text-texto'}>
                 {nomeDoItem(linha.itemId)}
