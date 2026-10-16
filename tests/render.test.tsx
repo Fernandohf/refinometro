@@ -268,7 +268,7 @@ describe('página', () => {
     // O que levar para o jogo: quantidades da margem e cópias do equipamento.
     expect(html).toContain('Lista de compras');
     expect(html).toContain('Cópias do item');
-    expect(html).toContain('Valor do item');
+    expect(html).toContain('Compensa comprar pronto?');
     // O padrão é Arma nv4 +0 → +10, que passa por minérios e Bênção.
     expect(html).toContain('Oridecon');
     expect(html).toContain('browiki.org');

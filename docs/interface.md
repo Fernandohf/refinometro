@@ -76,8 +76,12 @@ O resultado fala a língua de quem joga, não a do motor:
 - **Uma quantidade por material, na página inteira.** O cartão do kit, a lista de compras, o
   diagrama de custo e o preenchimento da aba de estoque leem o mesmo kit (`src/engine/kit.ts`).
   Antes cada um lia uma estatística — média, percentil de cada linha, quantil conjunto — e o mesmo
-  minério aparecia com três números, todos "no 90%". Cópias, custo médio e valor do item pronto
-  ficam em "mais números".
+  minério aparecia com três números, todos "no 90%". Cópias e custo médio ficam em "mais
+  números".
+- **"Compensa comprar pronto?" responde com o preço que a pessoa achou.** Era o "valor do item
+  pronto", escondido em "mais números": o preço no +0 mais o custo médio, que só dá o ponto de
+  empate na média. Agora a pessoa digita quanto pedem pelo item pronto e a página diz em que
+  fração das campanhas simuladas refinar sai mais barato que isso.
 - **O plano diz quanto, não só o quê.** Cada trecho da estratégia leva o número de usos médio
   ("+5→+7 · ~40x Eteridecon Enriquecido"), e cada fase fecha com o consumo médio dela, que é onde
   aparece o que os trechos não mostram — a Bênção que o martelo cobra por uso. O custo da fase diz

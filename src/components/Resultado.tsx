@@ -7,7 +7,7 @@ import { campanhaEmMinerios, montarKit, type Kit } from '../engine/kit';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
 import type { Grade } from '../data/grade';
-import { rotuloCurto } from '../data/rotulos';
+import { nomeNoJogo, rotuloCurto } from '../data/rotulos';
 import { CartaoItem, SlotItem } from './ItemNoJogo';
 import { Percurso, TabelaDeEstados } from './Cadeia';
 import { CurvaDeCusto } from './CurvaDeCusto';
@@ -17,6 +17,7 @@ import {
   Abas,
   BotaoDoPainel,
   Divisor,
+  NumeroZeny,
   Info,
   Painel,
   Pastilha,
@@ -234,24 +235,22 @@ export function Resultado({
           />
         )}
 
-        {/* A frase de cima já diz o que estes três decidem — quanto separar e
-            se o item quebra. Abertos, eram três números grandes disputando com
-            o orçamento, e média e valor do item quase iguais pareciam erro. */}
+        {sim && plano.fases.length > 0 && (
+          <ComprarPronto plano={plano} itemNome={itemNome} itemSlots={itemSlots} />
+        )}
+
+        {/* A frase de cima já diz o que estes dois decidem — quanto separar e
+            se o item quebra. Abertos, eram números grandes disputando com o
+            orçamento. */}
         <div className="mt-5 border-t border-borda pt-3">
           <Recolhivel rotulo="mais números" aside={precisao}>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Copias plano={plano} margem={margem} />
               <Secundario
                 rotulo="Custo médio"
                 valor={zeny(plano.custoEsperado)}
                 titulo={zenyExato(plano.custoEsperado)}
                 nota="A média é puxada pelos azarados. Planejar por ela dá errado em quase metade das vezes."
-              />
-              <Secundario
-                rotulo="Valor do item pronto"
-                valor={zeny(plano.valorJusto)}
-                titulo={zenyExato(plano.valorJusto)}
-                nota={`Preço no +0 (${zeny(plano.input.precoItem)}) mais o custo médio do caminho. Se alguém vender o item já refinado por menos que isso, comprar pronto sai mais barato — e sem o risco.`}
               />
             </div>
           </Recolhivel>
@@ -687,6 +686,94 @@ function Quebra({ plano, kit }: { plano: ResultadoPlano; kit: Kit }) {
         <>O item pode quebrar no caminho, mas nesse nível uma cópia basta.</>
       )}
     </p>
+  );
+}
+
+/**
+ * "Compensa comprar pronto?", respondida com o preço que a pessoa achou.
+ *
+ * Era um número escondido em "mais números" — o preço no +0 mais o custo
+ * médio —, e ele só dizia o ponto de empate na média. Quem acha o item à
+ * venda quer saber outra coisa: com ESTE preço, em quantas vezes refinar sai
+ * mais barato. As campanhas simuladas respondem isso direto, e a média fica
+ * como referência para quem ainda não tem um preço.
+ *
+ * Saindo do +0, refinar é comprar outro no +0 e levá-lo até o alvo. Saindo de
+ * um refino acima, o item já é seu, e a comparação é só o caminho que falta.
+ */
+function ComprarPronto({
+  plano,
+  itemNome,
+  itemSlots = 0,
+}: {
+  plano: ResultadoPlano;
+  itemNome?: string | null;
+  itemSlots?: number;
+}) {
+  const [preco, setPreco] = useState(0);
+  const i = plano.input;
+  const amostras = plano.simulacao!.amostras.custo;
+  const base = i.refinoAtual === 0 ? i.precoItem : 0;
+  const media = base + plano.custoEsperado;
+
+  const partes = nomeNoJogo(itemNome ?? rotuloCurto(i.kind), i.refinoAlvo, i.grauAlvo, itemSlots);
+  const nome = [partes.refino, partes.grau, partes.nome, partes.slots].filter(Boolean).join(' ');
+
+  let refinarGanha: number | null = null;
+  if (preco > 0) {
+    let n = 0;
+    for (let k = 0; k < amostras.length; k++) if (base + amostras[k]! <= preco) n++;
+    refinarGanha = n / amostras.length;
+  }
+
+  return (
+    <div className="mt-4 rounded-xl bg-superficie-baixa p-3.5">
+      <div className="md-rotulo-p flex items-center gap-1 text-suave">
+        Compensa comprar pronto?
+        <Info titulo="Compensa comprar pronto?">
+          Compara pagar o preço pedido pelo item já pronto com{' '}
+          {i.refinoAtual === 0
+            ? `comprar outro no +0 (${zeny(i.precoItem)}) e refiná-lo`
+            : `refinar o seu, do +${i.refinoAtual}`}{' '}
+          até o alvo. A porcentagem é a fração das campanhas simuladas que gastaram menos que esse
+          preço. O item pronto ainda tem a vantagem de não arriscar nada — o preço é aquele, sem
+          cauda.
+        </Info>
+      </div>
+      <label className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="md-corpo-m min-w-0 flex-1">
+          Quanto pedem pelo <strong className="text-texto">{nome}</strong>?
+        </span>
+        <span className="w-44 shrink-0">
+          <NumeroZeny value={preco} onChange={setPreco} placeholder="preço à venda" />
+        </span>
+      </label>
+      <p className="md-corpo-m mt-2 text-suave">
+        {refinarGanha === null ? (
+          <>
+            Refinar custa, em média,{' '}
+            <strong className="text-texto tabular-nums" title={zenyExato(media)}>
+              {zeny(media)}
+            </strong>
+            . Abaixo disso, comprar pronto já ganha na média.
+          </>
+        ) : (
+          <>
+            Por <span className="tabular-nums">{zeny(preco)}</span>, refinar sai mais barato em{' '}
+            <strong className={'tabular-nums ' + (refinarGanha >= 0.5 ? 'text-ok' : 'text-atencao')}>
+              {porcento(refinarGanha)}
+            </strong>{' '}
+            das vezes
+            {refinarGanha < 0.5 ? ' — comprar pronto é a aposta melhor' : ''}. Em média, refinar
+            custa{' '}
+            <span className="tabular-nums" title={zenyExato(media)}>
+              {zeny(media)}
+            </span>
+            .
+          </>
+        )}
+      </p>
+    </div>
   );
 }
 
