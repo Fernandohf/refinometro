@@ -48,6 +48,12 @@ export interface StrategyRange {
    * `naFalha` descreve o que ele FAZ, porque falha não há.
    */
   atalho: { grupo: GrupoDoAtalho; sorteado: boolean } | null;
+  /**
+   * Quantas vezes, em média, a ação deste trecho é usada numa passada da fase:
+   * tentativas no refinador, ou usos do cubo. Multiplicada pelo que cada uso
+   * consome, dá a quantidade do trecho ("~190 Eteridecon Enriquecido").
+   */
+  tentativas: number;
 }
 
 export interface Aviso {
@@ -74,6 +80,12 @@ export interface PlanoDeFase {
   /** Refino de partida e de chegada da fase, para percorrer a cadeia. */
   de?: number;
   para?: number;
+  /**
+   * Material consumido pela fase, em média, por id de item — o mesmo cálculo
+   * exato que soma os recursos da campanha, fase a fase. Numa fase de grau pelo
+   * processo normal entra também o preparo de cada cópia que a falha destrói.
+   */
+  consumo: Record<number, number>;
 }
 
 /**
@@ -269,6 +281,7 @@ function calcularInterno(
         politica: degrau.refinoPreparo.politica,
         de: refinoDe,
         para: degrau.refino,
+        consumo: {},
       });
 
       const rotuloGrau = `Grau ${degrau.step.de === 'none' ? 'sem grau' : degrau.step.de} → ${degrau.step.para}`;
@@ -279,6 +292,7 @@ function calcularInterno(
         custoEsperado: degrau.custoTentativas,
         trechos: [],
         grau: degrau,
+        consumo: {},
       });
 
       refinoDe = 0; // o sucesso zera o refino
@@ -304,6 +318,7 @@ function calcularInterno(
         politica: finalPlan.politica,
         de: 0,
         para: input.refinoAlvo,
+        consumo: {},
       });
     }
   } else if (input.refinoAlvo > input.refinoAtual) {
@@ -326,6 +341,7 @@ function calcularInterno(
       politica: plan.politica,
       de: input.refinoAtual,
       para: input.refinoAlvo,
+      consumo: {},
     });
   }
 
@@ -334,6 +350,8 @@ function calcularInterno(
   // Os números de recurso vêm sempre do cálculo exato, nunca da amostragem:
   // são mais precisos e continuam disponíveis quando a simulação é inviável.
   const recursos = agregarRecursos(fases, custoEsperado);
+  // `fases` e `planos` andam em par, um push de cada por fase.
+  fases.forEach((f, i) => (planos[i]!.consumo = recursosDaFase(f).itens));
 
   // Uma execução da simulação custa `porExecucao` tentativas. Se isso já for
   // proibitivo, não simulamos: percentis truncados enganariam mais que ajudam.
@@ -433,46 +451,54 @@ function custoAceitandoPerda(input: CalcInput): number | null {
 }
 
 /**
- * Soma os recursos esperados de todas as fases, a partir dos números exatos.
+ * Os recursos esperados de uma fase, a partir dos números exatos.
  *
  * Nas fases de grau, cada tentativa consome o material do degrau; se o processo
  * for o normal, cada falha ainda obriga a comprar outro item e refiná-lo até lá
  * de novo, então o preparo entra multiplicado pelo número de falhas.
  */
+function recursosDaFase(fase: Fase): Omit<ResourceUsage, 'zeny'> {
+  if (fase.tipo === 'refino') return fase.recursos;
+
+  const itens: Record<number, number> = {};
+  const somar = (itemId: number, qtd: number) => {
+    itens[itemId] = (itens[itemId] ?? 0) + qtd;
+  };
+  let itensQuebrados = 0;
+  let tentativas = 0;
+  let taxas = 0;
+
+  const p = fase.plano;
+  const modo = p.seguro ? p.step.seguro : p.step.normal;
+  somar(modo.material.itemId, modo.material.qtd * p.tentativasEsperadas);
+  if (p.qtdBencaos > 0) somar(ETHER_BLESSING_ITEM_ID, p.qtdBencaos * p.tentativasEsperadas);
+
+  if (!p.seguro) {
+    const falhas = p.tentativasEsperadas - 1;
+    itensQuebrados += falhas;
+    const rep = p.refinoReposicao!.recursos;
+    tentativas += falhas * rep.tentativas;
+    taxas += falhas * rep.taxas;
+    itensQuebrados += falhas * rep.itensQuebrados;
+    for (const [id, qtd] of Object.entries(rep.itens)) somar(Number(id), qtd * falhas);
+  }
+
+  return { itens, itensQuebrados, tentativas, taxas };
+}
+
+/** Soma os recursos esperados de todas as fases. */
 function agregarRecursos(fases: Fase[], zeny: number): ResourceUsage {
   const itens: Record<number, number> = {};
   let itensQuebrados = 0;
   let tentativas = 0;
   let taxas = 0;
 
-  const somar = (itemId: number, qtd: number) => {
-    itens[itemId] = (itens[itemId] ?? 0) + qtd;
-  };
-
   for (const fase of fases) {
-    if (fase.tipo === 'refino') {
-      const r = fase.recursos;
-      tentativas += r.tentativas;
-      taxas += r.taxas;
-      itensQuebrados += r.itensQuebrados;
-      for (const [id, qtd] of Object.entries(r.itens)) somar(Number(id), qtd);
-      continue;
-    }
-
-    const p = fase.plano;
-    const modo = p.seguro ? p.step.seguro : p.step.normal;
-    somar(modo.material.itemId, modo.material.qtd * p.tentativasEsperadas);
-    if (p.qtdBencaos > 0) somar(ETHER_BLESSING_ITEM_ID, p.qtdBencaos * p.tentativasEsperadas);
-
-    if (!p.seguro) {
-      const falhas = p.tentativasEsperadas - 1;
-      itensQuebrados += falhas;
-      const rep = p.refinoReposicao!.recursos;
-      tentativas += falhas * rep.tentativas;
-      taxas += falhas * rep.taxas;
-      itensQuebrados += falhas * rep.itensQuebrados;
-      for (const [id, qtd] of Object.entries(rep.itens)) somar(Number(id), qtd * falhas);
-    }
+    const r = recursosDaFase(fase);
+    tentativas += r.tentativas;
+    taxas += r.taxas;
+    itensQuebrados += r.itensQuebrados;
+    for (const [id, qtd] of Object.entries(r.itens)) itens[Number(id)] = (itens[Number(id)] ?? 0) + qtd;
   }
 
   return { zeny, itens, itensQuebrados, tentativas, taxas };
@@ -512,6 +538,7 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
   // A política é indexada pelo refino em `de`, não pela posição: sem aceitar a
   // perda do item ela começa no piso, e não no +0.
   const porNivel = new Map(politica.map((p) => [p.de, p.acao]));
+  const tentativas = new Map(politica.map((p) => [p.de, p.tentativas]));
   const visitados = alcancaveis(porNivel, de, para);
 
   for (let r = de; r < para; r++) {
@@ -526,13 +553,17 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
       // O martelo de +1 se repete degrau a degrau, e o trecho cresce com ele.
       if (mesmoAtalho && contiguo && a.atalho.efeito.tipo === 'soma') {
         ultimo.para = r + 1;
+        ultimo.tentativas += tentativas.get(r) ?? 0;
         continue;
       }
       // O cubo sorteado é usado de novo em cada refino aonde o sorteio pode
       // jogar o item — o Martelo de Refino Sombrio, em todos do +0 ao +7. É uma
       // instrução só ("use o martelo até passar"), e uma linha por degrau a
       // repetiria oito vezes.
-      if (mesmoAtalho && a.atalho.efeito.tipo !== 'soma') continue;
+      if (mesmoAtalho && a.atalho.efeito.tipo !== 'soma') {
+        ultimo.tentativas += tentativas.get(r) ?? 0;
+        continue;
+      }
       trechos.push({
         de: r,
         para: Math.min(refinoMaximoDoEfeito(a.atalho.efeito, r), para),
@@ -546,6 +577,7 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
         minerioEspecial: false,
         minerioProtege: false,
         atalho: { grupo: a.atalho.grupo, sorteado },
+        tentativas: tentativas.get(r) ?? 0,
       });
       continue;
     }
@@ -560,6 +592,7 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
 
     if (mesmaAcao) {
       ultimo.para = r + 1;
+      ultimo.tentativas += tentativas.get(r) ?? 0;
       continue;
     }
 
@@ -576,6 +609,7 @@ function agruparTrechos(politica: PolicyEntry[], de: number, para: number): Stra
       minerioEspecial: a.ore.especial,
       minerioProtege: a.ore.penalidade !== 'break',
       atalho: null,
+      tentativas: tentativas.get(r) ?? 0,
     });
   }
 

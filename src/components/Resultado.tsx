@@ -1239,8 +1239,10 @@ function Fase({
     <li className="rounded-xl bg-superficie-baixa p-3.5">
       <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="md-titulo-m">{fase.rotulo}</h3>
+        {/* É a média, e diz que é: somadas, as fases dão o custo médio, não
+            nenhum dos dois números do topo. */}
         <span className="md-corpo-m text-suave tabular-nums" title={zenyExato(fase.custoEsperado)}>
-          {zeny(fase.custoEsperado)}
+          {zeny(fase.custoEsperado)} na média
         </span>
       </div>
 
@@ -1262,13 +1264,24 @@ function Fase({
                   nome é o que se confere. Lê-lo sem ver o sprite obriga a
                   traduzir cada passo antes de executá-lo no jogo. */}
               <SlotItem id={t.minerioItemId} tamanho="mini" />
+              {/* Quantas vezes, em média, a ação do trecho é usada — um minério
+                  por tentativa, um cubo por uso. É o "quanto" do "o quê". */}
+              {t.tentativas > 0 && (
+                <strong className="tabular-nums" title="Em média, numa passada desta fase">
+                  ~{quantidade(t.tentativas)}x
+                </strong>
+              )}
               <span className="font-medium">{t.minerio}</span>
               {/* Um cubo não tem chance nem falha: o que ele faz já é a informação
                   inteira, e "100%" ao lado dele sugeriria uma tentativa. */}
               {t.atalho && (
                 <span className="md-corpo-p text-suave">— {t.naFalha}</span>
               )}
-              {t.bencaos > 0 && <Pastilha tom="ok">+{t.bencaos} Bênção do Ferreiro</Pastilha>}
+              {t.bencaos > 0 && (
+                <Pastilha tom="ok">
+                  +{t.bencaos} Bênção do Ferreiro por tentativa
+                </Pastilha>
+              )}
               {!t.atalho && (
                 <span className="md-corpo-p text-suave tabular-nums">{porcento(t.chance)}</span>
               )}
@@ -1302,11 +1315,13 @@ function Fase({
             {fase.grau.pontosBencao > 0
               ? `Somar ${fase.grau.qtdBencaos} Bênção de Éter para comprar +${fase.grau.pontosBencao} p.p. de chance.`
               : 'A Bênção de Éter não compensa neste degrau, pelos preços informados.'}{' '}
-            Cerca de {fase.grau.tentativasEsperadas.toFixed(1)} tentativas até passar. O sucesso zera o
-            refino de volta para +0.
+            Cerca de {fase.grau.tentativasEsperadas.toFixed(1).replace('.', ',')} tentativas até
+            passar. O sucesso zera o refino de volta para +0.
           </p>
         </div>
       )}
+
+      <ConsumoDaFase consumo={fase.consumo} />
 
       {temDetalhe && (
         <>
@@ -1341,6 +1356,34 @@ function Fase({
         </>
       )}
     </li>
+  );
+}
+
+/**
+ * O que a fase gasta de material, em média: a soma dos trechos de cima, mais o
+ * que eles não mostram — a Bênção que o martelo cobra por uso, o refino de
+ * volta depois de uma queda abaixo do refino de partida.
+ */
+function ConsumoDaFase({ consumo }: { consumo: Record<number, number> }) {
+  const linhas = Object.entries(consumo)
+    .map(([id, qtd]) => ({ itemId: Number(id), qtd }))
+    .filter((l) => l.qtd > 1e-9)
+    .sort((a, b) => b.qtd - a.qtd);
+  if (linhas.length === 0) return null;
+
+  return (
+    <div className="md-corpo-p mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-suave">
+      <span>Em média, nesta fase:</span>
+      {linhas.map((l) => (
+        <span key={l.itemId} className="inline-flex items-center gap-1.5">
+          <SlotItem id={l.itemId} tamanho="mini" />
+          <span>
+            <strong className="text-texto tabular-nums">{quantidade(l.qtd)}</strong>{' '}
+            {nomeDoItem(l.itemId)}
+          </span>
+        </span>
+      ))}
+    </div>
   );
 }
 

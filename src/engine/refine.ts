@@ -487,12 +487,14 @@ export function solveRefine(de: number, para: number, opts: RefineOptions): Refi
     avaliacao = avaliarPolitica(escolha, acoesPorEstado, piso, para, opts);
   }
 
+  const visitas = avaliacao.visitas(de);
   const politica: PolicyEntry[] = [];
   for (let i = 0; i < n; i++) {
     politica.push({
       de: piso + i,
       acao: acoesPorEstado[i]![escolha[i]!]!,
       custoEsperado: avaliacao.custo[i]!,
+      tentativas: visitas[i]!,
     });
   }
 
@@ -553,7 +555,11 @@ function avaliarPolitica(
   piso: number,
   para: number,
   opts: RefineOptions,
-): { custo: Float64Array; recursos: (de: number, politica: PolicyEntry[]) => ResourceUsage } {
+): {
+  custo: Float64Array;
+  recursos: (de: number, politica: PolicyEntry[]) => ResourceUsage;
+  visitas: (de: number) => Float64Array;
+} {
   // A linha `i` da matriz é o refino `piso + i`. Aceitando a perda do item o
   // piso é 0 e os dois coincidem; sem aceitar, o sistema é só do piso para cima.
   const n = para - piso;
@@ -615,7 +621,22 @@ function avaliarPolitica(
     };
   };
 
-  return { custo, recursos };
+  /**
+   * Visitas esperadas a cada estado, saindo de `de`: a linha `de` de (I - P)⁻¹.
+   *
+   * Sai com um lado direito indicador por estado — n resoluções sobre a mesma
+   * fatoração, com n de no máximo 21. É o que reparte o consumo da fase pelos
+   * trechos da estratégia ("do +3 ao +9, ~190 Eteridecon Enriquecido").
+   */
+  const visitas = (de: number): Float64Array => {
+    const v = new Float64Array(n);
+    for (let j = 0; j < n; j++) {
+      v[j] = resolver((_, r) => (r === piso + j ? 1 : 0))[de - piso]!;
+    }
+    return v;
+  };
+
+  return { custo, recursos, visitas };
 }
 
 /** Lançado quando o alvo é inalcançável com os minérios e preços informados. */
