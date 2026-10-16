@@ -115,7 +115,11 @@ expansão da lista de compras, pela mesma razão. E já vêm **preenchidos** com
 segurança escolhido no topo: o quantil comum em que a mochila inteira fecha aquela fração das
 campanhas, contado em minério inteiro (`montarKit`, em `src/engine/kit.ts`) e desmontado em
 seguida (`estoqueDoKit`). É o mesmo kit do "juntando tudo antes" e da lista de compras, e
-desmontá-lo nunca baixa a chance (→ §9.7). O percentil de cada coisa lido em separado não
+desmontá-lo nunca baixa a chance (→ §9.7). O kit também é a régua do que falta: abaixo dele em
+qualquer campo, a tela diz o que comprar e quanto custa (`faltaParaOKit`) — e, comprado isso, cada
+recurso volta a ficar no kit ou acima, então a chance volta ao nível escolhido pela monotonia da
+§9.3. Antes cada recurso tinha a própria falta, no percentil dele, e somá-las não devolvia chance
+nenhuma. O percentil de cada coisa lido em separado não
 serve — no `w4` +0 → +12, os quatro materiais no próprio p90 cobrem 75% das campanhas, não 90%.
 Daí em diante é ajuste: baixar o que não se tem e ver a chance responder. Abaixo do consumo da
 campanha mais sortuda o campo fica vermelho, porque aí a resposta deixa de ser "improvável" e
