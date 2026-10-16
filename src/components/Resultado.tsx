@@ -135,17 +135,19 @@ export function Resultado({
       rotulo: 'O que comprar',
       conteudo: (
         <div className="space-y-4">
-          {/* O diagrama fica colado na lista porque os dois totais são o MESMO
-              número: ele é a lista relida por natureza do gasto. Encostá-lo no
-              orçamento, que é o percentil do total, poria dois totais
-              diferentes um embaixo do outro — e é essa divergência que a página
-              já gasta dois textos explicando. */}
+          {/* A lista vem primeiro: é o que o nome da aba promete, e o que se
+              leva ao jogo. O diagrama fica colado nela porque os dois totais
+              são o MESMO número — ele é a lista relida por natureza do gasto —,
+              e vem depois porque responde outra pergunta: para onde vai o
+              zeny, e não o que comprar. */}
+          {temCompras && <PainelDeCompras plano={plano} kit={kit} margem={margem} />}
+
           {fluxo.total > 0 && (
             <Painel
               titulo="Para onde vai o zeny"
               info={
                 <Info titulo="Para onde vai o zeny">
-                  As mesmas quantidades da lista de compras logo abaixo, agrupadas pela natureza do
+                  As mesmas quantidades da lista de compras logo acima, agrupadas pela natureza do
                   gasto em vez de pelo nome do material. É o desenho que mostra que a maior parte de
                   uma campanha cara não é minério — é proteção contra a quebra e reposição do
                   equipamento destruído.
@@ -156,8 +158,6 @@ export function Resultado({
               <ResumoDoFluxo fluxo={fluxo} />
             </Painel>
           )}
-
-          {temCompras && <PainelDeCompras plano={plano} kit={kit} margem={margem} />}
         </div>
       ),
     });
