@@ -494,13 +494,19 @@ function NivelDeSeguranca({
   margem: MargemKey;
   onMargem: (m: MargemKey) => void;
 }) {
+  const atual = MARGENS.find((m) => m.key === margem)!;
   return (
     <div className="mt-4">
       <div className="md-rotulo-p text-suave">Quão seguro você quer estar?</div>
+      {/* Uma linha só, em qualquer largura. No celular cada coluna tem uns
+          60px, e "Muito seguro" não cabe nela: o botão fica só com o
+          percentual, e o nome do nível escolhido vem por extenso logo abaixo.
+          Em três colunas o seletor quebrava em duas linhas desiguais, e a
+          segunda parecia outra escolha. */}
       <div
         role="radiogroup"
         aria-label="Margem de segurança"
-        className="mt-2 grid grid-cols-3 gap-1 sm:grid-cols-5"
+        className="mt-2 grid grid-cols-5 gap-1"
       >
         {MARGENS.map((m) => {
           const ativo = m.key === margem;
@@ -510,22 +516,28 @@ function NivelDeSeguranca({
               type="button"
               role="radio"
               aria-checked={ativo}
+              aria-label={`${m.rotulo} (${m.pct})`}
               onClick={() => onMargem(m.key)}
               title={`${m.explica} (${m.pct})`}
               className={
-                'estado flex cursor-pointer items-baseline justify-between gap-1 rounded-lg border px-2 py-1.5 text-left text-xs ' +
+                'estado flex cursor-pointer items-baseline justify-center gap-1 rounded-lg border px-1 py-1.5 text-xs sm:justify-between sm:px-2 sm:text-left ' +
                 'transition-colors duration-200 ease-padrao ' +
                 (ativo
                   ? 'border-transparent bg-realce-container text-no-realce-container'
                   : 'border-borda text-suave hover:text-texto')
               }
             >
-              <span className="font-semibold whitespace-nowrap">{m.rotulo}</span>
-              <span className="opacity-70">{m.pct}</span>
+              <span className="hidden font-semibold whitespace-nowrap sm:inline">{m.rotulo}</span>
+              <span className={'tabular-nums sm:opacity-70 ' + (ativo ? 'font-semibold sm:font-normal' : '')}>
+                {m.pct}
+              </span>
             </button>
           );
         })}
       </div>
+      <p className="md-corpo-p mt-1.5 text-suave sm:hidden" aria-hidden>
+        <strong className="text-texto">{atual.rotulo}</strong>: {atual.explica}.
+      </p>
     </div>
   );
 }
