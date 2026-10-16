@@ -58,6 +58,17 @@ describe('página', () => {
     expect(html).toContain('id="apoiar"');
   });
 
+  it('lembra do apoio logo depois do resultado, e não antes dele', () => {
+    const html = renderToString(<App />);
+
+    // O lembrete só tem razão de ser depois da entrega: se ele subir para cima
+    // do resultado, vira pedido antes da conta — o que o topo já evita.
+    const convite = html.indexOf('A conta te poupou zeny?');
+    expect(convite).toBeGreaterThan(-1);
+    expect(convite).toBeGreaterThan(html.indexOf('Lista de compras'));
+    expect(convite).toBeLessThan(html.indexOf('id="apoiar"'));
+  });
+
   it('serve um código Pix que o banco aceita: CRC certo e chave de dentro', () => {
     // Um caractere trocado no payload não quebra nada aqui e nada na tela — o
     // erro aparece no aplicativo do banco de quem tentou doar, que é onde

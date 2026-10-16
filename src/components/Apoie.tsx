@@ -1,10 +1,11 @@
 import { Botao, BotaoCafe, BotaoPix, IconeCafe } from './ui';
 
 /*
-  O pedido de apoio: o café, o Pix e o link discreto do topo.
+  O pedido de apoio: o café, o Pix, o link discreto do topo e o lembrete de
+  baixo do resultado.
 
-  Mora num arquivo só porque as duas pontas — a do topo e a do fim — precisam
-  concordar sobre o mesmo âncora e o mesmo texto. Espalhado, o link do
+  Mora num arquivo só porque as três pontas — a do topo, a do resultado e a do
+  fim — precisam concordar sobre o mesmo âncora e o mesmo texto. Espalhado, o link do
   cabeçalho apontaria para um id que alguém renomeou no rodapé, e ninguém
   descobriria: um âncora quebrado não dá erro, só não rola.
 */
@@ -103,7 +104,7 @@ export function Apoie() {
  * checkout a partir do topo de uma calculadora que a pessoa ainda não usou
  * seria pedir antes de entregar.
  *
- * É o `Botao` do sistema, contornado e na medida pequena — a mesma peça do
+ * É o `Botao` do sistema, tonal e na medida pequena — a mesma peça do
  * "editar" de cada painel, com a mesma altura, a mesma ondulação e a mesma
  * película de estado. A primeira versão era texto cinza solto com um emoji de
  * caneca na frente, e ficava esquisito por três motivos de uma vez: o emoji é
@@ -111,12 +112,41 @@ export function Apoie() {
  * `currentColor`; cinza sobre o cabeçalho não parecia clicável; e sem caixa
  * nem altura ele não tinha alvo de toque, só um punhado de letras. Agora é
  * pequeno E é um botão, que são coisas diferentes.
+ *
+ * Tonal, e não mais contornado, porque é o único pedido entre três atalhos de
+ * texto: o fundo o separa dos vizinhos sem disputar com o título. E continua
+ * na PONTA DIREITA do grupo, não ao lado do logo — colado no nome, o título
+ * passaria a ler "Refinômetro · Apoiar", e no celular o botão empurraria a
+ * frase que diz a quem chega do buscador o que a página é.
  */
 export function LinkDeApoio() {
   return (
-    <Botao href={`#${ANCORA}`} variante="contornado" tamanho="pequeno">
+    <Botao href={`#${ANCORA}`} variante="tonal" tamanho="pequeno">
       <IconeCafe />
       Apoiar
     </Botao>
+  );
+}
+
+/**
+ * O lembrete de apoio logo abaixo do resultado.
+ *
+ * É o único momento em que pedir faz sentido: a pessoa acabou de receber a
+ * conta que veio buscar. Por isso só aparece quando há resultado, e por isso é
+ * uma linha de texto e não um cartão — o cartão de verdade continua no fim, e
+ * este link só aponta para ele, como o do topo.
+ *
+ * O limite é o mesmo do cartão: texto fixo, sem cor de fundo, sem animação e
+ * sem mudar a cada recálculo. Topo, resultado e fim são três lugares; um
+ * quarto já seria cobrança.
+ */
+export function ConviteDeApoio() {
+  return (
+    <p className="md-corpo-p mt-3 text-center text-suave">
+      A conta te poupou zeny?{' '}
+      <a className="text-realce hover:underline" href={`#${ANCORA}`}>
+        Apoie o Refinômetro
+      </a>
+    </p>
   );
 }
