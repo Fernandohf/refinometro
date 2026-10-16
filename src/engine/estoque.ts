@@ -1,4 +1,4 @@
-import { listaDeCompras } from './pricing';
+import { listaDeCompras, unitCost } from './pricing';
 import { percentis, quantilOrdenado, type AmostrasCampanha, type Marco } from './simulate';
 import type { Percentis, PriceTable } from './types';
 
@@ -185,6 +185,12 @@ function coluna(c: CampanhaEmMateriais, col: number): Float64Array {
   return c.consumoOrdenado.subarray(col * c.execucoes, (col + 1) * c.execucoes);
 }
 
+/** Custo de uma unidade inteira, pela via mais barata; zero se não há como obtê-la. */
+function precoInteiro(itemId: number, precos: PriceTable): number {
+  const c = unitCost(itemId, precos);
+  return Number.isFinite(c) ? c : 0;
+}
+
 /**
  * Desmonta o consumo simulado até o que se compra de verdade.
  *
@@ -193,26 +199,41 @@ function coluna(c: CampanhaEmMateriais, col: number): Float64Array {
  * mais barato, então o estoque precisa falar dos mesmos materiais. O balcão do
  * NPC continua sendo zeny — quem fabrica Bradium paga os 50 mil de qualquer
  * forma, tendo Oridecon na mochila ou não.
+ *
+ * Com `desmontar: false` as colunas ficam no minério que o plano consome
+ * (Eteridecon, não Minério de Oridecon) — é a moeda da lista de compras, que
+ * abre a receita embaixo de cada linha em vez de achatá-la. É dela que sai o
+ * kit (ver `kit.ts`).
  */
 export function emMateriais(
   amostras: AmostrasCampanha,
   precos: PriceTable,
   precoItem: number,
+  { desmontar = true }: { desmontar?: boolean } = {},
 ): CampanhaEmMateriais {
   const n = amostras.execucoes;
 
   const colunas = new Map<number, number>();
+  const colunaDe = (itemId: number) => {
+    let coluna = colunas.get(itemId);
+    if (coluna === undefined) {
+      coluna = colunas.size;
+      colunas.set(itemId, coluna);
+    }
+    return coluna;
+  };
   const receitas = amostras.itemIds.map((itemId) =>
-    // Uma unidade de cada minério, desmontada pela mesma decisão de comprar ou
-    // fabricar que o custo usou.
-    listaDeCompras({ [itemId]: 1 }, precos).compras.map((linha) => {
-      let coluna = colunas.get(linha.itemId);
-      if (coluna === undefined) {
-        coluna = colunas.size;
-        colunas.set(linha.itemId, coluna);
-      }
-      return { coluna, qtd: linha.qtd, preco: linha.custoUnitario };
-    }),
+    desmontar
+      ? // Uma unidade de cada minério, desmontada pela mesma decisão de comprar
+        // ou fabricar que o custo usou.
+        listaDeCompras({ [itemId]: 1 }, precos).compras.map((linha) => ({
+          coluna: colunaDe(linha.itemId),
+          qtd: linha.qtd,
+          preco: linha.custoUnitario,
+        }))
+      : // Inteiro, cotado pela via mais barata — o balcão do NPC vai junto no
+        // preço, e o zeny puro que sobra é só taxa (ver `montarKit`).
+        [{ coluna: colunaDe(itemId), qtd: 1, preco: precoInteiro(itemId, precos) }],
   );
 
   const nCol = colunas.size;

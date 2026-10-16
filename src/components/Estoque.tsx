@@ -4,7 +4,6 @@ import { nomeDoItem } from '../data/nomes';
 import {
   avaliarEstoque,
   emMateriais,
-  estoqueRecomendado,
   ondeAcaba,
   type CampanhaEmMateriais,
   type Estoque,
@@ -12,6 +11,7 @@ import {
   type Travamento,
   type VereditoEstoque,
 } from '../engine/estoque';
+import { estoqueDoKit, type Kit } from '../engine/kit';
 import type { Resultado as ResultadoPlano } from '../engine/plan';
 import type { CalcInput } from '../engine/types';
 import { porcento, zeny, zenyExato } from '../format';
@@ -23,7 +23,6 @@ import {
   Info,
   NumeroComPasso,
   Painel,
-  Segmentado,
   TituloDeSecao,
   passoDe,
   passoDeZeny,
@@ -39,7 +38,7 @@ import { SlotItem } from './ItemNoJogo';
  * o que foi digitado a cada render, ou nunca voltaria a rodar.
  */
 export interface EstoqueSalvo extends Estoque {
-  /** Chance que o preenchimento automático mira. */
+  /** Chance que o preenchimento automático mirou — a do nível de segurança. */
   alvo: number;
   /** A pergunta que produziu estes números (ver `assinaturaDoPlano`). */
   assinatura: string;
@@ -52,24 +51,6 @@ export const ESTOQUE_VAZIO: EstoqueSalvo = {
   alvo: 0.9,
   assinatura: '',
 };
-
-/**
- * Chances que o preenchimento sabe mirar.
- *
- * Não são as margens do painel de custo, e por um motivo: lá a pergunta é
- * "quanto levar para não estourar", e ninguém orça uma campanha para dar
- * errado. Aqui a pergunta é o que a pessoa já tem, e "e se eu topar 10%?" é
- * legítima — é o jogador que aceita apostar barato, sabendo que provavelmente
- * volta ao mercado no meio do caminho.
- */
-const CHANCES_ALVO = [
-  { key: '0.1', rotulo: '10%', dica: 'aposta barata: 1 em 10 campanhas fecha com isso' },
-  { key: '0.25', rotulo: '25%', dica: '1 em 4 campanhas fecha com isso' },
-  { key: '0.5', rotulo: '50%', dica: 'metade das campanhas fecha com isso' },
-  { key: '0.75', rotulo: '75%', dica: '3 de cada 4 campanhas' },
-  { key: '0.9', rotulo: '90%', dica: '9 de cada 10 campanhas' },
-  { key: '0.99', rotulo: '99%', dica: 'só 1 em 100 fica pelo caminho' },
-] as const;
 
 /**
  * Contagem inteira. Aqui nada é média: o que a pessoa tem na mochila e o que
@@ -114,11 +95,18 @@ function assinaturaDoPlano(input: CalcInput, alvo: number, materiais: number[]):
  */
 export function SimuladorDeEstoque({
   plano,
+  kit,
   margem,
   estoque,
   onChange,
 }: {
   plano: ResultadoPlano;
+  /**
+   * O kit do "juntando tudo antes", no nível de segurança da página. É o que
+   * preenche os campos: a lista de compras e esta aba falam das mesmas
+   * quantidades, e o nível se escolhe num lugar só.
+   */
+  kit: Kit;
   margem: MargemKey;
   estoque: EstoqueSalvo;
   onChange: (e: EstoqueSalvo) => void;
@@ -143,18 +131,20 @@ export function SimuladorDeEstoque({
     existir despreenchida; o efeito logo abaixo só devolve o resultado ao App,
     que é quem guarda o estoque e o salva.
   */
+  const margemInfo = MARGENS.find((m) => m.key === margem)!;
+  const alvo = margemInfo.chance;
   const assinatura = assinaturaDoPlano(
     plano.input,
-    estoque.alvo,
+    alvo,
     campanha?.materiais.map((m) => m.itemId) ?? [],
   );
   const recomendado = useMemo(
-    () => (campanha ? estoqueRecomendado(campanha, estoque.alvo) : null),
-    [campanha, estoque.alvo],
+    () => (campanha ? estoqueDoKit(kit, plano.input.precos) : null),
+    [campanha, kit, plano.input.precos],
   );
   const efetivo: EstoqueSalvo =
     recomendado && assinatura !== estoque.assinatura
-      ? { ...recomendado, alvo: estoque.alvo, assinatura }
+      ? { ...recomendado, alvo, assinatura }
       : estoque;
 
   useEffect(() => {
@@ -194,8 +184,8 @@ export function SimuladorDeEstoque({
     >
       {!aberto ? (
         <p className="text-sm leading-relaxed text-suave">
-          Os campos já vêm com o que a campanha pede para a chance escolhida — baixe o que você não
-          tem e veja a resposta mudar.
+          Os campos já vêm com o kit do nível escolhido — baixe o que você não tem e veja a resposta
+          mudar.
           {veredito && (
             <>
               {' '}
@@ -214,31 +204,31 @@ export function SimuladorDeEstoque({
         </p>
       ) : (
         <div className="space-y-5">
-          {/* A chance escolhida é o que preenche a tela, então ela vem antes
-              dos campos que preenche — e não depois deles, como um filtro. */}
+          {/* O nível de segurança é o do topo da página, e não um seletor
+              daqui: eram dois controles para a mesma pergunta, com escalas
+              diferentes, e cada um preenchia números diferentes para o mesmo
+              minério. */}
           <div className="rounded-lg border border-borda bg-fundo/40 p-3">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span className="text-xs font-semibold tracking-wide text-suave uppercase">
-                Quero chegar com
+            <p className="md-corpo-p flex flex-wrap items-center gap-x-1.5 gap-y-1 text-suave">
+              <span>
+                Preenchido com o kit do nível{' '}
+                <strong className="text-texto">
+                  {margemInfo.rotulo} ({margemInfo.pct})
+                </strong>
+                , escolhido lá em cima.
               </span>
-              <Segmentado
-                rotulo="Chance que quero ter"
-                value={String(estoque.alvo)}
-                onChange={(v) => onChange({ ...efetivo, alvo: Number(v) })}
-                opcoes={CHANCES_ALVO.map((c) => ({ key: c.key, rotulo: c.rotulo, dica: c.dica }))}
-              />
               <Info titulo="De onde saem os valores preenchidos" alinhar="direita">
-                Não é o percentil de cada recurso lido em separado: os azares são marginais, e a
-                campanha que estoura o minério não é a mesma que estoura o caixa. Levar o percentil
-                90 de cinco coisas dá bem menos que 90% de chance de não faltar nenhuma. A tela
-                procura o corte comum em que a mochila inteira fecha a fração pedida das campanhas —
-                por isso os números vêm um pouco acima do percentil que você escolheu.
+                É o kit do “juntando tudo antes”, desmontado até o que se compra. Não é o percentil
+                de cada recurso lido em separado: a campanha que estoura o minério não é a mesma que
+                estoura o caixa, e levar o percentil 90 de cinco coisas dá bem menos que 90% de
+                chance de não faltar nenhuma. O kit é o corte comum em que a mochila inteira fecha a
+                fração pedida — por isso a chance logo abaixo sai igual ou um pouco acima dela.
               </Info>
-            </div>
+            </p>
 
             <p className="md-corpo-p mt-2.5 text-suave">
               {noRecomendado ? (
-                <>Tudo abaixo está no recomendado para essa chance. Baixe o que você não tem.</>
+                <>Tudo abaixo está no kit recomendado. Baixe o que você não tem.</>
               ) : (
                 <>
                   Você mexeu nos valores.{' '}
@@ -246,7 +236,7 @@ export function SimuladorDeEstoque({
                     variante="contornado"
                     tamanho="pequeno"
                     className="align-middle"
-                    onClick={() => recomendado && onChange({ ...recomendado, alvo: estoque.alvo, assinatura })}
+                    onClick={() => recomendado && onChange({ ...recomendado, alvo, assinatura })}
                   >
                     repor o recomendado
                   </Botao>

@@ -175,13 +175,21 @@ body {
 /*
   ── Escala tipográfica ──────────────────────────────────────────────────────
 
-  O Material define quinze estilos; aqui cabem seis. Existirem como classe, e
+  O Material define quinze estilos; aqui cabem sete. Existirem como classe, e
   não como um punhado de utilitários repetidos, é o que impede que "título de
   painel" seja `text-sm` num arquivo e `text-xs` no outro — foi exatamente o
   que aconteceu antes de existirem.
 */
 .md-display {
   font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.25rem);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+/* O display pequeno: dois números de resposta lado a lado, cada um com meia
+   coluna. No tamanho cheio, "1.234,5 mi z" não cabia na metade. */
+.md-display-p {
+  font-size: clamp(1.875rem, 1.5rem + 1.2vw, 2.5rem);
   line-height: 1.1;
   font-weight: 600;
   letter-spacing: -0.02em;

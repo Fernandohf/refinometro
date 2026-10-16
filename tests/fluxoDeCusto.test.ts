@@ -4,11 +4,9 @@ import { PRECOS_FIXOS } from './precosFixos';
 import { BLESSING_ITEM_ID } from '../src/data/ores';
 import { calcular } from '../src/engine/plan';
 import { listaDeCompras } from '../src/engine/pricing';
-import {
-  fluxoDeCusto,
-  quantidadesNaMargem,
-  type CategoriaCusto,
-} from '../src/engine/fluxoDeCusto';
+import { fluxoDeCusto, type CategoriaCusto } from '../src/engine/fluxoDeCusto';
+import { campanhaEmMinerios, montarKit } from '../src/engine/kit';
+import type { Resultado } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
 const input = (over: Partial<CalcInput> = {}): CalcInput => ({
@@ -30,24 +28,29 @@ const input = (over: Partial<CalcInput> = {}): CalcInput => ({
 
 const plano = () => calcular(input(), { execucoes: 20_000, tempoMs: 3_000 });
 
+/** O kit do nível Seguro, que é o que a página desenha por padrão. */
+const kitDe = (p: Resultado) => montarKit(p, campanhaEmMinerios(p), 0.9);
+const fluxo90 = (p: Resultado) => fluxoDeCusto(p, kitDe(p));
+
 describe('para onde vai o zeny', () => {
-  it('soma exatamente o total da lista de compras', () => {
+  it('soma exatamente o total da lista de compras e o valor do kit', () => {
     // Este é o invariante que sustenta o desenho: ele fica ao lado da tabela,
     // e um diagrama que discordasse dela em um zeny não valeria nada. As duas
-    // contas partem da mesma `listaDeCompras`, no mesmo percentil.
+    // contas partem do mesmo kit, pela mesma `listaDeCompras` — e o total é o
+    // "juntando tudo antes" do topo da página.
     const p = plano();
-    const fluxo = fluxoDeCusto(p, 'p90');
+    const kit = kitDe(p);
+    const fluxo = fluxoDeCusto(p, kit);
 
-    const lista = listaDeCompras(quantidadesNaMargem(p, 'p90'), p.input.precos);
-    const quebras = Math.ceil(p.simulacao!.quebras.p90);
-    const taxas = Math.ceil(p.simulacao!.taxas.p90);
-    const totalDaTabela = lista.total + quebras * p.input.precoItem + taxas;
+    const lista = listaDeCompras(kit.itens, p.input.precos);
+    const totalDaTabela = lista.total + kit.reposicoes * p.input.precoItem + kit.taxas;
 
-    expect(fluxo.total).toBe(totalDaTabela);
+    expect(fluxo.total).toBeCloseTo(totalDaTabela, 3);
+    expect(fluxo.total).toBeCloseTo(kit.valor, 3);
   });
 
   it('cada grupo soma as suas folhas, e os grupos somam o total', () => {
-    const fluxo = fluxoDeCusto(plano(), 'p90');
+    const fluxo = fluxo90(plano());
     for (const g of fluxo.grupos) {
       expect(g.valor).toBeCloseTo(
         g.folhas.reduce((s, f) => s + f.valor, 0),
@@ -61,7 +64,7 @@ describe('para onde vai o zeny', () => {
     // A divisão é por natureza do gasto, não por tipo de item. Pôr a Bênção
     // entre os minérios apagaria justamente a resposta que o desenho existe
     // para dar.
-    const fluxo = fluxoDeCusto(plano(), 'p90');
+    const fluxo = fluxo90(plano());
     const protecao = fluxo.grupos.find((g) => g.categoria === 'protecao');
 
     expect(protecao).toBeDefined();
@@ -75,7 +78,7 @@ describe('para onde vai o zeny', () => {
     // A afirmação que o painel faz por escrito. Se um dia os preços padrão
     // mudarem a ponto de inverter isso, o texto ao lado do desenho passa a
     // mentir — e este teste é quem avisa.
-    const fluxo = fluxoDeCusto(plano(), 'p90');
+    const fluxo = fluxo90(plano());
     const fatia = (c: CategoriaCusto) =>
       (fluxo.grupos.find((g) => g.categoria === c)?.valor ?? 0) / fluxo.total;
 
@@ -84,7 +87,7 @@ describe('para onde vai o zeny', () => {
   });
 
   it('ordena do maior para o menor, para a resposta ser a primeira faixa', () => {
-    const fluxo = fluxoDeCusto(plano(), 'p90');
+    const fluxo = fluxo90(plano());
     const valores = fluxo.grupos.map((g) => g.valor);
     expect([...valores].sort((a, b) => b - a)).toEqual(valores);
     for (const g of fluxo.grupos) {
@@ -97,7 +100,7 @@ describe('para onde vai o zeny', () => {
     // Alvo dentro do limite seguro: nenhuma tentativa pode destruir o item, e
     // uma faixa vermelha de "reposição" ali seria um risco inexistente.
     const p = calcular(input({ refinoAlvo: 4 }), { execucoes: 5_000, tempoMs: 1_000 });
-    const fluxo = fluxoDeCusto(p, 'p90');
+    const fluxo = fluxo90(p);
     expect(fluxo.grupos.find((g) => g.categoria === 'item')).toBeUndefined();
   });
 
@@ -110,7 +113,7 @@ describe('para onde vai o zeny', () => {
       execucoes: 20_000,
       tempoMs: 3_000,
     });
-    const fluxo = fluxoDeCusto(p, 'p90');
+    const fluxo = fluxo90(p);
 
     const fabricacao = fluxo.grupos.find((g) => g.categoria === 'fabricacao');
     const refino = fluxo.grupos.find((g) => g.categoria === 'refino');
@@ -133,7 +136,7 @@ describe('para onde vai o zeny', () => {
     // 5 Minério de Oridecon viram 1 Oridecon sem custo de balcão. Uma linha de
     // 0z ali seria uma faixa invisível com um rótulo ocupando espaço.
     const p = plano();
-    const lista = listaDeCompras(quantidadesNaMargem(p, 'p90'), p.input.precos);
+    const lista = listaDeCompras(kitDe(p).itens, p.input.precos);
     for (const f of lista.fabricacao) expect(f.zeny).toBeGreaterThan(0);
     expect(lista.fabricacao.reduce((s, f) => s + f.zeny, 0)).toBe(lista.zenyNpc);
   });
@@ -145,7 +148,7 @@ describe('para onde vai o zeny', () => {
       execucoes: 20_000,
       tempoMs: 3_000,
     });
-    const fluxo = fluxoDeCusto(p, 'p90');
+    const fluxo = fluxo90(p);
 
     for (const g of fluxo.grupos) {
       expect(g.valor).toBeCloseTo(
@@ -160,7 +163,7 @@ describe('para onde vai o zeny', () => {
   });
 
   it('não devolve folha de valor zero, que viraria faixa invisível', () => {
-    const fluxo = fluxoDeCusto(plano(), 'p90');
+    const fluxo = fluxo90(plano());
     for (const g of fluxo.grupos) {
       for (const f of g.folhas) expect(f.valor).toBeGreaterThan(0);
     }

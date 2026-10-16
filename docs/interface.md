@@ -65,10 +65,19 @@ O resultado fala a língua de quem joga, não a do motor:
 
 - **A margem se chama pelo que garante.** *Arriscado, Moderado, Seguro, Muito seguro, Quase
   certo*, com o percentil em letra pequena. "Mediana" e "90%" sozinhos eram o primeiro controle
-  do resultado e o menos legível. Há um seletor só, colado na frase que ele muda.
-- **Uma frase embaixo do número grande** dá as duas pontas e o destino do item: *"Na maioria das
-  vezes você gasta perto de 432 mi z, podendo chegar até 789 mi z. O item não quebra nesse
-  plano."* Cópias, custo médio e valor do item pronto ficam em "mais números".
+  do resultado e o menos legível. Há um seletor só para a página inteira — a aba de estoque tinha
+  o dela, de 10% a 99%, e preenchia números diferentes para o mesmo minério.
+- **Duas respostas lado a lado, uma por jeito de jogar.** *Comprando aos poucos* é o percentil
+  do custo total: quem volta ao mercado só paga o que usou. *Juntando tudo antes* é o kit — a
+  mochila que fecha a fração escolhida das campanhas sem voltar ao mercado —, em zeny e nos
+  quatro materiais que mais pesam, com a arte de cada um. O kit sempre custa mais, e lado a lado a
+  diferença deixa de parecer erro (ver [matematica.md §9.7](matematica.md)). Quem chega querendo
+  saber "quantos Eteridecon eu compro" acha a resposta sem abrir aba nenhuma.
+- **Uma quantidade por material, na página inteira.** O cartão do kit, a lista de compras, o
+  diagrama de custo e o preenchimento da aba de estoque leem o mesmo kit (`src/engine/kit.ts`).
+  Antes cada um lia uma estatística — média, percentil de cada linha, quantil conjunto — e o mesmo
+  minério aparecia com três números, todos "no 90%". Cópias, custo médio e valor do item pronto
+  ficam em "mais números".
 - **"Vezes", não "tentativas".** No jogo, tentativa é cada clique no refinador.
 - **O risco do caminho cabe em uma linha** embaixo da trilha de refino, começando pelo mesmo
   símbolo da opção escolhida na lista (↓ ou ⚠). A conta dos degraus vai para o balão.

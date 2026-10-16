@@ -6,18 +6,16 @@
 // Nos preços padrão, dois terços do orçamento de um +10 não são minério — e
 // isso não se lê numa lista ordenada por valor.
 //
-// Os números são EXATAMENTE os da lista de compras, pela mesma função
-// (`listaDeCompras`) e no mesmo percentil. Um diagrama que discordasse da
-// tabela ao lado não valeria nada.
+// Os números são EXATAMENTE os da lista de compras: as duas leem o mesmo kit
+// (ver `kit.ts`) pela mesma função (`listaDeCompras`). Um diagrama que
+// discordasse da tabela ao lado não valeria nada.
 
 import { BLESSING_ITEM_ID } from '../data/ores';
 import { ETHER_BLESSING_ITEM_ID } from '../data/grade';
 import { nomeDoItem } from '../data/nomes';
 import { listaDeCompras } from './pricing';
+import type { Kit } from './kit';
 import type { Resultado as ResultadoPlano } from './plan';
-import type { Percentis } from './types';
-
-export type MargemKey = keyof Percentis;
 
 /**
  * A que se destina cada zeny gasto.
@@ -94,31 +92,10 @@ const MAX_FOLHAS = 6;
 /** As Bênçãos não são material de refino: são o que se paga para não perder. */
 const PROTECAO = new Set([BLESSING_ITEM_ID, ETHER_BLESSING_ITEM_ID]);
 
-/**
- * Quantidade de cada material na margem escolhida — o número que responde
- * "quanto preciso ter em mãos". Sem simulação, sobra a média.
- */
-export function quantidadesNaMargem(
-  plano: ResultadoPlano,
-  margem: MargemKey,
-): Record<number, number> {
-  const saida: Record<number, number> = {};
-  for (const [id, media] of Object.entries(plano.recursos.itens)) {
-    const itemId = Number(id);
-    saida[itemId] = Math.ceil(plano.simulacao?.itens[itemId]?.[margem] ?? media);
-  }
-  return saida;
-}
-
-export function fluxoDeCusto(plano: ResultadoPlano, margem: MargemKey): FluxoDeCusto {
-  const lista = listaDeCompras(quantidadesNaMargem(plano, margem), plano.input.precos);
-
-  const quebras = Math.ceil(
-    plano.simulacao ? plano.simulacao.quebras[margem] : plano.recursos.itensQuebrados,
-  );
-  // A taxa não é `tentativas x valor fixo`: ela some nos minérios de Cash Shop das
-  // armas nv1 a nv4, então vem somada do motor.
-  const taxas = Math.ceil(plano.simulacao?.taxas[margem] ?? plano.recursos.taxas);
+export function fluxoDeCusto(plano: ResultadoPlano, kit: Kit): FluxoDeCusto {
+  const lista = listaDeCompras(kit.itens, plano.input.precos);
+  const quebras = kit.reposicoes;
+  const taxas = kit.taxas;
 
   const folhas: FolhaCusto[] = [];
 
@@ -159,7 +136,9 @@ export function fluxoDeCusto(plano: ResultadoPlano, margem: MargemKey): FluxoDeC
   if (taxas > 0) {
     folhas.push({
       id: 'taxa',
-      rotulo: 'Taxa de Refino',
+      // O zeny do kit que não vira material: numa campanha de Grau ele inclui
+      // a taxa de cada tentativa de Grau, não só a do refinador.
+      rotulo: plano.fases.some((f) => f.grau) ? 'Taxas de Refino e de Grau' : 'Taxa de Refino',
       valor: taxas,
       qtd: Math.round(plano.recursos.tentativas),
       categoria: 'refino',

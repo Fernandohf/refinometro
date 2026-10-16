@@ -352,3 +352,34 @@
   - Travado por `tests/atalhos.test.ts` (27 testes: catálogo, os três efeitos, a perda do item,
     os marcos do estoque num salto, o martelo num preparo de Grau e os parsers com HTML real
     recortado) e por um teste de render.
+- [x] Mostrar o custo nos dois jeitos de jogar, lado a lado: comprando aos poucos e juntando tudo
+      antes.
+  - Veio de um levantamento do que quem usa quer saber. "Quanto gasto em materiais" era tão
+    central quanto "quanto gasto em zeny", e era a resposta mais escondida da página: uma aba,
+    abaixo do Sankey. E a página dava **três quantidades para o mesmo minério, todas "no 90%"**
+    — no padrão (`w5` +0 → +8 Grau C), 207, 368 e 487 Eteridecon Enriquecido — e três totais em
+    zeny (378, 394 e 296 mi), porque cada vista lia uma estatística diferente sem dizer qual.
+  - A raiz era a página não declarar qual hipótese calculava. O número grande supunha que se volta
+    ao mercado; a aba de estoque, que não; a lista de compras ficava no meio (percentil de cada
+    linha), sem corresponder a nenhuma das duas. Agora o topo mostra as duas: **Comprando aos
+    poucos** (o percentil do custo, como antes) e **Juntando tudo antes** (o kit, em zeny e nos
+    quatro materiais que mais pesam).
+  - O kit (`src/engine/kit.ts`) é o quantil comum do painel de estoque contado em minério inteiro
+    — `emMateriais` ganhou `desmontar: false`. É a única fonte de quantidades: o cartão, a lista
+    de compras, o Sankey e o preenchimento da aba de estoque leem dele, e o total da lista é o
+    valor do kit ao zeny. Duas garantias, em `docs/matematica.md` §9.7 e travadas por
+    `tests/kit.test.ts`: o kit nunca sai mais barato que o percentil do mesmo nível, e desmontado
+    ele fecha no painel de estoque pelo menos a fração que fecha inteiro.
+  - A aba de estoque perdeu o seletor próprio (10% a 99%) e segue o nível do topo: eram dois
+    controles para a mesma pergunta, em escalas diferentes. O que se perdeu foi o atalho para a
+    "aposta barata" de 10%; quem quer apostar baixa os campos e vê a chance cair, e "onde a
+    campanha para" continua aparecendo abaixo de 50%.
+  - Os botões do nível de segurança deixaram de mostrar o valor: há dois por nível agora, e só um
+    no botão sugeriria que o outro não depende da escolha.
+  - A taxa no kit é o zeny que sobra depois de todo material, então numa campanha de Grau ela
+    inclui a taxa de cada tentativa de Grau — o rótulo diz isso.
+  - Fica para depois, do mesmo levantamento: quantidades por fase no plano (o custo de cada fase
+    ainda é a média, sem dizer), preços em destaque escolhidos pelo peso no plano atual (o Oridecon
+    fixo no painel fechado pesa 98 mil z num plano em que o Eteridecon Enriquecido pesa 200 mi), a
+    aba de estoque dizer quanto falta comprar em zeny, e o valor do item pronto deixar de ser só a
+    média.
