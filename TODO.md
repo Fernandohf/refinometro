@@ -391,3 +391,14 @@
       em percentis marginais; comprada a falta, a chance volta ao nível escolhido.
     - **"Compensa comprar pronto?"** no lugar do "valor do item pronto": a pessoa digita o preço
       pedido e a página diz em que fração das campanhas refinar sai mais barato.
+- [x] Corrigir os dois cartões do topo: um é o custo em zeny, o outro é o que ter em mãos.
+  - **Custo total em zeny** (antes "Comprando aos poucos"): o mesmo percentil do custo, agora
+    descrito pelo que ele soma — minérios, conversões no NPC, a taxa de cada tentativa e as cópias
+    que quebram, tudo convertido em zeny no nível escolhido.
+  - **O que ter em mãos** (antes "Juntando tudo antes"): o número grande deixou de ser o kit em
+    zeny e passou a ser só o zeny das taxas (refinador e Grau), e abaixo vêm **todos** os minérios
+    do kit com a quantidade mínima, não só os quatro que mais pesam. Somar o minério ao caixa
+    escondia justamente o que o cartão existe para dizer, e punha lado a lado dois totais em zeny
+    que nunca empatam. O kit comprado a preço de mercado continua no "Total do kit" da lista de
+    compras e no traço da curva de custo.
+  - Travado por `tests/render.test.tsx`: as taxas do cartão são as da lista de compras.

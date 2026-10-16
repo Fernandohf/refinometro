@@ -1,11 +1,10 @@
 // O kit: tudo o que se separa ANTES de começar, para não voltar ao mercado.
 //
-// A página responde "quanto custa" de dois jeitos, porque há dois jeitos de
-// jogar. Quem compra aos poucos volta ao mercado quando o minério acaba e só
-// paga o que usou — a resposta é o percentil do custo total, e nele a sorte de
-// um material compensa o azar de outro. Quem junta tudo antes leva uma mochila
-// fechada ao refinador, e ela tem de cobrir o azar de TODOS os materiais na
-// mesma campanha. Esse é o kit.
+// A página responde "quanto custa" em duas moedas. O custo total em zeny é o
+// percentil do custo da campanha, com tudo convertido — e nele a sorte de um
+// material compensa o azar de outro. O que ter em mãos é uma mochila fechada,
+// levada ao refinador sem voltar ao mercado: zeny só para as taxas e o minério
+// contado, cobrindo o azar de TODOS os materiais na mesma campanha. Esse é o kit.
 //
 // O kit é a única fonte de quantidades da página: a lista de compras, o
 // diagrama de custo e o simulador de estoque leem dele. Antes cada vista lia

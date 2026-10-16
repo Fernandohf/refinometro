@@ -35,7 +35,7 @@ describe('o kit de quem junta tudo antes', () => {
     }
   });
 
-  it('nunca sai mais barato que comprar aos poucos, no mesmo nível', () => {
+  it('comprado, nunca sai mais barato que o custo total em zeny, no mesmo nível', () => {
     // É a razão de a página mostrar os dois: toda campanha que o kit fecha
     // custa no máximo o valor dele, então o kit que fecha 90% delas vale pelo
     // menos o percentil 90 do custo. Se este teste falhar, um dos dois números

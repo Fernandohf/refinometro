@@ -37,7 +37,7 @@ describe('para onde vai o zeny', () => {
     // Este é o invariante que sustenta o desenho: ele fica ao lado da tabela,
     // e um diagrama que discordasse dela em um zeny não valeria nada. As duas
     // contas partem do mesmo kit, pela mesma `listaDeCompras` — e o total é o
-    // "juntando tudo antes" do topo da página.
+    // valor do kit cujas quantidades o topo da página mostra.
     const p = plano();
     const kit = kitDe(p);
     const fluxo = fluxoDeCusto(p, kit);

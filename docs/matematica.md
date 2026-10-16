@@ -889,11 +889,13 @@ comprar, ou que o alvo é que está errado.
 
 ### 9.7 O kit: as duas respostas lado a lado
 
-O topo da página responde "quanto custa" de dois jeitos, um para cada hipótese de §9.6:
-**comprando aos poucos**, o percentil `C_α` do custo total de [§8](#8-monte-carlo-o-que-a-média-não-responde);
-e **juntando tudo antes**, o valor `V(E(q*))` do kit — o quantil comum de §9.3 aplicado ao
-consumo contado em **minério inteiro** (Eteridecon, não Minério de Oridecon), que é a moeda da
-lista de compras. `V` cota cada minério pela via mais barata, soma as reposições ao preço do item
+O topo da página responde "quanto custa" em duas moedas, no mesmo nível `α`. O **custo total em
+zeny** é o percentil `C_α` do custo total de [§8](#8-monte-carlo-o-que-a-média-não-responde):
+minérios, balcão do NPC, taxas de cada tentativa e reposições, tudo convertido em zeny. **O que
+ter em mãos** é o kit `E(q*)` — o quantil comum de §9.3 aplicado ao consumo contado em **minério
+inteiro** (Eteridecon, não Minério de Oridecon), que é a moeda da lista de compras —, mostrado
+como ele é: o zeny `Z₀` das taxas e as quantidades de cada minério. O valor `V(E(q*))` do kit
+comprado a preço de mercado é o total da lista de compras. `V` cota cada minério pela via mais barata, soma as reposições ao preço do item
 no +0 e a taxa que sobra (`Z₀` contado em minério inteiro é só taxa do refinador e de Grau: o
 balcão do NPC já está no preço do minério fabricado).
 
@@ -905,8 +907,8 @@ balcão do NPC já está no preço do minério fabricado).
 > execuções são pelo menos a fração `α` da amostra, logo o quantil `α` do custo não passa de
 > `V`. ∎
 
-A diferença `V − C_α` é o preço de não voltar ao mercado: quem compra aos poucos só paga o que
-usou, e numa mesma campanha a sorte de um material compensa o azar de outro; o kit tem de cobrir
+A diferença `V − C_α` é o preço de não voltar ao mercado: quem compra durante a campanha só paga o
+que usou, e numa mesma campanha a sorte de um material compensa o azar de outro; o kit tem de cobrir
 todos os azares ao mesmo tempo. No `w5` +0 → +8 Grau C dos preços padrão, no nível Seguro, são
 378 mi contra 474 mi.
 

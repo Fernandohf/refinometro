@@ -67,12 +67,16 @@ O resultado fala a língua de quem joga, não a do motor:
   certo*, com o percentil em letra pequena. "Mediana" e "90%" sozinhos eram o primeiro controle
   do resultado e o menos legível. Há um seletor só para a página inteira — a aba de estoque tinha
   o dela, de 10% a 99%, e preenchia números diferentes para o mesmo minério.
-- **Duas respostas lado a lado, uma por jeito de jogar.** *Comprando aos poucos* é o percentil
-  do custo total: quem volta ao mercado só paga o que usou. *Juntando tudo antes* é o kit — a
-  mochila que fecha a fração escolhida das campanhas sem voltar ao mercado —, em zeny e nos
-  quatro materiais que mais pesam, com a arte de cada um. O kit sempre custa mais, e lado a lado a
-  diferença deixa de parecer erro (ver [matematica.md §9.7](matematica.md)). Quem chega querendo
-  saber "quantos Eteridecon eu compro" acha a resposta sem abrir aba nenhuma.
+- **Duas respostas lado a lado, em duas moedas.** *Custo total em zeny* é o percentil do custo
+  total — minérios, conversões no NPC, a taxa de cada tentativa e as cópias que quebram, tudo
+  convertido em zeny. *O que ter em mãos* é o kit — a mochila que fecha a fração escolhida das
+  campanhas sem voltar ao mercado —, mostrado como se separa: o zeny só das taxas, em destaque, e
+  a quantidade de cada minério, com a arte de cada um. O número grande do segundo cartão não é o
+  kit em zeny de propósito: somar o minério ao caixa escondia justamente as quantidades, e
+  comparava com o primeiro cartão duas coisas que nunca empatam (o kit comprado a preço de
+  mercado sempre sai mais caro, [matematica.md §9.7](matematica.md); esse total fica no fim da
+  lista de compras). Quem chega querendo saber "quantos Eteridecon eu compro" acha a resposta sem
+  abrir aba nenhuma.
 - **Uma quantidade por material, na página inteira.** O cartão do kit, a lista de compras, o
   diagrama de custo e o preenchimento da aba de estoque leem o mesmo kit (`src/engine/kit.ts`).
   Antes cada um lia uma estatística — média, percentil de cada linha, quantil conjunto — e o mesmo

@@ -98,7 +98,7 @@ export function Resultado({
   // contexto pode esperar o fim da página.
   const criticos = plano.avisos.filter((a) => a.nivel !== 'info');
   const informativos = plano.avisos.filter((a) => a.nivel === 'info');
-  // O kit é a única fonte de quantidades da página: o "juntando tudo antes" do
+  // O kit é a única fonte de quantidades da página: o "o que ter em mãos" do
   // topo, a lista de compras, o diagrama e o simulador de estoque leem dele.
   // A campanha em minério não depende da margem, então sobrevive à troca dela.
   const chance = MARGENS.find((m) => m.key === margem)!.chance;
@@ -484,8 +484,8 @@ const ID_ABAS = 'abas-do-plano';
  * Quão seguro o orçamento deve ser: o único seletor da margem da página.
  *
  * Os botões não trazem mais o valor de cada nível: há dois valores por nível
- * agora, um por modo, e só um deles no botão diria que o outro não depende da
- * escolha. O percentil fica em letra pequena, para quem o conhece.
+ * agora, um por cartão, e só um deles no botão diria que o outro não depende
+ * da escolha. O percentil fica em letra pequena, para quem o conhece.
  */
 function NivelDeSeguranca({
   margem,
@@ -542,17 +542,16 @@ function NivelDeSeguranca({
   );
 }
 
-/** Quantos materiais o cartão do kit lista antes de mandar para a lista inteira. */
-const MATERIAIS_NO_CARTAO = 4;
-
 /**
- * A resposta da página, nos dois jeitos de jogar.
+ * A resposta da página, em duas moedas.
  *
- * Os dois números nunca empatam, e a ordem é sempre a mesma: juntar tudo antes
- * custa mais, porque a mochila tem de cobrir o azar de cada material na mesma
- * campanha, enquanto quem compra aos poucos só paga o que usou. Lado a lado, a
- * diferença deixa de parecer erro e passa a ser o preço de não voltar ao
- * mercado.
+ * O primeiro cartão é o custo da campanha com tudo convertido em zeny —
+ * minérios, balcão do NPC, a taxa de cada tentativa e as cópias que quebram —
+ * no nível de segurança escolhido. O segundo é o que ter em mãos antes de
+ * começar, no mesmo nível: zeny só para as taxas, e o resto em minério
+ * contado. Comprado a preço de mercado, o segundo sai mais caro que o
+ * primeiro, porque a mochila tem de cobrir o azar de cada minério na mesma
+ * campanha e o que sobra volta para casa (matematica.md §9.7).
  */
 function DoisModos({
   plano,
@@ -568,25 +567,25 @@ function DoisModos({
   const sim = plano.simulacao!;
   const info = MARGENS.find((m) => m.key === margem)!;
   const linhas = arvoreDeCompras(kit.itens, plano.input.precos);
-  const visiveis = linhas.slice(0, MATERIAIS_NO_CARTAO);
-  const resto = linhas.length - visiveis.length;
+  const quebra = kit.reposicoes > 0;
 
   return (
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
       <Modo
-        rotulo="Comprando aos poucos"
+        rotulo="Custo total em zeny"
         valor={sim.custo[margem]}
         info={
-          <Info titulo="Comprando aos poucos">
-            Para quem volta ao mercado quando o material acaba. É o percentil {info.pct} do custo
-            total: {info.fracao} campanhas simuladas fecharam gastando isto ou menos. Comprando aos
-            poucos você só paga o que usou, e a sorte de um material compensa o azar de outro — por
-            isso sai mais barato que juntar tudo antes.
+          <Info titulo="Custo total em zeny">
+            Tudo o que a campanha consome, convertido em zeny pelos preços da tabela: os minérios
+            pela via mais barata (comprando ou fabricando), o balcão do NPC nas conversões, a taxa do
+            refinador e de Grau em cada tentativa e as cópias do item que quebrarem. É o percentil{' '}
+            {info.pct}: {info.fracao} campanhas simuladas fecharam gastando isto ou menos.
           </Info>
         }
       >
         <p className="md-corpo-m text-suave">
-          Você volta ao mercado quando acaba. Em {info.fracao} vezes o gasto fica nisso ou abaixo
+          Minérios, conversões, a taxa de cada tentativa{quebra ? ' e as cópias que quebram' : ''}.
+          Em {info.fracao} vezes o gasto fica nisso ou abaixo
           {margem === 'p50' ? (
             '.'
           ) : (
@@ -602,41 +601,37 @@ function DoisModos({
       </Modo>
 
       <Modo
-        rotulo="Juntando tudo antes"
-        valor={kit.valor}
+        rotulo="O que ter em mãos"
+        valor={kit.taxas}
+        legenda="só de taxas"
         info={
-          <Info titulo="Juntando tudo antes" alinhar="direita">
-            Para quem compra tudo de uma vez e vai ao refinador sem voltar ao mercado. O kit tem de
-            cobrir o azar de todos os materiais na mesma campanha — nada falta em {info.fracao}{' '}
-            campanhas simuladas —, e por isso custa mais que comprar aos poucos. São as mesmas
-            quantidades da lista de compras e da aba “O que eu tenho”.
+          <Info titulo="O que ter em mãos" alinhar="direita">
+            O mínimo para separar antes de começar e não voltar ao mercado. O zeny aqui é só o das
+            taxas — do refinador e de Grau, em cada tentativa —; os minérios vêm contados, inteiros,
+            como o refinador os pede. Com tudo isso, nada falta em {info.fracao} campanhas
+            simuladas. Comprado a preço de mercado, sai mais caro que o custo total ao lado: a
+            mochila tem de cobrir o azar de todos os minérios na mesma campanha, e o que sobra volta
+            para casa. São as mesmas quantidades da lista de compras e da aba “O que eu tenho”.
           </Info>
         }
       >
         <p className="md-corpo-m text-suave">
-          Leve isto e não volte ao mercado em {info.fracao} vezes:
+          E no mínimo isto, para nada faltar em {info.fracao} vezes:
         </p>
         <ul className="mt-2 space-y-1.5">
-          {visiveis.map((l) => (
+          {linhas.map((l) => (
             <li key={l.itemId} className="md-corpo-m flex items-center gap-2">
               <SlotItem id={l.itemId} tamanho="mini" />
               <strong className="text-texto tabular-nums">{inteiro(l.qtd)}x</strong>
               <span className="min-w-0 truncate">{nomeDoItem(l.itemId)}</span>
             </li>
           ))}
-          {kit.reposicoes > 0 && (
+          {quebra && (
             <li className="md-corpo-m text-perigo">
               <strong className="tabular-nums">{inteiro(kit.reposicoes)}x</strong> cópia
               {kit.reposicoes === 1 ? '' : 's'} do item, no +0
             </li>
           )}
-          <li className="md-corpo-p text-suave">
-            {resto > 0 && `e mais ${resto} ${resto === 1 ? 'material' : 'materiais'}, `}
-            <span className="tabular-nums" title={zenyExato(kit.taxas)}>
-              {zeny(kit.taxas)}
-            </span>{' '}
-            de taxas
-          </li>
         </ul>
         <div className="-ml-3 mt-1">
           <BotaoDoPainel onClick={onVerLista}>ver a lista de compras</BotaoDoPainel>
@@ -649,11 +644,14 @@ function DoisModos({
 function Modo({
   rotulo,
   valor,
+  legenda,
   info,
   children,
 }: {
   rotulo: string;
   valor: number;
+  /** O que o número conta, quando não é tudo: "só de taxas". */
+  legenda?: string;
   info: ReactNode;
   children: ReactNode;
 }) {
@@ -663,8 +661,11 @@ function Modo({
         {rotulo}
         {info}
       </div>
-      <div className="md-display-p mt-1 text-realce tabular-nums" title={zenyExato(valor)}>
-        {zeny(valor)}
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+        <span className="md-display-p text-realce tabular-nums" title={zenyExato(valor)}>
+          {zeny(valor)}
+        </span>
+        {legenda && <span className="md-corpo-m text-suave">{legenda}</span>}
       </div>
       <div className="mt-1.5">{children}</div>
     </div>
@@ -987,7 +988,7 @@ function Materiais({ plano, kit }: { plano: ResultadoPlano; kit: Kit }) {
           <Info titulo="Por minério" alinhar="direita">
             Conferência, não decisão: aqui os minérios aparecem prontos, como o motor os conta, e
             não desmontados no que se compra — quem vai ao jogo leva a outra vista. A coluna{' '}
-            <strong className="text-texto">no kit</strong> é o “juntando tudo antes” do topo: o
+            <strong className="text-texto">no kit</strong> é o “o que ter em mãos” do topo: o
             quanto separar de cada um para nada faltar no nível escolhido. A média é o consumo de
             uma campanha típica, e fica sempre abaixo.
           </Info>
@@ -1092,8 +1093,8 @@ function Compras({ plano, kit, margem }: { plano: ResultadoPlano; kit: Kit; marg
       <p className="md-corpo-p text-suave">
         {kit.chance !== null ? (
           <>
-            O kit do “juntando tudo antes”: com ele, nada falta em {info.fracao} vezes. Quem compra
-            aos poucos gasta menos — é o outro número, lá em cima.
+            O “o que ter em mãos” do topo: com ele, nada falta em {info.fracao} vezes. O total sai
+            acima do custo total em zeny, porque o kit cobre o azar de todos os minérios de uma vez.
           </>
         ) : (
           <>O consumo médio da campanha — sem simulação, não há margem para calcular.</>

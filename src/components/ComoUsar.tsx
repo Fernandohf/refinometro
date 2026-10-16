@@ -143,8 +143,8 @@ export function ComoUsar({ visivel, onFechar }: { visivel: boolean; onFechar: ()
       </ol>
 
       <p className="md-corpo-m mt-3 text-suave">
-        A resposta aparece sozinha ao lado (no celular, logo abaixo): quanto separar — em zeny,
-        comprando aos poucos, ou em materiais, juntando tudo antes —, o passo a passo do refino e o
+        A resposta aparece sozinha ao lado (no celular, logo abaixo): quanto custa — tudo em zeny
+        — e o que ter em mãos — zeny para as taxas e minérios contados —, o passo a passo do refino e o
         que comprar. Na dúvida, o <span aria-hidden>ⓘ</span>
         <span className="sr-only">botão de informação</span> ao lado de cada campo explica o que ele
         faz.
