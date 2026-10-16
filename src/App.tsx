@@ -60,25 +60,25 @@ interface Estado {
  * O que a tela mostra para quem chega sem mexer em nada.
  *
  * Não é um exemplo neutro de propósito: é um alvo que gente de verdade
- * persegue — uma arma nível 5 comum de mercado, com Grau, parando no +8 em vez
- * do +11 da regra de bolso. Categoria abstrata e alvo redondo faziam a primeira
- * tela parecer uma demonstração; um item nomeado, com arte e preço plausível,
- * já responde a pergunta de alguém.
+ * persegue — uma armadura nível 2 de mercado levada ao +12 Grau A. Sem perda
+ * aceitável, porque a 350kk ninguém aposta a armadura. Categoria abstrata e
+ * alvo redondo faziam a primeira tela parecer uma demonstração; um item
+ * nomeado, com arte e preço plausível, já responde a pergunta de alguém.
  */
 const INICIAL: Estado = {
-  itemNome: 'Punho Consertado',
-  itemId: 560030,
-  itemSlots: 2,
-  kind: 'w5',
-  precoItem: 500_000,
+  itemNome: 'Armadura Nebulosa POD',
+  itemId: 450169,
+  itemSlots: 1,
+  kind: 'a2',
+  precoItem: 350_000_000,
   refinoAtual: 0,
-  refinoAlvo: 8,
+  refinoAlvo: 12,
   grauAtual: 'none',
-  grauAlvo: 'C',
-  evento: false,
+  grauAlvo: 'A',
+  evento: true,
   usarBencaoFerreiro: true,
   usarMineriosEspeciais: true,
-  perdaAceitavel: true,
+  perdaAceitavel: false,
   usarAtalhos: true,
   precos: DEFAULT_PRICES,
   margem: 'p90',

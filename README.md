@@ -17,7 +17,7 @@ faixa, e quanto o item vale no fim.
 
 **[Abrir a calculadora de refino do Ragnarok Latam](https://fernandohf.github.io/refinometro/)**
 
-[![A tela da calculadora: uma arma nível 5 do +0 sem grau até o +8 Grau C, o orçamento recomendado, a distribuição das campanhas simuladas e o plano fase a fase.](docs/tela.png)](https://fernandohf.github.io/refinometro/)
+[![A tela da calculadora: uma armadura nível 2 do +0 sem grau até o +12 Grau A, sem poder quebrar, com o custo total, o que ter em mãos, a distribuição das campanhas simuladas e o plano fase a fase.](docs/tela.png)](https://fernandohf.github.io/refinometro/)
 
 ## Por que não basta multiplicar
 
