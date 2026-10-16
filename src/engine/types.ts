@@ -93,6 +93,11 @@ export interface PolicyEntry {
   acao: RefineAction;
   /** Custo esperado em zeny para sair deste refino e chegar ao alvo. */
   custoEsperado: number;
+  /**
+   * Quantas vezes, em média, a ação deste refino é tomada numa passada da fase,
+   * saindo do refino de partida. Zero nos estados que o plano nunca visita.
+   */
+  tentativas: number;
 }
 
 /** Contagem esperada de cada recurso consumido numa campanha. */

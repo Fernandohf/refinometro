@@ -78,6 +78,12 @@ O resultado fala a língua de quem joga, não a do motor:
   Antes cada um lia uma estatística — média, percentil de cada linha, quantil conjunto — e o mesmo
   minério aparecia com três números, todos "no 90%". Cópias, custo médio e valor do item pronto
   ficam em "mais números".
+- **O plano diz quanto, não só o quê.** Cada trecho da estratégia leva o número de usos médio
+  ("+5→+7 · ~40x Eteridecon Enriquecido"), e cada fase fecha com o consumo médio dela, que é onde
+  aparece o que os trechos não mostram — a Bênção que o martelo cobra por uso. O custo da fase diz
+  "na média": somadas, as fases dão o custo médio, não nenhum dos dois números do topo. Os usos
+  por trecho vêm das visitas esperadas a cada estado, a linha da partida de (I − P)⁻¹ (ver
+  `visitas`, em `src/engine/refine.ts`).
 - **"Vezes", não "tentativas".** No jogo, tentativa é cada clique no refinador.
 - **O risco do caminho cabe em uma linha** embaixo da trilha de refino, começando pelo mesmo
   símbolo da opção escolhida na lista (↓ ou ⚠). A conta dos degraus vai para o balão.

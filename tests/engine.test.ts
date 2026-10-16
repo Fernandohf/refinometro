@@ -1514,3 +1514,55 @@ describe('o plano seguro oferecido ao lado do arriscado', () => {
     expect(com.alternativa!.custo!.p90).toBeLessThan(com.simulacao!.custo.p90);
   });
 });
+
+describe('quantidades por fase', () => {
+  const plano = (over: Partial<CalcInput> = {}) =>
+    calcular(input(over), { execucoes: 2_000, tempoMs: 1_000 });
+
+  it('as fases somam o consumo da campanha', () => {
+    // O rodapé de cada fase e a lista de compras leem a mesma conta exata;
+    // somadas, as fases não podem dar outra campanha.
+    for (const over of [{}, { kind: 'w5' as const, refinoAlvo: 11, grauAlvo: 'B' as const }]) {
+      const r = plano(over);
+      const soma: Record<number, number> = {};
+      for (const f of r.fases) {
+        for (const [id, q] of Object.entries(f.consumo)) soma[Number(id)] = (soma[Number(id)] ?? 0) + q;
+      }
+      for (const [id, q] of Object.entries(r.recursos.itens)) {
+        expect(soma[Number(id)]).toBeCloseTo(q, 6);
+      }
+    }
+  });
+
+  it('os trechos repartem as tentativas da fase, saindo do +0', () => {
+    // Do +0 não há estado abaixo da partida, então todo uso cai em algum
+    // trecho: a soma dos trechos é a fase inteira.
+    const r = plano({ refinoAlvo: 12 });
+    const fase = r.fases[0]!;
+    const soma = fase.trechos.reduce((s, t) => s + t.tentativas, 0);
+    expect(soma).toBeCloseTo(r.recursos.tentativas, 6);
+    for (const t of fase.trechos) expect(t.tentativas).toBeGreaterThan(0);
+  });
+
+  it('as visitas da política batem com a simulação', () => {
+    // A linha de (I - P)⁻¹ é uma conta nova; o consumo amostrado pela simulação
+    // é a conferência independente dela.
+    const r = calcular(input({ refinoAlvo: 10 }), { execucoes: 20_000, tempoMs: 3_000 });
+    const fase = r.fases[0]!;
+    const sim = r.simulacao!;
+    for (const t of fase.trechos) {
+      if (t.atalho) continue;
+      const doMinerio = fase.trechos
+        .filter((x) => x.minerioItemId === t.minerioItemId && !x.atalho)
+        .reduce((s, x) => s + x.tentativas, 0);
+      const media = sim.amostras.consumo
+        .subarray(
+          sim.amostras.itemIds.indexOf(t.minerioItemId) * sim.amostras.execucoes,
+          (sim.amostras.itemIds.indexOf(t.minerioItemId) + 1) * sim.amostras.execucoes,
+        )
+        .reduce((s, x) => s + x, 0) / sim.amostras.execucoes;
+      // Até 4%: as amostras cruas guardadas são uma fração da simulação.
+      expect(Math.abs(doMinerio - media) / media).toBeLessThan(0.04);
+    }
+  });
+});
