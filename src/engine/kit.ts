@@ -120,3 +120,41 @@ export function estoqueDoKit(kit: Kit, precos: PriceTable): Estoque {
     itens: Object.fromEntries(lista.compras.map((l) => [l.itemId, Math.ceil(l.qtd)])),
   };
 }
+
+export interface FaltaParaOKit {
+  /** Material que falta, do que mais pesa em zeny para o que menos. */
+  itens: { itemId: number; qtd: number; valor: number }[];
+  /** Cópias do equipamento que faltam, no +0. */
+  copias: number;
+  /** Zeny de taxa e balcão que falta em caixa. */
+  zeny: number;
+  /** Tudo em zeny: o material a preço de mercado, as cópias e o caixa. */
+  valor: number;
+}
+
+/**
+ * O que separa o estoque informado do kit desmontado: a compra que devolve a
+ * chance ao nível escolhido.
+ *
+ * Com a falta comprada, cada recurso fica igual ou acima do kit, e pela
+ * monotonia da chance (matematica.md, Proposição 9.1) ela é pelo menos a do
+ * kit. É a pergunta "tenho isto, quanto zeny ainda preciso?" respondida sem
+ * supor que se volta ao mercado no meio — que é a hipótese desta aba.
+ */
+export function faltaParaOKit(
+  kit: Estoque,
+  tem: Estoque,
+  campanha: CampanhaEmMateriais,
+): FaltaParaOKit {
+  const itens = campanha.materiais
+    .map((m) => {
+      const qtd = Math.max(0, Math.ceil((kit.itens[m.itemId] ?? 0) - (tem.itens[m.itemId] ?? 0)));
+      return { itemId: m.itemId, qtd, valor: qtd * m.preco };
+    })
+    .filter((l) => l.qtd > 0)
+    .sort((a, b) => b.valor - a.valor);
+  const copias = Math.max(0, Math.ceil(kit.copias - tem.copias));
+  const zeny = Math.max(0, Math.ceil(kit.zeny - tem.zeny));
+  const valor = itens.reduce((s, l) => s + l.valor, 0) + copias * campanha.precoItem + zeny;
+  return { itens, copias, zeny, valor };
+}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { PRECOS_FIXOS } from './precosFixos';
 import { avaliarEstoque, emMateriais } from '../src/engine/estoque';
-import { campanhaEmMinerios, estoqueDoKit, montarKit } from '../src/engine/kit';
+import { campanhaEmMinerios, estoqueDoKit, faltaParaOKit, montarKit } from '../src/engine/kit';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -91,5 +91,33 @@ describe('o kit de quem junta tudo antes', () => {
     for (const [id, media] of Object.entries(p.recursos.itens)) {
       if (media > 0) expect(kit.itens[Number(id)]).toBe(Math.ceil(media));
     }
+  });
+
+  it('o que falta para o kit devolve a chance ao nível escolhido', () => {
+    // A aba de estoque diz "falta comprar X z". Comprar exatamente isso tem de
+    // bastar: a promessa da tela é a chance do nível, não "um pouco mais".
+    const p = plano({ kind: 'w5', refinoAlvo: 11, grauAlvo: 'C' });
+    const kit = montarKit(p, campanhaEmMinerios(p), 0.9);
+    const c = emMateriais(p.simulacao!.amostras, p.input.precos, p.input.precoItem);
+    const cheio = estoqueDoKit(kit, p.input.precos);
+    const metade = {
+      zeny: Math.floor(cheio.zeny / 2),
+      copias: 1,
+      itens: Object.fromEntries(Object.entries(cheio.itens).map(([id, q]) => [id, Math.floor(q / 2)])),
+    };
+    expect(avaliarEstoque(c, metade).chance).toBeLessThan(0.9);
+
+    const falta = faltaParaOKit(cheio, metade, c);
+    expect(falta.valor).toBeGreaterThan(0);
+    const comprado = {
+      zeny: metade.zeny + falta.zeny,
+      copias: metade.copias + falta.copias,
+      itens: { ...metade.itens },
+    };
+    for (const l of falta.itens) comprado.itens[l.itemId] = (comprado.itens[l.itemId] ?? 0) + l.qtd;
+    expect(avaliarEstoque(c, comprado).chance).toBeGreaterThanOrEqual(0.9);
+
+    // E quem já tem o kit não tem nada a comprar.
+    expect(faltaParaOKit(cheio, cheio, c).valor).toBe(0);
   });
 });

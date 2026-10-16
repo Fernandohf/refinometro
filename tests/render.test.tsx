@@ -8,10 +8,11 @@ import { PIX } from '../src/components/Apoie';
 import { CurvaDeCusto } from '../src/components/CurvaDeCusto';
 import { TabelaDeEstados } from '../src/components/Cadeia';
 import { Resultado } from '../src/components/Resultado';
-import { ESTOQUE_VAZIO, SimuladorDeEstoque } from '../src/components/Estoque';
+import { assinaturaDoPlano, ESTOQUE_VAZIO, SimuladorDeEstoque } from '../src/components/Estoque';
 import { Sobre } from '../src/components/Sobre';
 import { PRECOS_FIXOS } from './precosFixos';
-import { campanhaEmMinerios, montarKit } from '../src/engine/kit';
+import { emMateriais } from '../src/engine/estoque';
+import { campanhaEmMinerios, estoqueDoKit, montarKit } from '../src/engine/kit';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -194,6 +195,51 @@ describe('página', () => {
     expect(painel.replaceAll('<!-- -->', '')).toMatch(/\d+% do custo médio/);
     // Editável ali mesmo, sem abrir o painel.
     expect(painel).toContain('<input');
+  });
+
+  it('diz quanto falta comprar para fechar o kit', () => {
+    // Quem tem metade do kit quer saber o que comprar, e quanto custa — numa
+    // régua só, e não numa falta por material em percentis diferentes.
+    const p = calcular(
+      {
+        kind: 'w4',
+        precoItem: 30_000_000,
+        refinoAtual: 0,
+        refinoAlvo: 10,
+        grauAtual: 'none',
+        grauAlvo: 'none',
+        evento: false,
+        precos: PRECOS_FIXOS,
+        usarBencaoFerreiro: true,
+        usarMineriosEspeciais: true,
+        perdaAceitavel: true,
+        itemId: null,
+        usarAtalhos: false,
+      },
+      { execucoes: 5_000, tempoMs: 3_000 },
+    );
+    const kit = montarKit(p, campanhaEmMinerios(p), 0.9);
+    const cheio = estoqueDoKit(kit, p.input.precos);
+    const c = emMateriais(p.simulacao!.amostras, p.input.precos, p.input.precoItem);
+    const html = renderToString(
+      <SimuladorDeEstoque
+        plano={p}
+        kit={kit}
+        margem="p90"
+        estoque={{
+          ...cheio,
+          itens: Object.fromEntries(
+            Object.entries(cheio.itens).map(([id, q]) => [id, Math.floor(q / 2)]),
+          ),
+          alvo: 0.9,
+          assinatura: assinaturaDoPlano(p.input, 0.9, c.materiais.map((m) => m.itemId)),
+        }}
+        onChange={() => {}}
+      />,
+    ).replaceAll('<!-- -->', '');
+
+    expect(html).toMatch(/Para fechar o kit do nível <strong>Seguro<\/strong>, falta comprar/);
+    expect(html).toContain('Com isso, a chance volta a pelo menos 90%.');
   });
 
   it('mostra os dois jeitos de pagar lado a lado, e o kit bate com a lista', () => {

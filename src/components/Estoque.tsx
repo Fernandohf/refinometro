@@ -11,7 +11,7 @@ import {
   type Travamento,
   type VereditoEstoque,
 } from '../engine/estoque';
-import { estoqueDoKit, type Kit } from '../engine/kit';
+import { estoqueDoKit, faltaParaOKit, type Kit } from '../engine/kit';
 import type { Resultado as ResultadoPlano } from '../engine/plan';
 import type { CalcInput } from '../engine/types';
 import { porcento, zeny, zenyExato } from '../format';
@@ -69,7 +69,7 @@ const inteiro = (n: number) => Math.max(0, Math.ceil(n)).toLocaleString('pt-BR')
  * minério da estratégia, um campo novo apareceria zerado e vermelho sem que
  * ninguém o tivesse zerado.
  */
-function assinaturaDoPlano(input: CalcInput, alvo: number, materiais: number[]): string {
+export function assinaturaDoPlano(input: CalcInput, alvo: number, materiais: number[]): string {
   return [
     input.kind,
     input.refinoAtual,
@@ -332,6 +332,7 @@ export function SimuladorDeEstoque({
           <Veredito
             veredito={veredito}
             estoque={efetivo}
+            recomendado={recomendado}
             campanha={campanha}
             margem={margem}
             plano={plano}
@@ -386,20 +387,25 @@ function chanceLegivel(chance: number): string {
 function Veredito({
   veredito,
   estoque,
+  recomendado,
   campanha,
   margem,
   plano,
 }: {
   veredito: VereditoEstoque;
   estoque: Estoque;
+  /** O kit desmontado, que preencheu os campos: a régua do que falta. */
+  recomendado: Estoque | null;
   campanha: CampanhaEmMateriais;
   margem: MargemKey;
   plano: ResultadoPlano;
 }) {
   const margemInfo = MARGENS.find((m) => m.key === margem)!;
-  const faltaAgora = Math.max(0, veredito.zenyNecessario.p50 - estoque.zeny);
-  const faltaNaMargem = Math.max(0, veredito.zenyNecessario[margem] - estoque.zeny);
-  const copiasFaltantes = Math.ceil(veredito.copiasFaltantes[margem]);
+  // Uma régua só para "o que falta": o kit. Antes cada recurso tinha a sua — o
+  // percentil dele mesmo —, e a soma das faltas não devolvia chance nenhuma.
+  const falta = recomendado ? faltaParaOKit(recomendado, estoque, campanha) : null;
+  const faltaPorItem = new Map(falta?.itens.map((l) => [l.itemId, l.qtd]) ?? []);
+  const copiasFaltantes = falta?.copias ?? 0;
   // O veredito sai das execuções guardadas cruas, que num alvo barato são menos
   // que as simuladas. Dizer isso evita que os dois números pareçam brigar.
   const amostradas = veredito.execucoes < (plano.simulacao?.execucoes ?? 0);
@@ -448,24 +454,51 @@ function Veredito({
         </p>
       )}
 
-      {faltaNaMargem > 0 && (
-        <p className="mt-3 text-sm leading-relaxed">
-          Falta zeny de taxa e balcão:{' '}
-          <strong className="text-perigo tabular-nums" title={zenyExato(faltaNaMargem)}>
-            {zeny(faltaNaMargem)}
-          </strong>{' '}
-          no nível {margemInfo.rotulo} ({margemInfo.explica})
-          {margem !== 'p50' && (
-            <>
-              , e{' '}
-              <span className="tabular-nums" title={zenyExato(faltaAgora)}>
-                {zeny(faltaAgora)}
-              </span>{' '}
-              no caso comum
-            </>
-          )}
-          .
-        </p>
+      {falta && falta.valor > 0 && (
+        <div className="mt-3 rounded-lg bg-atencao-container p-3 text-no-atencao-container">
+          <p className="md-corpo-m">
+            Para fechar o kit do nível <strong>{margemInfo.rotulo}</strong>, falta comprar{' '}
+            <strong className="tabular-nums" title={zenyExato(falta.valor)}>
+              {zeny(falta.valor)}
+            </strong>
+            :
+          </p>
+          <ul className="md-corpo-m mt-2 space-y-1">
+            {falta.itens.map((l) => (
+              <li key={l.itemId} className="flex items-center gap-2">
+                <SlotItem id={l.itemId} tamanho="mini" />
+                <span className="min-w-0 flex-1">
+                  <strong className="tabular-nums">{inteiro(l.qtd)}x</strong> {nomeDoItem(l.itemId)}
+                </span>
+                <span className="shrink-0 tabular-nums opacity-80" title={zenyExato(l.valor)}>
+                  {zeny(l.valor)}
+                </span>
+              </li>
+            ))}
+            {falta.copias > 0 && (
+              <li className="flex items-center gap-2">
+                <span className="min-w-0 flex-1">
+                  <strong className="tabular-nums">{inteiro(falta.copias)}x</strong> cópia
+                  {falta.copias === 1 ? '' : 's'} do item, no +0
+                </span>
+                <span className="shrink-0 tabular-nums opacity-80">
+                  {zeny(falta.copias * campanha.precoItem)}
+                </span>
+              </li>
+            )}
+            {falta.zeny > 0 && (
+              <li className="flex items-center gap-2">
+                <span className="min-w-0 flex-1">Zeny a mais para as taxas</span>
+                <span className="shrink-0 tabular-nums opacity-80" title={zenyExato(falta.zeny)}>
+                  {zeny(falta.zeny)}
+                </span>
+              </li>
+            )}
+          </ul>
+          <p className="md-corpo-p mt-2 opacity-80">
+            Com isso, a chance volta a pelo menos {margemInfo.pct}.
+          </p>
+        </div>
       )}
 
       {veredito.fracaoSoPorZeny >= 0.005 && (
@@ -484,7 +517,7 @@ function Veredito({
 
       {copiasFaltantes > 0 && (
         <p className="mt-2 text-sm leading-relaxed">
-          Nessa margem o equipamento quebra: {copiasFaltantes === 1 ? 'é' : 'são'}{' '}
+          Nesse nível o equipamento quebra: {copiasFaltantes === 1 ? 'falta' : 'faltam'}{' '}
           <strong className="text-perigo">
             {copiasFaltantes} {copiasFaltantes === 1 ? 'cópia' : 'cópias'}
           </strong>{' '}
@@ -502,8 +535,8 @@ function Veredito({
               <Info titulo="Acaba em, e falta" alinhar="direita">
                 &ldquo;Acaba em&rdquo; é a fração das campanhas em que o seu estoque daquele
                 material termina antes do alvo — e, como o zeny não repõe minério, cada uma dessas
-                campanhas é uma que não fecha. &ldquo;Falta&rdquo; é quanto ainda seria preciso ter
-                na margem escolhida para atravessá-las.
+                campanhas é uma que não fecha. &ldquo;Falta&rdquo; é quanto falta para o kit do
+                nível escolhido, o mesmo que preencheu os campos.
               </Info>
             }
           >
@@ -516,7 +549,7 @@ function Veredito({
                   <th className="pb-2">Material</th>
                   <th className="pb-2 text-right">Você tem</th>
                   <th className="pb-2 text-right">Acaba em</th>
-                  <th className="pb-2 text-right">Falta ({margemInfo.pct})</th>
+                  <th className="pb-2 text-right">Falta</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-borda/60">
@@ -538,7 +571,7 @@ function Veredito({
                       {porcento(m.fracaoFaltou)} das campanhas
                     </td>
                     <td className="py-2 text-right font-medium tabular-nums">
-                      {inteiro(m.falta[margem])}
+                      {inteiro(faltaPorItem.get(m.itemId) ?? 0)}
                     </td>
                   </tr>
                 ))}
