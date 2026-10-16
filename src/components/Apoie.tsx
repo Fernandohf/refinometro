@@ -41,10 +41,13 @@ export const PIX = {
  * cartão próprio, com título, porque o pedido é a última coisa que a página
  * pede e não pode parecer nota de rodapé de outra coisa.
  *
- * "Um pouco mais de destaque" é literal, e o limite também: o cartão não tem
- * cor de fundo diferente, não pisca, não abre sozinho e continua DEPOIS do
- * resultado, das perguntas e das fontes. Quem veio pela conta rola até aqui
- * por vontade própria; quem não rolar não perde nada.
+ * "Um pouco mais de destaque" é literal, e o limite também — e já foi
+ * pedido duas vezes. Na segunda, o cartão ganhou a moldura e o ícone na cor
+ * de realce e um título do tamanho dos títulos de painel, para não se perder
+ * entre as notas do fim da página. Continua sem fundo próprio, sem piscar,
+ * sem abrir sozinho e DEPOIS do resultado, das perguntas e das fontes: quem
+ * veio pela conta rola até aqui por vontade própria; quem não rolar não perde
+ * nada.
  *
  * As duas opções não têm o mesmo peso de propósito. O café é o botão
  * preenchido — é o caminho que aceita cartão de qualquer lugar. O Pix é
@@ -57,9 +60,14 @@ export function Apoie() {
     <section
       id={ANCORA}
       // `scroll-mt` para o link do topo não encostar o cartão na borda da tela.
-      className="md-corpo-p mt-6 scroll-mt-4 rounded-2xl bg-superficie-baixa p-4 text-suave"
+      className="md-corpo-m mt-6 scroll-mt-4 rounded-2xl border border-realce/50 bg-superficie-baixa p-5 text-suave"
     >
-      <h2 className="md-rotulo-p text-texto">Apoie o Refinômetro</h2>
+      <h2 className="md-titulo-m flex items-center gap-2 text-texto">
+        <span className="text-realce">
+          <IconeCafe />
+        </span>
+        Apoie o Refinômetro
+      </h2>
 
       <p className="mt-1.5">
         Sem anúncio, sem cadastro e sem custo — e vai continuar assim. Se a conta te poupou zeny,
@@ -77,7 +85,7 @@ export function Apoie() {
         colar; e quando a cópia falha — navegador embutido de aplicativo, um
         `http://` de rede local — esta linha é o plano B, selecionável à mão.
       */}
-      <p className="md-corpo-m mt-2.5">
+      <p className="md-corpo-p mt-2.5">
         Chave Pix aleatória:{' '}
         <code className="font-mono text-texto select-all">{PIX.chave}</code> ·{' '}
         {PIX.nome}
