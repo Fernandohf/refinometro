@@ -418,6 +418,137 @@ export function estoqueRecomendado(
   return noQuantil(alto);
 }
 
+/** Quantos degraus de valor cada recurso tenta abaixar por passo do descasque. */
+const DEGRAUS_POR_PASSO = 40;
+
+/**
+ * Os estoques mais baratos que fecham cada fração de `chances` das campanhas.
+ *
+ * O quantil comum sobe todos os recursos no mesmo passo, e isso trata a Bênção
+ * de 2 mi igual ao Oridecon de 10 mil: cobrir o azar do minério barato custa
+ * quase nada, e do caro custa muito. Aqui a folga vai para onde é barata.
+ *
+ * Todo estoque que fecha `α` das campanhas é o máximo, recurso a recurso, de
+ * algum conjunto com pelo menos `α` delas — então a pergunta é QUAIS campanhas
+ * deixar de fora. Escolher o melhor conjunto é combinatório; o descasque é
+ * guloso: começa cobrindo todas e, a cada passo, abaixa o recurso cujo próximo
+ * degrau poupa mais zeny por campanha que deixa de fechar. A conta do ganho olha
+ * todos os recursos, porque a campanha que estoura a Bênção costuma estourar o
+ * zeny junto, e descobri-la baixa os dois.
+ *
+ * É UM descasque só, do mais seguro para o menos, anotando o estoque ao passar
+ * por cada nível. Descascar só abaixa, então os estoques saem aninhados: subir
+ * a segurança nunca tira minério de nenhuma linha — o que descascar cada nível
+ * do zero não garantia (matematica.md §9.8). E os cinco níveis custam um.
+ *
+ * Não garante o ótimo, e por isso o kit compara com o quantil comum e fica com
+ * o mais barato (`montarKits`).
+ */
+export function estoquesMaisBaratos(c: CampanhaEmMateriais, chances: number[]): Estoque[] {
+  const n = c.execucoes;
+  const nCol = c.materiais.length;
+  // Os recursos lado a lado: cada material, o zeny das taxas e as cópias.
+  const colunas: ArrayLike<number>[] = [
+    ...c.materiais.map((_, col) => c.consumo.subarray(col * n, (col + 1) * n)),
+    c.zenyPuro,
+    c.quebras,
+  ];
+  const precos = [...c.materiais.map((m) => m.preco), 1, c.precoItem];
+  const R = colunas.length;
+  // Cada recurso com as campanhas da que mais consumiu para a que menos.
+  const ordem = colunas.map((v) =>
+    Uint32Array.from({ length: n }, (_, i) => i).sort((a, b) => v[b]! - v[a]!),
+  );
+
+  const coberta = new Uint8Array(n).fill(1);
+  // Marca provisória das campanhas que o candidato do momento deixaria de fora.
+  const fora = new Uint8Array(n);
+  // Em `ordem[r]`, a posição da primeira campanha coberta: o valor do kit em `r`.
+  const topo = new Int32Array(R);
+  const sonda = new Int32Array(R);
+  const valor = (r: number, p: number) => (p < n ? colunas[r]![ordem[r]![p]!]! : 0);
+  const avancar = (r: number, p: number) => {
+    const o = ordem[r]!;
+    while (p < n && (!coberta[o[p]!] || fora[o[p]!])) p++;
+    return p;
+  };
+  const kit = (): Estoque => {
+    const em = (r: number) => Math.ceil(valor(r, topo[r]!));
+    return {
+      zeny: em(nCol),
+      copias: 1 + em(nCol + 1),
+      itens: Object.fromEntries(c.materiais.map((m, col) => [m.itemId, em(col)])),
+    };
+  };
+
+  let descobertas = 0;
+  const marcadas: number[] = [];
+  const saida: Estoque[] = new Array(chances.length);
+  const doMaisSeguro = chances.map((_, j) => j).sort((a, b) => chances[b]! - chances[a]!);
+
+  for (const j of doMaisSeguro) {
+    const alvo = Math.min(1, Math.max(0, chances[j]!));
+    let restam = n - Math.ceil(alvo * n - 1e-9) - descobertas;
+
+    while (restam > 0) {
+      let melhorRazao = 0;
+      let melhorR = -1;
+      let melhorAte = 0;
+
+      for (let r = 0; r < R; r++) {
+        const o = ordem[r]!;
+        const col = colunas[r]!;
+        sonda.set(topo);
+        marcadas.length = 0;
+        let k = topo[r]!;
+        for (let degrau = 0; k < n && degrau < DEGRAUS_POR_PASSO; degrau++) {
+          // Empates saem juntos: abaixar o recurso abaixo de um valor descobre
+          // todas as campanhas que o atingiram.
+          const v = col[o[k]!]!;
+          while (k < n && col[o[k]!]! === v) {
+            const i = o[k]!;
+            if (coberta[i]) {
+              fora[i] = 1;
+              marcadas.push(i);
+            }
+            k++;
+          }
+          if (marcadas.length > restam) break;
+
+          // As sondas só andam para a frente: cada degrau descobre mais campanhas.
+          let ganho = 0;
+          for (let s = 0; s < R; s++) {
+            sonda[s] = avancar(s, sonda[s]!);
+            ganho += precos[s]! * (valor(s, topo[s]!) - valor(s, sonda[s]!));
+          }
+          const razao = ganho / marcadas.length;
+          if (razao > melhorRazao) {
+            melhorRazao = razao;
+            melhorR = r;
+            melhorAte = k;
+          }
+        }
+        for (const i of marcadas) fora[i] = 0;
+      }
+
+      if (melhorR < 0) break;
+      const o = ordem[melhorR]!;
+      for (let k = topo[melhorR]!; k < melhorAte; k++) {
+        if (coberta[o[k]!]) {
+          coberta[o[k]!] = 0;
+          descobertas++;
+          restam--;
+        }
+      }
+      for (let s = 0; s < R; s++) topo[s] = avancar(s, topo[s]!);
+    }
+
+    saida[j] = kit();
+  }
+
+  return saida;
+}
+
 /**
  * Só a chance, sem os percentis e as tabelas que `avaliarEstoque` monta.
  *

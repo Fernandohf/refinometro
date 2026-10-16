@@ -15,6 +15,7 @@
 import {
   chanceDoEstoque,
   emMateriais,
+  estoquesMaisBaratos,
   estoqueRecomendado,
   type CampanhaEmMateriais,
   type Estoque,
@@ -53,17 +54,26 @@ export function campanhaEmMinerios(plano: ResultadoPlano): CampanhaEmMateriais |
 }
 
 /**
- * O menor kit que fecha a fração `chance` das campanhas.
+ * Os kits mais baratos que fecham cada fração de `chances` das campanhas.
  *
- * É o mesmo quantil comum do simulador de estoque (`estoqueRecomendado`), só
- * que contado em minério inteiro. Sem simulação, sobra a média — que não fecha
- * fração nenhuma garantida, e por isso `chance` volta `null`.
+ * Dois candidatos por nível, contados em minério inteiro: o quantil comum do
+ * simulador de estoque (`estoqueRecomendado`), que sobe todos os recursos no
+ * mesmo passo, e o descasque por preço (`estoquesMaisBaratos`), que põe a folga
+ * onde ela é barata. Os dois fecham a fração pedida, e fica o mais barato — o
+ * descasque é guloso e não garante o ótimo, e assim o kit nunca piora por
+ * causa dele.
+ *
+ * Cada kit ainda leva o máximo dos níveis abaixo dele: escolher candidatos
+ * diferentes em níveis vizinhos poderia fazer o "Muito seguro" pedir menos de
+ * um minério que o "Seguro". Só soma recurso, então a chance não cai. Sem
+ * simulação, sobra a média — que não fecha fração nenhuma garantida, e por
+ * isso `chance` volta `null`.
  */
-export function montarKit(
+export function montarKits(
   plano: ResultadoPlano,
   campanha: CampanhaEmMateriais | null,
-  chance: number,
-): Kit {
+  chances: number[],
+): Kit[] {
   const { precos, precoItem } = plano.input;
 
   if (!campanha) {
@@ -74,22 +84,57 @@ export function montarKit(
     );
     const reposicoes = Math.ceil(plano.recursos.itensQuebrados);
     const taxas = Math.ceil(plano.recursos.taxas);
-    return { itens, reposicoes, taxas, chance: null, ...valorEm(itens, reposicoes, taxas, precos, precoItem) };
+    const media: Kit = { itens, reposicoes, taxas, chance: null, ...valorEm(itens, reposicoes, taxas, precos, precoItem) };
+    return chances.map(() => media);
   }
 
-  const e = estoqueRecomendado(campanha, chance);
-  const itens = Object.fromEntries(Object.entries(e.itens).filter(([, q]) => q > 0)) as Record<
-    number,
-    number
-  >;
-  const reposicoes = e.copias - 1;
-  return {
-    itens,
-    reposicoes,
-    taxas: e.zeny,
-    chance: chanceDoEstoque(campanha, e),
-    ...valorEm(itens, reposicoes, e.zeny, precos, precoItem),
+  const kitDe = (e: Estoque): Kit => {
+    const itens = Object.fromEntries(Object.entries(e.itens).filter(([, q]) => q > 0)) as Record<
+      number,
+      number
+    >;
+    const reposicoes = e.copias - 1;
+    return {
+      itens,
+      reposicoes,
+      taxas: e.zeny,
+      chance: chanceDoEstoque(campanha, e),
+      ...valorEm(itens, reposicoes, e.zeny, precos, precoItem),
+    };
   };
+
+  const baratos = estoquesMaisBaratos(campanha, chances);
+  const escolhidos = chances.map((chance, j) => {
+    const comum = estoqueRecomendado(campanha, chance);
+    return kitDe(baratos[j]!).valor < kitDe(comum).valor ? baratos[j]! : comum;
+  });
+
+  const saida: Kit[] = new Array(chances.length);
+  let abaixo: Estoque | null = null;
+  for (const j of chances.map((_, j) => j).sort((a, b) => chances[a]! - chances[b]!)) {
+    const e: Estoque = abaixo ? maximo(escolhidos[j]!, abaixo) : escolhidos[j]!;
+    saida[j] = kitDe(e);
+    abaixo = e;
+  }
+  return saida;
+}
+
+/** O kit de um nível só. A página pede os cinco de uma vez (`montarKits`). */
+export function montarKit(
+  plano: ResultadoPlano,
+  campanha: CampanhaEmMateriais | null,
+  chance: number,
+): Kit {
+  return montarKits(plano, campanha, [chance])[0]!;
+}
+
+/** Recurso a recurso, o maior dos dois estoques. */
+function maximo(a: Estoque, b: Estoque): Estoque {
+  const itens = { ...a.itens };
+  for (const [id, q] of Object.entries(b.itens)) {
+    itens[Number(id)] = Math.max(itens[Number(id)] ?? 0, q);
+  }
+  return { zeny: Math.max(a.zeny, b.zeny), copias: Math.max(a.copias, b.copias), itens };
 }
 
 function valorEm(

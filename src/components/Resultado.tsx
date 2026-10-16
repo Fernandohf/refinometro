@@ -3,7 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { nomeDoItem } from '../data/nomes';
 import { arvoreDeCompras, sourcingOf, type ItemDaLista } from '../engine/pricing';
 import { fluxoDeCusto } from '../engine/fluxoDeCusto';
-import { campanhaEmMinerios, montarKit, type Kit } from '../engine/kit';
+import { campanhaEmMinerios, montarKits, type Kit } from '../engine/kit';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
 import type { Grade } from '../data/grade';
@@ -101,9 +101,14 @@ export function Resultado({
   // O kit é a única fonte de quantidades da página: o "o que ter em mãos" do
   // topo, a lista de compras, o diagrama e o simulador de estoque leem dele.
   // A campanha em minério não depende da margem, então sobrevive à troca dela.
-  const chance = MARGENS.find((m) => m.key === margem)!.chance;
+  // Os cinco níveis saem de um descasque só, e por isso trocar a margem não
+  // refaz conta nenhuma.
   const campanha = useMemo(() => campanhaEmMinerios(plano), [plano]);
-  const kit = useMemo(() => montarKit(plano, campanha, chance), [plano, campanha, chance]);
+  const kits = useMemo(
+    () => montarKits(plano, campanha, MARGENS.map((m) => m.chance)),
+    [plano, campanha],
+  );
+  const kit = kits[MARGENS.findIndex((m) => m.key === margem)]!;
   const fluxo = fluxoDeCusto(plano, kit);
   const temCompras = Object.keys(plano.recursos.itens).length > 0;
 
