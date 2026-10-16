@@ -232,6 +232,7 @@ export function Resultado({
             amostras={sim.amostras.custo}
             media={plano.custoEsperado}
             margem={margem}
+            kit={kit.chance !== null ? kit.valor : undefined}
           />
         )}
 
@@ -872,12 +873,15 @@ function Distribuicao({
   amostras,
   media,
   margem,
+  kit,
 }: {
   custo: Percentis;
   /** Custo de cada campanha simulada, cru: é dele que sai a forma da curva. */
   amostras: Float64Array;
   media: number;
   margem: MargemKey;
+  /** Valor do kit no mesmo nível, para marcar na mesma régua. */
+  kit?: number;
 }) {
   const info = MARGENS.find((m) => m.key === margem)!;
 
@@ -887,6 +891,7 @@ function Distribuicao({
       media={media}
       escolhida={{ rotulo: info.pct, chance: info.chance, valor: custo[margem] }}
       margens={MARGENS.map((m) => custo[m.key])}
+      kit={kit}
     />
   );
 }
