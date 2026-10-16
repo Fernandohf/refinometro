@@ -9,6 +9,7 @@ import {
   estoquesMaisBaratos,
 } from '../src/engine/estoque';
 import {
+  balcaoDoKit,
   campanhaEmMinerios,
   estoqueDoKit,
   faltaParaOKit,
@@ -137,6 +138,22 @@ describe('o kit de quem junta tudo antes', () => {
     const desmontada = emMateriais(p.simulacao!.amostras, p.input.precos, p.input.precoItem);
     const v = avaliarEstoque(desmontada, estoqueDoKit(kit, p.input.precos));
     expect(v.chance).toBeGreaterThanOrEqual(kit.chance!);
+  });
+
+  it('o zeny do estoque é o das taxas mais o balcão de fabricar o kit', () => {
+    // O "o que ter em mãos" mostra só as taxas; a aba de estoque, que pede a
+    // matéria-prima, mostra mais. A diferença tem de ser exatamente o balcão
+    // que as duas telas citam — senão a explicação de uma para a outra mente.
+    // Grau A em Armadura nv2: centenas de Pedras de Éter, cada uma com balcão.
+    const p = plano({ kind: 'a2', precoItem: 5_000_000, refinoAlvo: 11, grauAlvo: 'A' });
+    const kit = montarKit(p, campanhaEmMinerios(p), 0.5);
+    const balcao = balcaoDoKit(kit, p.input.precos);
+    expect(balcao.total).toBeGreaterThan(0);
+    expect(estoqueDoKit(kit, p.input.precos).zeny).toBe(Math.ceil(kit.taxas + balcao.total));
+    expect(balcao.linhas.reduce((s, l) => s + l.zeny, 0)).toBeCloseTo(balcao.total, 0);
+    for (let i = 1; i < balcao.linhas.length; i++) {
+      expect(balcao.linhas[i - 1]!.zeny).toBeGreaterThanOrEqual(balcao.linhas[i]!.zeny);
+    }
   });
 
   it('sem simulação, é a média — e não promete fração nenhuma', () => {

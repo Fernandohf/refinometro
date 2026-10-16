@@ -11,11 +11,11 @@ import {
   type Travamento,
   type VereditoEstoque,
 } from '../engine/estoque';
-import { estoqueDoKit, faltaParaOKit, type Kit } from '../engine/kit';
+import { balcaoDoKit, estoqueDoKit, faltaParaOKit, type Kit } from '../engine/kit';
 import type { Resultado as ResultadoPlano } from '../engine/plan';
 import type { CalcInput } from '../engine/types';
 import { porcento, zeny, zenyExato } from '../format';
-import { MARGENS, type MargemKey } from './Resultado';
+import { MARGENS, ReceitasDoBalcao, type MargemKey } from './Resultado';
 import {
   Botao,
   BotaoDoPainel,
@@ -142,6 +142,10 @@ export function SimuladorDeEstoque({
     () => (campanha ? estoqueDoKit(kit, plano.input.precos) : null),
     [campanha, kit, plano.input.precos],
   );
+  const balcao = useMemo(
+    () => balcaoDoKit(kit, plano.input.precos),
+    [kit, plano.input.precos],
+  );
   const efetivo: EstoqueSalvo =
     recomendado && assinatura !== estoque.assinatura
       ? { ...recomendado, alvo, assinatura }
@@ -247,12 +251,12 @@ export function SimuladorDeEstoque({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo
-              label="Zeny para as taxas"
+              label="Zeny para taxas e balcão"
               dica="É só isso que o zeny paga aqui: a taxa do refinador, a taxa de cada tentativa de Grau e o balcão do NPC que fabrica os intermediários. Minério que faltar não sai daqui — ele tem de estar na mochila."
               apoio={<Piso valor={efetivo.zeny} piso={campanha.piso.zeny} formatar={zeny} />}
             >
               <NumeroComPasso
-                rotulo="Zeny para as taxas"
+                rotulo="Zeny para taxas e balcão"
                 value={efetivo.zeny}
                 onChange={(v) => mexer({ zeny: v })}
                 passo={passoDeZeny(recomendado?.zeny || efetivo.zeny)}
@@ -280,6 +284,24 @@ export function SimuladorDeEstoque({
                 minimoDoCampo={1}
               />
             </Campo>
+            {/* O zeny daqui e o do "o que ter em mãos" não são o mesmo número, e
+                sem esta linha parecem dois valores para a mesma coisa: lá os
+                itens vêm prontos e o zeny paga só as taxas; aqui os campos são
+                a matéria-prima, e o caixa paga também a fabricação. */}
+            {recomendado && balcao.total > 0 && (
+              <p className="md-corpo-p text-suave sm:col-span-2">
+                No kit, o zeny se divide em{' '}
+                <strong className="text-texto tabular-nums" title={zenyExato(kit.taxas)}>
+                  {zeny(kit.taxas)}
+                </strong>{' '}
+                de taxas — o mesmo do “o que ter em mãos” — e{' '}
+                <strong className="text-texto tabular-nums" title={zenyExato(balcao.total)}>
+                  {zeny(balcao.total)}
+                </strong>{' '}
+                de balcão do NPC. Lá os itens já vêm prontos; aqui os campos são a matéria-prima, e
+                fabricar <ReceitasDoBalcao balcao={balcao} /> sai do caixa.
+              </p>
+            )}
           </div>
 
           <div>

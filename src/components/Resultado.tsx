@@ -3,7 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { nomeDoItem } from '../data/nomes';
 import { arvoreDeCompras, sourcingOf, type ItemDaLista } from '../engine/pricing';
 import { fluxoDeCusto } from '../engine/fluxoDeCusto';
-import { campanhaEmMinerios, montarKits, type Kit } from '../engine/kit';
+import { balcaoDoKit, campanhaEmMinerios, montarKits, type BalcaoDoKit, type Kit } from '../engine/kit';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { Percentis } from '../engine/types';
 import type { Grade } from '../data/grade';
@@ -572,6 +572,7 @@ function DoisModos({
   const sim = plano.simulacao!;
   const info = MARGENS.find((m) => m.key === margem)!;
   const linhas = arvoreDeCompras(kit.itens, plano.input.precos);
+  const balcao = balcaoDoKit(kit, plano.input.precos);
   const quebra = kit.reposicoes > 0;
 
   return (
@@ -613,7 +614,8 @@ function DoisModos({
           <Info titulo="O que ter em mãos" alinhar="direita">
             O mínimo para separar antes de começar e não voltar ao mercado. O zeny aqui é só o das
             taxas — do refinador e de Grau, em cada tentativa —; os minérios vêm contados, inteiros,
-            como o refinador os pede. Com tudo isso, nada falta em {info.fracao} campanhas
+            como o refinador os pede, e já prontos: quem for fabricá-los no NPC paga ainda o balcão,
+            que aparece logo abaixo da lista. Com tudo isso, nada falta em {info.fracao} campanhas
             simuladas. Comprado a preço de mercado, sai mais caro que o custo total ao lado: a
             mochila tem de cobrir o azar de todos os minérios na mesma campanha, e o que sobra volta
             para casa. São as mesmas quantidades da lista de compras e da aba “O que eu tenho”.
@@ -638,6 +640,16 @@ function DoisModos({
             </li>
           )}
         </ul>
+        {balcao.total > 0 && (
+          <p className="md-corpo-m mt-2 text-suave">
+            Isso já pronto. Fabricando no NPC — <ReceitasDoBalcao balcao={balcao} /> —, separe
+            também{' '}
+            <strong className="text-texto tabular-nums" title={zenyExato(balcao.total)}>
+              {zeny(balcao.total)}
+            </strong>{' '}
+            de balcão.
+          </p>
+        )}
         <div className="-ml-3 mt-1">
           <BotaoDoPainel onClick={onVerLista}>ver a lista de compras</BotaoDoPainel>
         </div>
@@ -674,6 +686,28 @@ function Modo({
       </div>
       <div className="mt-1.5">{children}</div>
     </div>
+  );
+}
+
+/**
+ * As receitas que mais pesam no balcão, numa frase: "735x Pedra de Éter, 30x
+ * Âmbar de Éter e mais 4 receitas". Duas bastam para a pessoa reconhecer de
+ * onde vem o número; a lista inteira mora na aba de compras.
+ */
+export function ReceitasDoBalcao({ balcao }: { balcao: BalcaoDoKit }) {
+  const mostradas = balcao.linhas.slice(0, 2);
+  const resto = balcao.linhas.length - mostradas.length;
+  return (
+    <>
+      {mostradas.map((l, i) => (
+        <span key={l.itemId}>
+          {i > 0 && (resto > 0 ? ', ' : ' e ')}
+          <strong className="text-texto tabular-nums">{inteiro(l.qtd)}x</strong>{' '}
+          {nomeDoItem(l.itemId)}
+        </span>
+      ))}
+      {resto > 0 && ` e mais ${resto} ${resto === 1 ? 'receita' : 'receitas'}`}
+    </>
   );
 }
 

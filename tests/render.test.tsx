@@ -121,7 +121,7 @@ describe('página', () => {
 
     expect(html).toContain('Dá com o que eu tenho?');
     expect(html).toContain('Chance de chegar ao alvo');
-    expect(html).toContain('Zeny para as taxas');
+    expect(html).toContain('Zeny para taxas e balcão');
     expect(html).toContain('Preenchido com o kit do nível');
     expect(html).toContain('Tudo abaixo está no kit recomendado');
     // Preenchido de verdade: nada em vermelho, e nenhum campo no zero.
@@ -132,7 +132,7 @@ describe('página', () => {
     expect(html).not.toContain('mín. 0');
     // Quantidade discreta se ajusta em passos, não só digitando — e o passo
     // acompanha a ordem de grandeza do campo, então vem no rótulo do botão.
-    expect(html).toContain('Zeny para as taxas: mais ');
+    expect(html).toContain('Zeny para taxas e balcão: mais ');
     expect(html).toContain('Cópias do item: menos 1');
     // "Elunium" ou "Minério de Elunium": qual dos dois se compra depende da
     // cotação do dia, e o teste é sobre o passo, não sobre o fornecedor.
@@ -263,6 +263,11 @@ describe('página', () => {
     const taxasNaLista = html.slice(html.indexOf('Comprar ou fabricar')).match(/Taxas? do refinador[\s\S]*?<dd[^>]*>([^<]+)</);
     expect(taxasNaLista).not.toBeNull();
     expect(valorApos('O que ter em mãos', 'md-display-p')).toBe(taxasNaLista![1]);
+
+    // O padrão vai ao Grau A, que fabrica gemas de Éter no NPC: os dois cartões
+    // dizem quanto de balcão separa "taxas" do zeny da aba de estoque.
+    expect(html.slice(emMaos)).toContain('Fabricando no NPC');
+    expect(html).toContain('de balcão do NPC');
   });
 
   it('renderiza sem estourar e já mostra um orçamento', () => {
@@ -313,7 +318,7 @@ describe('página', () => {
     const estrategia = html.indexOf('Melhor estratégia');
     const zeny = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Comprar ou fabricar');
-    const estoque = html.indexOf('Zeny para as taxas');
+    const estoque = html.indexOf('Zeny para taxas e balcão');
 
     expect(aviso).toBeGreaterThan(-1);
     expect(aviso).toBeLessThan(orcamento);

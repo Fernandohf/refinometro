@@ -20,7 +20,7 @@ import {
   type CampanhaEmMateriais,
   type Estoque,
 } from './estoque';
-import { listaDeCompras } from './pricing';
+import { listaDeCompras, type FabricacaoLinha } from './pricing';
 import type { Resultado as ResultadoPlano } from './plan';
 import type { PriceTable } from './types';
 
@@ -126,6 +126,30 @@ export function montarKit(
   chance: number,
 ): Kit {
   return montarKits(plano, campanha, [chance])[0]!;
+}
+
+export interface BalcaoDoKit {
+  /** Zeny de balcão para fabricar o kit inteiro a partir do que se compra. */
+  total: number;
+  /** O mesmo total, por receita, da que mais pesa para a que menos. */
+  linhas: FabricacaoLinha[];
+}
+
+/**
+ * O balcão do NPC que o kit cobra de quem o fabrica, em vez de comprá-lo pronto.
+ *
+ * O "o que ter em mãos" conta o zeny só das taxas porque lista o minério e as
+ * gemas já prontos. O simulador de estoque desmonta o mesmo kit até o que se
+ * compra, e aí o caixa paga também a fabricação — no Grau A são centenas de
+ * Pedras de Éter a 100 mil cada. As duas telas dizem "zeny" para coisas
+ * diferentes; é este número que liga uma à outra.
+ */
+export function balcaoDoKit(kit: Kit, precos: PriceTable): BalcaoDoKit {
+  const lista = listaDeCompras(kit.itens, precos);
+  return {
+    total: lista.zenyNpc,
+    linhas: [...lista.fabricacao].sort((a, b) => b.zeny - a.zeny),
+  };
 }
 
 /** Recurso a recurso, o maior dos dois estoques. */
