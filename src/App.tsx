@@ -18,7 +18,7 @@ import { ESTOQUE_VAZIO, SimuladorDeEstoque, type EstoqueSalvo } from './componen
 import { BuscaItem } from './components/BuscaItem';
 import { BotaoDoGuia, ComoUsar, useGuia } from './components/ComoUsar';
 import { LinkDasPerguntas, Sobre } from './components/Sobre';
-import { Apoie, LinkDeApoio } from './components/Apoie';
+import { Apoie, ConviteDeApoio, LinkDeApoio } from './components/Apoie';
 import { BotaoTema } from './components/BotaoTema';
 import {
   BotaoDoPainel,
@@ -489,6 +489,7 @@ export default function App() {
                   />
                 )}
               />
+              <ConviteDeApoio />
             </div>
           ) : null}
 
