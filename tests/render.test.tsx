@@ -181,6 +181,21 @@ describe('página', () => {
     expect(html).toMatch(/Metade das campanhas que não fecham para até/);
   });
 
+  it('destaca, no painel de preços fechado, o que mais pesa no plano', () => {
+    // Os preços fixos que o painel mostrava (Oridecon e Bênção) podiam não ter
+    // nada a ver com o plano na tela. No padrão, o Eteridecon Enriquecido é o
+    // maior gasto, e é o preço dele que precisa estar à mão para conferir.
+    const html = renderToString(<App />);
+    const painel = html.slice(
+      html.indexOf('O que mais pesa neste plano'),
+      html.indexOf('Cotação do mercado do LATAM'),
+    );
+    expect(painel).toContain('Eteridecon Enriquecido');
+    expect(painel.replaceAll('<!-- -->', '')).toMatch(/\d+% do custo médio/);
+    // Editável ali mesmo, sem abrir o painel.
+    expect(painel).toContain('<input');
+  });
+
   it('mostra os dois jeitos de pagar lado a lado, e o kit bate com a lista', () => {
     // Quem volta ao mercado e quem junta tudo antes pagam coisas diferentes,
     // e a página diz as duas. O número do kit é o total da lista de compras:
