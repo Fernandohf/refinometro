@@ -6,6 +6,8 @@ import { GRADE_ORDER, type Grade } from './data/grade';
 import type { ItemKind } from './data/ores';
 import { CATEGORIAS, ROTULO_GRAU } from './data/rotulos';
 import { calcular, type Resultado as ResultadoPlano } from './engine/plan';
+import { listaDeCompras } from './engine/pricing';
+import { nomeDoItem } from './data/nomes';
 import type { PedidoSimulacao, RespostaSimulacao } from './engine/worker';
 import { maxRefine, riscoPorAlvo, safeLimit } from './engine/refine';
 import { suportaGrau } from './engine/grade';
@@ -30,7 +32,7 @@ import {
 } from './components/ui';
 import { SlotItem } from './components/ItemNoJogo';
 import { rotuloDoAlvo, TrilhaRefino } from './components/TrilhaRefino';
-import { dataBR, zeny } from './format';
+import { dataBR, porcento } from './format';
 
 interface Estado {
   /** Nome do item escolhido na busca, só para exibição. */
@@ -224,6 +226,30 @@ export default function App() {
 
   const preciso = usePlanoPreciso(input, plano !== null);
   const exibido = preciso.plano ?? plano;
+
+  // Os preços que o painel fechado mostra são os que mais pesam NESTE plano.
+  // A lista só se refaz quando muda a pergunta — item, alvo, condições —, e
+  // não o preço: senão o campo em que a pessoa está digitando poderia sumir no
+  // meio da digitação, ao trocar o minério da estratégia. A chave sai do valor
+  // adiado, o mesmo que gerou o `plano`, para os dois nunca se desencontrarem.
+  const chaveDosDestaques = [
+    adiado.kind,
+    adiado.refinoAtual,
+    adiado.refinoAlvo,
+    adiado.grauAtual,
+    adiado.grauAlvo,
+    adiado.evento,
+    adiado.usarBencaoFerreiro,
+    adiado.usarMineriosEspeciais,
+    adiado.perdaAceitavel,
+    adiado.usarAtalhos,
+    adiado.itemId,
+  ].join('|');
+  const destaques = useMemo(
+    () => (plano ? precosQueMaisPesam(plano) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chaveDosDestaques, plano === null],
+  );
 
   const graus = GRADE_ORDER.filter((g) => GRADE_ORDER.indexOf(g) >= GRADE_ORDER.indexOf(e.grauAtual));
 
@@ -425,6 +451,7 @@ export default function App() {
             precoItem={e.precoItem}
             onPrecoItem={(v) => set('precoItem', v)}
             atalhos={atalhos}
+            destaques={destaques}
           />
         </div>
 
@@ -597,23 +624,20 @@ function Precos({
   precoItem,
   onPrecoItem,
   atalhos,
+  destaques,
 }: {
   precos: PriceTable;
   onChange: (p: PriceTable) => void;
   precoItem: number;
   onPrecoItem: (v: number) => void;
   atalhos: Atalho[];
+  /** Os preços que mais pesam no plano atual, do maior para o menor. */
+  destaques: Destaque[];
 }) {
   const [aberto, setAberto] = useState(false);
   const grupos = [...PRICE_FIELDS, ...gruposDeAtalho(atalhos)];
   const padrao = grupos.every(
     (g) => g.itens.every((i) => (precos[i.itemId] ?? 0) === (DEFAULT_PRICES[i.itemId] ?? 0)),
-  );
-  // Os cubos e martelos do item mexem no plano tanto quanto o Oridecon: entram
-  // nos destaques do painel fechado.
-  const doItem = gruposDeAtalho(atalhos).find((g) => g.grupo === GRUPO_DO_ITEM)?.itens ?? [];
-  const destaques = [...DESTAQUES, ...doItem].filter(
-    (d, i, todos) => todos.findIndex((x) => x.itemId === d.itemId) === i,
   );
 
   return (
@@ -653,21 +677,33 @@ function Precos({
         <NumeroZeny value={precoItem} onChange={onPrecoItem} />
       </Campo>
 
-      {/* Fechado, o painel mostra as duas cotações que mais mexem no orçamento —
-          e nada mais. O parágrafo que pedia para conferi-las virou o aviso ao
-          lado: ele é lido uma vez e depois só afastava os números. */}
-      {!aberto && (
-        <dl className="md-corpo-m mt-4 space-y-1">
-          {destaques.map((d) => (
-            <div key={d.itemId} className="flex items-center justify-between gap-3">
-              <dt className="flex min-w-0 items-center gap-2">
+      {/* Fechado, o painel mostra as cotações que mais pesam no plano que está
+          na tela, já editáveis: é o "confira os preços" do guia, sem um clique
+          a mais. Eram duas fixas — Oridecon e Bênção —, e num plano de
+          Eteridecon Enriquecido o Oridecon pesava 98 mil z de 300 milhões. */}
+      {!aberto && destaques.length > 0 && (
+        <div className="mt-4">
+          <div className="md-rotulo-p text-suave">O que mais pesa neste plano</div>
+          <div className="mt-2 space-y-2">
+            {destaques.map((d) => (
+              <div key={d.itemId} className="flex items-center gap-2">
                 <SlotItem id={d.itemId} tamanho="mini" />
-                {d.nome}
-              </dt>
-              <dd className="shrink-0 text-suave tabular-nums">{zeny(precos[d.itemId] ?? 0)}</dd>
-            </div>
-          ))}
-        </dl>
+                <span className="min-w-0 flex-1">
+                  <span className="md-corpo-m block">{d.nome}</span>
+                  <span className="md-corpo-p block text-suave">
+                    {d.fracao < 0.01 ? 'menos de 1%' : porcento(d.fracao)} do custo médio
+                  </span>
+                </span>
+                <div className="w-32 shrink-0">
+                  <NumeroZeny
+                    value={precos[d.itemId] ?? 0}
+                    onChange={(v) => onChange({ ...precos, [d.itemId]: v })}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* A data fica à vista, e não só no balão: ela diz a quem chega que os
@@ -704,18 +740,36 @@ function Precos({
   );
 }
 
+interface Destaque {
+  itemId: number;
+  nome: string;
+  /** Fração do custo médio da campanha que este material leva. */
+  fracao: number;
+}
+
+/** Quantos preços o painel fechado mostra. */
+const MAX_DESTAQUES = 3;
+
 /**
- * As cotações que o painel fechado mostra.
+ * Os materiais que mais pesam no custo do plano, no que se compra de verdade.
  *
- * São duas por escolha, não por falta de espaço: o Oridecon é o minério de
- * quase todo trecho comum e a Bênção do Ferreiro é o item de proteção mais
- * caro do plano. Errar qualquer uma das duas erra o orçamento inteiro; errar as
- * outras muda alguns por cento.
+ * Lê o consumo médio, e não o kit de uma margem: a pergunta é qual preço,
+ * errado, mais erra a conta, e essa ordem não muda com a margem. Desmontado
+ * como na lista de compras, porque o campo de preço é do que se compra —
+ * quem fabrica Aquamarina de Éter confere o preço da Pedra de Éter.
  */
-const DESTAQUES = [
-  { itemId: 984, nome: 'Oridecon' },
-  { itemId: 6635, nome: 'Bênção do Ferreiro' },
-];
+function precosQueMaisPesam(plano: ResultadoPlano): Destaque[] {
+  const lista = listaDeCompras(plano.recursos.itens, plano.input.precos);
+  const custo = plano.custoEsperado;
+  return lista.compras
+    .filter((l) => l.total > 0)
+    .slice(0, MAX_DESTAQUES)
+    .map((l) => ({
+      itemId: l.itemId,
+      nome: nomeDoItem(l.itemId),
+      fracao: custo > 0 ? l.total / custo : 0,
+    }));
+}
 
 /**
  * O fecho da página: a licença de quem a fez, e nada mais.
