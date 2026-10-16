@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import { PRECOS_FIXOS } from './precosFixos';
-import { avaliarEstoque, emMateriais } from '../src/engine/estoque';
-import { campanhaEmMinerios, estoqueDoKit, faltaParaOKit, montarKit } from '../src/engine/kit';
+import {
+  avaliarEstoque,
+  chanceDoEstoque,
+  emMateriais,
+  estoqueRecomendado,
+  estoquesMaisBaratos,
+} from '../src/engine/estoque';
+import {
+  campanhaEmMinerios,
+  estoqueDoKit,
+  faltaParaOKit,
+  montarKit,
+  montarKits,
+} from '../src/engine/kit';
+import { listaDeCompras } from '../src/engine/pricing';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -53,15 +66,57 @@ describe('o kit de quem junta tudo antes', () => {
     }
   });
 
-  it('cresce com o nível de segurança', () => {
-    const p = plano();
-    const c = campanhaEmMinerios(p)!;
-    const menor = montarKit(p, c, 0.5);
-    const maior = montarKit(p, c, 0.95);
-    expect(maior.valor).toBeGreaterThanOrEqual(menor.valor);
-    for (const [id, q] of Object.entries(menor.itens)) {
-      expect(maior.itens[Number(id)] ?? 0).toBeGreaterThanOrEqual(q);
+  it('cresce com o nível de segurança, linha a linha', () => {
+    // Subir a segurança e ver um minério diminuir seria ler o kit como erro.
+    // O descasque guloso, rodado nível a nível, chegou a fazer isso (361 → 359
+    // Eterium do 90% para o 95% num a2 +11 Grau A); um descasque só, anotado
+    // de passagem, não consegue.
+    const niveis = [0.5, 0.75, 0.9, 0.95, 0.99];
+    for (const over of [{}, { kind: 'a2' as const, refinoAlvo: 11, grauAlvo: 'A' as const }]) {
+      const p = plano(over);
+      const kits = montarKits(p, campanhaEmMinerios(p), niveis);
+      for (let j = 1; j < kits.length; j++) {
+        const menor = kits[j - 1]!;
+        const maior = kits[j]!;
+        expect(maior.valor).toBeGreaterThanOrEqual(menor.valor);
+        expect(maior.taxas).toBeGreaterThanOrEqual(menor.taxas);
+        expect(maior.reposicoes).toBeGreaterThanOrEqual(menor.reposicoes);
+        for (const [id, q] of Object.entries(menor.itens)) {
+          expect(maior.itens[Number(id)] ?? 0).toBeGreaterThanOrEqual(q);
+        }
+      }
     }
+  });
+
+  it('nunca sai mais caro que o quantil comum, e com quebra sai bem mais barato', () => {
+    // O quantil comum sobe a Bênção de 2 mi no mesmo passo do Oridecon de 10
+    // mil. O descasque põe a folga onde ela é barata, e o kit fica com o mais
+    // barato dos dois — então ele só pode empatar ou ganhar.
+    const p = plano({ refinoAlvo: 12, precoItem: 1_000_000 });
+    const c = campanhaEmMinerios(p)!;
+    const valorComum = (chance: number) => {
+      const e = estoqueRecomendado(c, chance);
+      const lista = listaDeCompras(
+        Object.fromEntries(Object.entries(e.itens).filter(([, q]) => q > 0)),
+        p.input.precos,
+      );
+      return lista.total + (e.copias - 1) * p.input.precoItem + e.zeny;
+    };
+    for (const chance of [0.5, 0.9, 0.99]) {
+      const kit = montarKit(p, c, chance);
+      expect(kit.chance!).toBeGreaterThanOrEqual(chance);
+      expect(kit.valor).toBeLessThanOrEqual(valorComum(chance));
+    }
+    expect(montarKit(p, c, 0.9).valor).toBeLessThan(valorComum(0.9) * 0.95);
+  });
+
+  it('o descasque sozinho fecha a fração pedida em cada nível', () => {
+    const p = plano({ kind: 'w5', refinoAlvo: 11, grauAlvo: 'C' });
+    const c = campanhaEmMinerios(p)!;
+    const niveis = [0.99, 0.5, 0.9];
+    estoquesMaisBaratos(c, niveis).forEach((e, j) => {
+      expect(chanceDoEstoque(c, e)).toBeGreaterThanOrEqual(niveis[j]!);
+    });
   });
 
   it('conta em minério inteiro, que é a moeda da lista de compras', () => {

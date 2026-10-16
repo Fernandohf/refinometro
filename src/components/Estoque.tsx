@@ -221,7 +221,7 @@ export function SimuladorDeEstoque({
                 É o kit do “o que ter em mãos”, desmontado até o que se compra. Não é o percentil
                 de cada recurso lido em separado: a campanha que estoura o minério não é a mesma que
                 estoura o caixa, e levar o percentil 90 de cinco coisas dá bem menos que 90% de
-                chance de não faltar nenhuma. O kit é o corte comum em que a mochila inteira fecha a
+                chance de não faltar nenhuma. O kit é a mochila mais barata que, inteira, fecha a
                 fração pedida — por isso a chance logo abaixo sai igual ou um pouco acima dela.
               </Info>
             </p>

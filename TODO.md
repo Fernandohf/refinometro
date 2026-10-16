@@ -402,3 +402,18 @@
     que nunca empatam. O kit comprado a preço de mercado continua no "Total do kit" da lista de
     compras e no traço da curva de custo.
   - Travado por `tests/render.test.tsx`: as taxas do cartão são as da lista de compras.
+- [x] Otimizar o kit por custo, em vez de subir todos os recursos no mesmo passo.
+  - O kit era o quantil comum do painel de estoque: o mesmo `q` em todos os recursos, bissectado
+    até a chance conjunta bater o nível. Fecha a fração certa, mas trata a Bênção de 2 mi igual ao
+    Oridecon de 10 mil. Agora ele sai de um **descasque** guloso (`estoquesMaisBaratos`, em
+    `src/engine/estoque.ts`): começa cobrindo todas as campanhas e abaixa, a cada passo, o recurso
+    que mais poupa zeny por campanha que deixa de fechar. Mesma chance, kit de 2% a 35% mais
+    barato; no padrão da página, no Seguro, 474 → 444 mi.
+  - Um descasque só para os cinco níveis, anotado de passagem: os kits saem aninhados e subir a
+    segurança nunca tira minério de linha nenhuma. Rodado nível a nível, o guloso chegou a tirar
+    (361 → 359 Eterium do 90% para o 95%). De quebra, trocar a margem não refaz conta nenhuma.
+  - O guloso não garante o ótimo, então `montarKits` fica, em cada nível, com o mais barato entre
+    ele e o quantil comum, e leva o máximo do nível de baixo. Nas medições ele ganhou sempre.
+  - Sobreajuste medido, não suposto: `scripts/kit-numeros.ts` escolhe cada kit nas campanhas pares
+    e confere nas ímpares. O descasque fica a no máximo 1,6 ponto do nível, o quantil comum a 1,5.
+    Conta e tabela em `docs/matematica.md` §9.8; garantias travadas em `tests/kit.test.ts`.

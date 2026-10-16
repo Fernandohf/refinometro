@@ -892,25 +892,29 @@ comprar, ou que o alvo é que está errado.
 O topo da página responde "quanto custa" em duas moedas, no mesmo nível `α`. O **custo total em
 zeny** é o percentil `C_α` do custo total de [§8](#8-monte-carlo-o-que-a-média-não-responde):
 minérios, balcão do NPC, taxas de cada tentativa e reposições, tudo convertido em zeny. **O que
-ter em mãos** é o kit `E(q*)` — o quantil comum de §9.3 aplicado ao consumo contado em **minério
-inteiro** (Eteridecon, não Minério de Oridecon), que é a moeda da lista de compras —, mostrado
-como ele é: o zeny `Z₀` das taxas e as quantidades de cada minério. O valor `V(E(q*))` do kit
-comprado a preço de mercado é o total da lista de compras. `V` cota cada minério pela via mais barata, soma as reposições ao preço do item
-no +0 e a taxa que sobra (`Z₀` contado em minério inteiro é só taxa do refinador e de Grau: o
+ter em mãos** é o kit `K` — o estoque mais barato que fecha a fração `α` das campanhas
+([§9.8](#98-o-kit-mais-barato-o-descasque)), contado em **minério inteiro** (Eteridecon, não
+Minério de Oridecon), que é a moeda da lista de compras —, mostrado como ele é: o zeny `Z₀` das
+taxas e as quantidades de cada minério. O valor `V(K)` do kit comprado a preço de mercado é o
+total da lista de compras. `V` cota cada minério pela via mais barata, soma as reposições ao preço
+do item no +0 e a taxa que sobra (`Z₀` contado em minério inteiro é só taxa do refinador e de Grau: o
 balcão do NPC já está no preço do minério fabricado).
 
-> **Proposição 9.3 (o kit nunca é mais barato).** Se `chance(E(q*)) ≥ α`, então
-> `V(E(q*)) ≥ C_α`.
+> **Proposição 9.3 (o kit nunca é mais barato).** Para todo estoque `K` com `chance(K) ≥ α`,
+> `V(K) ≥ C_α`.
 >
 > *Demonstração.* Para toda execução que o kit fecha, cada recurso consumido é `≤` o do kit, e o
-> custo da execução é a soma desses consumos aos mesmos preços: `C^{(i)} ≤ V(E(q*))`. Essas
+> custo da execução é a soma desses consumos aos mesmos preços: `C^{(i)} ≤ V(K)`. Essas
 > execuções são pelo menos a fração `α` da amostra, logo o quantil `α` do custo não passa de
 > `V`. ∎
+
+`C_α` é, portanto, um piso para o valor de **qualquer** kit do nível `α`, inclusive o ótimo — o
+que dá uma régua para o quanto §9.8 ainda poderia ganhar.
 
 A diferença `V − C_α` é o preço de não voltar ao mercado: quem compra durante a campanha só paga o
 que usou, e numa mesma campanha a sorte de um material compensa o azar de outro; o kit tem de cobrir
 todos os azares ao mesmo tempo. No `w5` +0 → +8 Grau C dos preços padrão, no nível Seguro, são
-378 mi contra 474 mi.
+378 mi contra 444 mi (eram 474 mi com o quantil comum de §9.3).
 
 O kit é a **única** fonte de quantidades da página: a lista de compras, o diagrama de custo e o
 preenchimento do painel de estoque leem dele. Antes, cada vista lia uma estatística diferente — a
@@ -928,6 +932,60 @@ exemplo acima).
 
 É o que deixa o painel de estoque abrir com o mesmo kit: a chance que ele mostra é igual ou um
 pouco acima da do nível escolhido, nunca abaixo.
+
+### 9.8 O kit mais barato: o descasque
+
+O quantil comum `E(q*)` de §9.3 fecha a fração pedida, mas sobe todos os recursos **no mesmo
+passo** — e isso trata a Bênção do Ferreiro de 2 mi igual ao Oridecon de 10 mil. Cobrir o azar do
+minério barato custa quase nada; o do caro custa muito. O kit da página resolve outro problema:
+
+```
+minimizar  V(K) = Σᵣ pᵣ Kᵣ      sujeito a  chance(K) ≥ α
+```
+
+com `r` percorrendo cada minério, o zeny das taxas (`p = 1`) e as cópias (`p` = preço do item).
+
+**Reformulação.** Pela Proposição 9.1 basta olhar para estoques que são o máximo, recurso a
+recurso, de algum conjunto `S` de execuções com `|S| ≥ ⌈αn⌉`: qualquer outro estoque com a mesma
+chance tem um desses abaixo dele. A pergunta vira *quais* execuções deixar de fora — um problema
+de restrição probabilística sobre uma amostra (*chance-constrained* em versão de cenários), que é
+combinatório.
+
+**O descasque.** Guloso: começa com `S` = todas as execuções e, a cada passo, considera abaixar
+cada recurso `r` até os próximos 40 valores distintos que ele assume em `S`. Cada candidato tira
+de `S` as execuções acima do novo valor — e isso pode baixar também os **outros** recursos, porque a
+campanha que estoura a Bênção costuma estourar o zeny junto. O passo escolhido é o de maior
+`ganho em V / execuções descobertas`, sem descobrir mais do que a fração permite.
+
+O descasque é **um só para os cinco níveis**: vai do mais seguro ao menos seguro e anota o estoque
+ao passar por cada um. Como descascar só abaixa, os kits saem aninhados — subir a segurança nunca
+tira minério de nenhuma linha. Rodado nível a nível do zero, o guloso chegou a quebrar isso (361 →
+359 Eterium do 90% para o 95%, num `a2` +11 Grau A), porque perto do fim cada nível escolhe passos
+menores, para caber no que falta.
+
+O guloso não garante o ótimo. Por isso o kit da página é, em cada nível, o mais barato entre o
+descasque e o quantil comum, seguido do máximo com o kit do nível abaixo (só soma recurso, então a
+chance não cai). Nas medições abaixo o descasque ganhou em todos os casos.
+
+**Medição** (`npx vite-node scripts/kit-numeros.ts`, preços padrão, 5 000 campanhas):
+
+| caso | nível | quantil comum | descasque | economia |
+|---|---|---|---|---|
+| `w5` +0 → +8 Grau C | 90% | 474 mi | 444 mi | 6% |
+| `w4` +0 → +12, item de 1 mi | 90% | 2 137 mi | 1 700 mi | 20% |
+| `a2` +0 → +11 Grau A | 90% | 3 489 mi | 3 246 mi | 7% |
+| `w4` +0 → +10, sem especiais | 90% | 1 356 mi | 1 311 mi | 3% |
+
+A economia vai de 2% a 35% conforme o caso e o nível. É maior onde os preços dos recursos são mais
+desiguais e a quebra entra na conta: no `w4` +12 o descasque troca Bênção (1,9 mi) por cópias do
+item (1 mi), deixando de fora as campanhas que gastam muita Bênção.
+
+**Sobreajuste.** Com um parâmetro por recurso em vez de um só, o descasque se ajusta mais à amostra
+que o quantil comum (o otimismo de §9.3). O script mede isso escolhendo cada kit nas execuções
+pares e conferindo a chance nas ímpares, que ele não viu. Nos vinte pares caso × nível, a chance
+fora da amostra do descasque fica a no máximo 1,6 ponto do nível (73,4% para 75% no `a2`), e a do
+quantil comum a no máximo 1,5 — a mesma ordem do erro de amostragem de 2 500 execuções. Com as
+5 000 da página, a folga é menor.
 
 ---
 
@@ -1032,6 +1090,9 @@ Os invariantes deste documento estão codificados em
 - `chance` do painel não decrescente quando o estoque cresce (Proposição 9.1), e zero exatamente
   abaixo do piso de qualquer recurso (§9.4);
 - preenchimento do painel entregando a chance pedida, que o percentil marginal não entrega (§9.3);
+- kit nunca mais barato que o percentil do custo (Proposição 9.3), nunca mais caro que o quantil
+  comum, e aninhado entre os níveis de segurança (§9.8) — estes em
+  [tests/kit.test.ts](../tests/kit.test.ts);
 - acumulado do último marco igual ao total da campanha, e fração que trava igual ao complemento
   da chance (Proposição 9.2);
 - plano seguro nunca mais barato que o plano com risco, e nenhuma ação de quebra no plano seguro
@@ -1043,7 +1104,8 @@ Os números medidos citados ao longo do texto (`ρ(P)`, `κ∞`, `𝔼[T]`, perc
 os preços padrão de [src/data/defaultPrices.ts](../src/data/defaultPrices.ts) e são reproduzíveis
 com `npx vite-node scripts/demo.ts` mais as fórmulas desta página; a tabela de cobertura conjunta
 de [§9.2](#92-por-que-os-percentis-marginais-não-respondem), com
-`npx vite-node scripts/estoque-numeros.ts`.
+`npx vite-node scripts/estoque-numeros.ts`; e a do kit de [§9.8](#98-o-kit-mais-barato-o-descasque),
+com `npx vite-node scripts/kit-numeros.ts`.
 
 ---
 
