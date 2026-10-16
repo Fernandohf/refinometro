@@ -128,15 +128,15 @@ describe('página', () => {
     expect(html).not.toContain('impossível abaixo de');
     expect(html).not.toContain('aria-invalid="true"');
     // Os campos são os materiais que se compra, não o minério fabricado.
-    expect(html).toContain('Oridecon');
+    expect(html).toContain('Elunium');
     expect(html).not.toContain('mín. 0');
     // Quantidade discreta se ajusta em passos, não só digitando — e o passo
     // acompanha a ordem de grandeza do campo, então vem no rótulo do botão.
     expect(html).toContain('Zeny para as taxas: mais ');
     expect(html).toContain('Cópias do item: menos 1');
-    // "Oridecon" ou "Minério de Oridecon": qual dos dois se compra depende da
+    // "Elunium" ou "Minério de Elunium": qual dos dois se compra depende da
     // cotação do dia, e o teste é sobre o passo, não sobre o fornecedor.
-    expect(html).toMatch(/aria-label="(?:Minério de )?Oridecon: mais \d/);
+    expect(html).toMatch(/aria-label="(?:Minério de )?Elunium: mais \d/);
     // No recomendado a chance passa de 50%, e aí "onde eu travo?" é curiosidade
     // sobre a minoria azarada — o bloco não aparece.
     expect(html).not.toContain('Onde a campanha para');
@@ -184,14 +184,15 @@ describe('página', () => {
 
   it('destaca, no painel de preços fechado, o que mais pesa no plano', () => {
     // Os preços fixos que o painel mostrava (Oridecon e Bênção) podiam não ter
-    // nada a ver com o plano na tela. No padrão, o Eteridecon Enriquecido é o
-    // maior gasto, e é o preço dele que precisa estar à mão para conferir.
+    // nada a ver com o plano na tela. No padrão — armadura que não pode
+    // quebrar —, a Bênção do Ferreiro é o maior gasto, e é o preço dela que
+    // precisa estar à mão para conferir.
     const html = renderToString(<App />);
     const painel = html.slice(
       html.indexOf('O que mais pesa neste plano'),
       html.indexOf('Cotação do mercado do LATAM'),
     );
-    expect(painel).toContain('Eteridecon Enriquecido');
+    expect(painel).toContain('Bênção do Ferreiro');
     expect(painel.replaceAll('<!-- -->', '')).toMatch(/\d+% do custo médio/);
     // Editável ali mesmo, sem abrir o painel.
     expect(painel).toContain('<input');
@@ -290,11 +291,19 @@ describe('página', () => {
     //
     // O alvo é fixado aqui, e não herdado do padrão da tela: o aviso de quebra
     // é o primeiro item da ordem conferida, e só existe onde a falha pode
-    // destruir o equipamento — uma Arma nv4 até o +10, não a nv5 do padrão,
-    // que sobe de Éter e nunca quebra.
+    // destruir o equipamento — uma Arma nv4 até o +10, com a perda aceita, e
+    // não a armadura do padrão, que proíbe tentativa que possa quebrá-la.
     localStorage.setItem(
       'refinometro:v1',
-      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none', usarAtalhos: false }),
+      JSON.stringify({
+        kind: 'w4',
+        refinoAtual: 0,
+        refinoAlvo: 10,
+        grauAlvo: 'none',
+        evento: false,
+        perdaAceitavel: true,
+        usarAtalhos: false,
+      }),
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
@@ -582,10 +591,18 @@ describe('página', () => {
     //
     // Alvo fixado pelo mesmo motivo do teste da ordem: os grupos "Proteção" e
     // "Reposição do item" só aparecem em campanha que compra Bênção e quebra
-    // equipamento, e a nv5 do padrão não faz nem uma coisa nem outra.
+    // equipamento, e a armadura do padrão não aceita perder o item.
     localStorage.setItem(
       'refinometro:v1',
-      JSON.stringify({ kind: 'w4', refinoAtual: 0, refinoAlvo: 10, grauAlvo: 'none', usarAtalhos: false }),
+      JSON.stringify({
+        kind: 'w4',
+        refinoAtual: 0,
+        refinoAlvo: 10,
+        grauAlvo: 'none',
+        evento: false,
+        perdaAceitavel: true,
+        usarAtalhos: false,
+      }),
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
