@@ -77,7 +77,7 @@ export function CurvaDeCusto({
   /** Todas as margens oferecidas, para marcar no eixo aonde o ponto pode pular. */
   margens: number[];
   /**
-   * O valor do kit do "juntando tudo antes", no mesmo nível. Fica sempre à
+   * O valor do kit do "o que ter em mãos", no mesmo nível. Fica sempre à
    * direita do ponto (matematica.md, Proposição 9.3), e o traço mostra quanto:
    * é o preço de não voltar ao mercado, desenhado sobre a mesma régua.
    */
@@ -201,7 +201,7 @@ export function CurvaDeCusto({
           {`Distribuição do custo em ${amostras.length.toLocaleString('pt-BR')} campanhas simuladas. ` +
             `A margem escolhida, ${escolhida.rotulo.toLowerCase()}, cai em ${zenyExato(escolhida.valor)} ` +
             `e cobre ${porcento(escolhida.chance)} delas. O custo médio é ${zenyExato(media)}. ` +
-            (kit === undefined ? '' : `Juntar tudo antes, no mesmo nível, custa ${zenyExato(kit)}. `) +
+            (kit === undefined ? '' : `O kit do mesmo nível, comprado a preço de mercado, custa ${zenyExato(kit)}. `) +
             'Aponte o desenho, ou use as setas, para ler qualquer outro orçamento.'}
         </title>
 
@@ -296,7 +296,7 @@ export function CurvaDeCusto({
               strokeWidth={0.9}
               opacity={0.55}
             >
-              <title>{`Juntando tudo antes: ${zenyExato(kit!)}`}</title>
+              <title>{`Kit comprado a preço de mercado: ${zenyExato(kit!)}`}</title>
             </line>
             <text
               x={0}
@@ -361,8 +361,8 @@ export function CurvaDeCusto({
           teclado — lê qualquer outro orçamento, e não só as cinco margens da lista.{' '}
           {kit !== undefined && (
             <>
-              O traço <strong className="text-texto">kit</strong> é o “juntando tudo antes” do
-              mesmo nível: fica sempre à direita do ponto, porque a mochila tem de cobrir o azar
+              O traço <strong className="text-texto">kit</strong> é o “o que ter em mãos” do
+              mesmo nível, comprado a preço de mercado: fica sempre à direita do ponto, porque a mochila tem de cobrir o azar
               de todos os materiais na mesma campanha.{' '}
             </>
           )}

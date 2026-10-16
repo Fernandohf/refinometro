@@ -242,28 +242,32 @@ describe('página', () => {
     expect(html).toContain('Com isso, a chance volta a pelo menos 90%.');
   });
 
-  it('mostra os dois jeitos de pagar lado a lado, e o kit bate com a lista', () => {
-    // Quem volta ao mercado e quem junta tudo antes pagam coisas diferentes,
-    // e a página diz as duas. O número do kit é o total da lista de compras:
-    // se divergissem, a página voltaria a ter dois totais para a mesma coisa.
+  it('mostra o custo em zeny e o que ter em mãos lado a lado, e as taxas batem com a lista', () => {
+    // O primeiro cartão converte tudo em zeny; o segundo dá o zeny só das
+    // taxas e os minérios contados. As taxas do segundo são as da lista de
+    // compras: se divergissem, a página voltaria a ter dois números para a
+    // mesma coisa.
     const html = renderToString(<App />);
-    const aosPoucos = html.indexOf('Comprando aos poucos');
-    const tudoAntes = html.indexOf('Juntando tudo antes');
-    expect(aosPoucos).toBeGreaterThan(-1);
-    expect(tudoAntes).toBeGreaterThan(aosPoucos);
-    expect(tudoAntes).toBeLessThan(html.indexOf('role="tablist"'));
+    const custo = html.indexOf('Custo total em zeny');
+    const emMaos = html.indexOf('O que ter em mãos');
+    expect(custo).toBeGreaterThan(-1);
+    expect(emMaos).toBeGreaterThan(custo);
+    expect(emMaos).toBeLessThan(html.indexOf('role="tablist"'));
+    expect(html.slice(emMaos)).toContain('só de taxas');
 
     const valorApos = (marca: string, classe: string) => {
       const depois = html.slice(html.indexOf(marca));
       return depois.match(new RegExp(`class="[^"]*${classe}[^"]*"[^>]*>([^<]+)<`))![1];
     };
-    expect(valorApos('Total do kit', 'md-titulo-g')).toBe(valorApos('Juntando tudo antes', 'md-display-p'));
+    const taxasNaLista = html.slice(html.indexOf('Comprar ou fabricar')).match(/Taxas? do refinador[\s\S]*?<dd[^>]*>([^<]+)</);
+    expect(taxasNaLista).not.toBeNull();
+    expect(valorApos('O que ter em mãos', 'md-display-p')).toBe(taxasNaLista![1]);
   });
 
   it('renderiza sem estourar e já mostra um orçamento', () => {
     const html = renderToString(<App />);
     expect(html).toContain('Refin');
-    expect(html).toContain('Comprando aos poucos');
+    expect(html).toContain('Custo total em zeny');
     expect(html).toContain('Melhor estratégia');
     // O que levar para o jogo: quantidades da margem e cópias do equipamento.
     expect(html).toContain('Lista de compras');
@@ -296,7 +300,7 @@ describe('página', () => {
     localStorage.removeItem('refinometro:v1');
 
     const aviso = html.indexOf('Risco de quebra do item');
-    const orcamento = html.indexOf('Comprando aos poucos');
+    const orcamento = html.indexOf('Custo total em zeny');
     const estrategia = html.indexOf('Melhor estratégia');
     const zeny = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Comprar ou fabricar');
@@ -325,7 +329,7 @@ describe('página', () => {
     // primeira aba, ele estaria numa tela e o efeito, em outra.
     const html = renderToString(<App />);
 
-    const orcamento = html.indexOf('Comprando aos poucos');
+    const orcamento = html.indexOf('Custo total em zeny');
     const margem = html.indexOf('aria-label="Margem de segurança"');
     const lista = html.indexOf('role="tablist"');
 
@@ -585,7 +589,7 @@ describe('página', () => {
     );
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
-    const orcamento = html.indexOf('Comprando aos poucos');
+    const orcamento = html.indexOf('Custo total em zeny');
     const sankey = html.indexOf('Para onde vai o zeny');
     const compras = html.indexOf('Lista de compras');
     const tabela = html.indexOf('Comprar pronto');
@@ -637,7 +641,7 @@ describe('página', () => {
     const html = renderToString(<App />);
     localStorage.removeItem('refinometro:v1');
 
-    const orcamento = html.indexOf('Comprando aos poucos');
+    const orcamento = html.indexOf('Custo total em zeny');
     const curva = html.indexOf('Cada faixa é a fatia das campanhas simuladas');
     const compras = html.indexOf('Lista de compras');
 
@@ -740,7 +744,7 @@ describe('página', () => {
     const texto = html.replace(/<[^>]*>/g, '');
 
     expect(texto).toMatch(/Em 9 de cada 10 vezes o gasto fica nisso ou abaixo; normalmente, perto de .+\./);
-    expect(texto).toContain('Leve isto e não volte ao mercado em 9 de cada 10 vezes:');
+    expect(texto).toContain('E no mínimo isto, para nada faltar em 9 de cada 10 vezes:');
     expect(texto).toContain('O item não quebra nesse plano.');
     expect(html).toContain('Quão seguro você quer estar?');
     expect(html.match(/role="radio"[^>]*aria-checked="true"[^>]*>(?:<[^>]*>)*([^<]+)/)?.[1]).toBe(

@@ -102,7 +102,7 @@ export function SimuladorDeEstoque({
 }: {
   plano: ResultadoPlano;
   /**
-   * O kit do "juntando tudo antes", no nível de segurança da página. É o que
+   * O kit do "o que ter em mãos", no nível de segurança da página. É o que
    * preenche os campos: a lista de compras e esta aba falam das mesmas
    * quantidades, e o nível se escolhe num lugar só.
    */
@@ -218,7 +218,7 @@ export function SimuladorDeEstoque({
                 , escolhido lá em cima.
               </span>
               <Info titulo="De onde saem os valores preenchidos" alinhar="direita">
-                É o kit do “juntando tudo antes”, desmontado até o que se compra. Não é o percentil
+                É o kit do “o que ter em mãos”, desmontado até o que se compra. Não é o percentil
                 de cada recurso lido em separado: a campanha que estoura o minério não é a mesma que
                 estoura o caixa, e levar o percentil 90 de cinco coisas dá bem menos que 90% de
                 chance de não faltar nenhuma. O kit é o corte comum em que a mochila inteira fecha a

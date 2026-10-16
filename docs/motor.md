@@ -114,7 +114,7 @@ Os campos pedem o estoque **no que se compra de verdade**, não em minério pron
 expansão da lista de compras, pela mesma razão. E já vêm **preenchidos** com o kit do nível de
 segurança escolhido no topo: o quantil comum em que a mochila inteira fecha aquela fração das
 campanhas, contado em minério inteiro (`montarKit`, em `src/engine/kit.ts`) e desmontado em
-seguida (`estoqueDoKit`). É o mesmo kit do "juntando tudo antes" e da lista de compras, e
+seguida (`estoqueDoKit`). É o mesmo kit do "o que ter em mãos" e da lista de compras, e
 desmontá-lo nunca baixa a chance (→ §9.7). O kit também é a régua do que falta: abaixo dele em
 qualquer campo, a tela diz o que comprar e quanto custa (`faltaParaOKit`) — e, comprado isso, cada
 recurso volta a ficar no kit ou acima, então a chance volta ao nível escolhido pela monotonia da
