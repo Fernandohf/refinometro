@@ -66,6 +66,7 @@ export function CurvaDeCusto({
   media,
   escolhida,
   margens,
+  kit,
 }: {
   /** Custo de cada campanha simulada, cru — ver `AmostrasCampanha`. */
   amostras: Float64Array;
@@ -75,6 +76,12 @@ export function CurvaDeCusto({
   escolhida: PontoDaCurva;
   /** Todas as margens oferecidas, para marcar no eixo aonde o ponto pode pular. */
   margens: number[];
+  /**
+   * O valor do kit do "juntando tudo antes", no mesmo nível. Fica sempre à
+   * direita do ponto (matematica.md, Proposição 9.3), e o traço mostra quanto:
+   * é o preço de não voltar ao mercado, desenhado sobre a mesma régua.
+   */
+  kit?: number;
 }) {
   const id = useId();
   /** A escala termina no maior percentil oferecido: além dele fica a cauda. */
@@ -111,6 +118,8 @@ export function CurvaDeCusto({
   const escala = (v: number) => Math.max(0, Math.min(X_LIMITE, (v / limite) * X_LIMITE));
   const xMedia = escala(media);
   const mediaAlemDaEscala = media > limite;
+  const xKit = kit === undefined ? null : escala(kit);
+  const kitAlemDaEscala = kit !== undefined && kit > limite;
   const { area, linha } = caminhos(curva);
 
   // O ponto tem dois donos: a margem escolhida no painel e, enquanto alguém
@@ -192,6 +201,7 @@ export function CurvaDeCusto({
           {`Distribuição do custo em ${amostras.length.toLocaleString('pt-BR')} campanhas simuladas. ` +
             `A margem escolhida, ${escolhida.rotulo.toLowerCase()}, cai em ${zenyExato(escolhida.valor)} ` +
             `e cobre ${porcento(escolhida.chance)} delas. O custo médio é ${zenyExato(media)}. ` +
+            (kit === undefined ? '' : `Juntar tudo antes, no mesmo nível, custa ${zenyExato(kit)}. `) +
             'Aponte o desenho, ou use as setas, para ler qualquer outro orçamento.'}
         </title>
 
@@ -272,6 +282,33 @@ export function CurvaDeCusto({
           </text>
         </g>
 
+        {/* O kit, na mesma régua: a distância até o ponto é o preço de não
+            voltar ao mercado. Traço cheio e fino, para não se confundir com a
+            média tracejada nem com o ponto, que é quem a área segue. */}
+        {xKit !== null && (
+          <g style={{ transform: `translateX(${xKit}px)`, transition: TRANSICAO }}>
+            <line
+              x1={0}
+              x2={0}
+              y1={TOPO + 4}
+              y2={BASE}
+              stroke="var(--color-texto)"
+              strokeWidth={0.9}
+              opacity={0.55}
+            >
+              <title>{`Juntando tudo antes: ${zenyExato(kit!)}`}</title>
+            </line>
+            <text
+              x={0}
+              y={109}
+              textAnchor={xKit > LARGURA - 40 ? 'end' : 'middle'}
+              className="fill-[var(--color-suave)] text-[8px]"
+            >
+              {kitAlemDaEscala ? 'kit →' : 'kit'}
+            </text>
+          </g>
+        )}
+
         <text x={0} y={121} className="fill-[var(--color-suave)] text-[9px]">
           0
         </text>
@@ -322,6 +359,13 @@ export function CurvaDeCusto({
           orçamento escolhido: são {porcento(escolhida.chance)} das campanhas, e é exatamente isso
           que a margem compra. Apontar o desenho — com o cursor, com o dedo ou com as setas do
           teclado — lê qualquer outro orçamento, e não só as cinco margens da lista.{' '}
+          {kit !== undefined && (
+            <>
+              O traço <strong className="text-texto">kit</strong> é o “juntando tudo antes” do
+              mesmo nível: fica sempre à direita do ponto, porque a mochila tem de cobrir o azar
+              de todos os materiais na mesma campanha.{' '}
+            </>
+          )}
           {!curva.alisada && (
             <>
               Os degraus separados são os itens destruídos: cada quebra soma o preço de um item de
