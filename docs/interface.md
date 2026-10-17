@@ -128,6 +128,33 @@ O que a árvore perde é a soma de um material que aparece sob dois pais — Pó
 Pedra de Éter e no Eteridecon, e cada um mostra a sua parte. A vista **por minério**, ao lado, é
 onde o consumo aparece somado.
 
+## Compartilhar uma simulação
+
+O botão **compartilhar**, no canto do painel "Quanto vai custar", gera um link com a pergunta
+inteira no fragmento do endereço (`#s=…`): item, alvo, condições, todos os preços e a mochila do
+"Dá com o que eu tenho?". Vai em JSON, comprimido com `deflate-raw` e codificado em base64 de URL,
+e ocupa ~1.100 caracteres. Não há servidor. O site é estático, e o fragmento nem chega ao GitHub
+Pages. No celular, o botão abre a folha de compartilhamento do sistema; no computador, copia o
+link.
+
+Três decisões, em [`src/compartilhar.ts`](../src/compartilhar.ts):
+
+- **Os preços vão congelados, todos.** A cotação de partida muda todo dia, e um link que levasse
+  só os preços alterados daria outro orçamento na semana seguinte. Quem abre vê um aviso com a
+  data da cotação de quem mandou e um botão para trocar pelos preços de hoje.
+- **O link é lido antes de o React montar** (`main.tsx`) e sobrescreve a conta salva no
+  `localStorage`. É de lá que o app lê o estado no `useState`, então a simulação compartilhada já
+  aparece no primeiro quadro. Depois de lido, o fragmento sai do endereço: se ficasse, um F5 depois
+  de qualquer ajuste desfaria o ajuste.
+- **Nada do link entra sem conferência.** Ele é texto que qualquer um escreve. Cada campo é
+  checado contra o tipo e os valores possíveis, um campo inválido volta ao valor inicial e um campo
+  desconhecido é descartado. A descompressão tem teto. O formato tem versão (`v`), e campo que a
+  calculadora ganhar depois cai no valor inicial, como já acontece com o estado salvo.
+
+O mesmo link reproduz a mesma conta porque a simulação tem semente fixa. A ressalva é o passe
+preciso: ele roda por tempo, e um aparelho mais lento faz menos execuções. Os percentis podem
+variar na última casa, mas o custo médio e o plano são os mesmos.
+
 ---
 
 Ver também: [Como o motor funciona](motor.md) · [Os dados](dados.md)

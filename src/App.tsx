@@ -13,8 +13,8 @@ import { maxRefine, riscoPorAlvo, safeLimit } from './engine/refine';
 import { suportaGrau } from './engine/grade';
 import type { CalcInput, PriceTable } from './engine/types';
 
-import { Resultado, type MargemKey } from './components/Resultado';
-import { ESTOQUE_VAZIO, SimuladorDeEstoque, type EstoqueSalvo } from './components/Estoque';
+import { Resultado } from './components/Resultado';
+import { SimuladorDeEstoque, type EstoqueSalvo } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { BotaoDoGuia, ComoUsar, useGuia } from './components/ComoUsar';
 import { LinkDasPerguntas, Sobre } from './components/Sobre';
@@ -32,97 +32,17 @@ import {
 } from './components/ui';
 import { SlotItem } from './components/ItemNoJogo';
 import { rotuloDoAlvo, TrilhaRefino } from './components/TrilhaRefino';
+import { AvisoDeCompartilhada, BotaoCompartilhar } from './components/Compartilhar';
 import { dataBR, porcento } from './format';
+import { carregar, carregarEstoque, CHAVE_ESTOQUE, CHAVE_STORAGE, type Estado } from './estado';
+import { codificar, linkDe, type Compartilhada } from './compartilhar';
 
-interface Estado {
-  /** Nome do item escolhido na busca, só para exibição. */
-  itemNome: string | null;
-  /** ID no Divine Pride do item escolhido, para poder linkar a ficha de origem. */
-  itemId: number | null;
-  /** Slots do item, só para escrever o nome como o jogo escreve: `Adaga [2]`. */
-  itemSlots: number;
-  kind: ItemKind;
-  precoItem: number;
-  refinoAtual: number;
-  refinoAlvo: number;
-  grauAtual: Grade;
-  grauAlvo: Grade;
-  evento: boolean;
-  usarBencaoFerreiro: boolean;
-  usarMineriosEspeciais: boolean;
-  perdaAceitavel: boolean;
-  usarAtalhos: boolean;
-  precos: PriceTable;
-  margem: MargemKey;
-}
-
-/**
- * O que a tela mostra para quem chega sem mexer em nada.
- *
- * Não é um exemplo neutro de propósito: é um alvo que gente de verdade
- * persegue — uma armadura nível 2 de mercado levada ao +12 Grau A. Sem perda
- * aceitável, porque a 350kk ninguém aposta a armadura. Categoria abstrata e
- * alvo redondo faziam a primeira tela parecer uma demonstração; um item
- * nomeado, com arte e preço plausível, já responde a pergunta de alguém.
- */
-const INICIAL: Estado = {
-  itemNome: 'Armadura Nebulosa POD',
-  itemId: 450169,
-  itemSlots: 1,
-  kind: 'a2',
-  precoItem: 350_000_000,
-  refinoAtual: 0,
-  refinoAlvo: 12,
-  grauAtual: 'none',
-  grauAlvo: 'A',
-  evento: true,
-  usarBencaoFerreiro: true,
-  usarMineriosEspeciais: true,
-  perdaAceitavel: false,
-  usarAtalhos: true,
-  precos: DEFAULT_PRICES,
-  margem: 'p90',
-};
-
-const CHAVE_STORAGE = 'refinometro:v1';
-
-/**
- * O estoque fica fora de `Estado` de propósito: ele não entra no cálculo, e
- * misturá-lo faria cada tecla digitada num campo de minério refazer o passe
- * rápido à toa. O veredito sai das campanhas já simuladas (ver
- * `engine/estoque.ts`), então basta guardá-lo à parte.
- */
-const CHAVE_ESTOQUE = 'refinometro:estoque:v1';
-
-function carregar(): Estado {
-  try {
-    const bruto = localStorage.getItem(CHAVE_STORAGE);
-    if (!bruto) return INICIAL;
-    // Mescla com o inicial para não quebrar quando a calculadora ganhar campos novos.
-    const salvo = JSON.parse(bruto) as Partial<Estado>;
-    const estado = { ...INICIAL, ...salvo, precos: { ...DEFAULT_PRICES, ...salvo.precos } };
-    // O padrão tem Grau, e quem voltar com uma categoria que não tem herdaria
-    // um alvo impossível: o efeito que normaliza isso só roda depois do
-    // primeiro render, e o erro apareceria por um quadro.
-    return suportaGrau(estado.kind)
-      ? estado
-      : { ...estado, grauAtual: 'none' as Grade, grauAlvo: 'none' as Grade };
-  } catch {
-    return INICIAL;
-  }
-}
-
-function carregarEstoque(): EstoqueSalvo {
-  try {
-    const bruto = localStorage.getItem(CHAVE_ESTOQUE);
-    if (!bruto) return ESTOQUE_VAZIO;
-    return { ...ESTOQUE_VAZIO, ...(JSON.parse(bruto) as Partial<EstoqueSalvo>) };
-  } catch {
-    return ESTOQUE_VAZIO;
-  }
-}
-
-export default function App() {
+export default function App({
+  compartilhada = null,
+}: {
+  /** Presente quando a página abriu por um link de simulação (ver `compartilhar.ts`). */
+  compartilhada?: Compartilhada | null;
+} = {}) {
   const [e, setE] = useState<Estado>(carregar);
   const set = <K extends keyof Estado>(k: K, v: Estado[K]) => setE((a) => ({ ...a, [k]: v }));
   const [estoque, setEstoque] = useState<EstoqueSalvo>(carregarEstoque);
@@ -130,6 +50,7 @@ export default function App() {
   // seção lá embaixo são as duas pontas da página, e o atalho ABRE além de rolar.
   const [perguntas, setPerguntas] = useState(false);
   const guia = useGuia();
+  const [aviso, setAviso] = useState(compartilhada);
 
   useEffect(() => {
     localStorage.setItem(CHAVE_STORAGE, JSON.stringify(e));
@@ -297,6 +218,18 @@ export default function App() {
       </header>
 
       <ComoUsar visivel={guia.visivel} onFechar={guia.fechar} />
+
+      {aviso && (
+        <AvisoDeCompartilhada
+          cotacao={aviso.cotacao}
+          precosDiferentes={!mesmosPrecos(e.precos, DEFAULT_PRICES)}
+          onUsarPrecosDeHoje={() => {
+            set('precos', DEFAULT_PRICES);
+            setAviso(null);
+          }}
+          onFechar={() => setAviso(null)}
+        />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
         <div className="min-w-0 space-y-4">
@@ -478,6 +411,12 @@ export default function App() {
                 margem={e.margem}
                 onMargem={(m) => set('margem', m)}
                 afinando={preciso.afinando}
+                compartilhar={
+                  <BotaoCompartilhar
+                    gerar={async () => linkDe(await codificar(e, estoque))}
+                    texto={textoDoLink(e)}
+                  />
+                }
                 precisao={<Precisao afinando={preciso.afinando} plano={exibido} />}
                 moduloEstoque={(kit) => (
                   <SimuladorDeEstoque
@@ -500,6 +439,19 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+/** A frase que acompanha o link na folha de compartilhamento do celular. */
+function textoDoLink(e: Estado): string {
+  const item = e.itemNome ?? CATEGORIAS.find((c) => c.key === e.kind)?.rotulo ?? 'Item';
+  const grau = e.grauAlvo !== 'none' ? ` ${ROTULO_GRAU[e.grauAlvo]}` : '';
+  return `${item}, do +${e.refinoAtual} ao +${e.refinoAlvo}${grau}: quanto custa no Refinômetro.`;
+}
+
+/** As duas tabelas cotam igual tudo o que qualquer uma das duas cota. */
+function mesmosPrecos(a: PriceTable, b: PriceTable): boolean {
+  const ids = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...ids].every((id) => (a[Number(id)] ?? 0) === (b[Number(id)] ?? 0));
 }
 
 /** Tempo do passe síncrono: curto o bastante para a digitação não engasgar. */
