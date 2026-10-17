@@ -1,9 +1,16 @@
 import { useMemo, useState, type ReactNode } from 'react';
 
 import { nomeDoItem } from '../data/nomes';
-import { arvoreDeCompras, sourcingOf, type ItemDaLista } from '../engine/pricing';
+import { TOLERANCIA_FABRICAR, arvoreDeCompras, sourcingOf, type ItemDaLista } from '../engine/pricing';
 import { fluxoDeCusto } from '../engine/fluxoDeCusto';
-import { balcaoDoKit, campanhaEmMinerios, montarKits, type BalcaoDoKit, type Kit } from '../engine/kit';
+import {
+  campanhaDoKit,
+  campanhaEmMinerios,
+  fabricacoesDoPlano,
+  montarKits,
+  type Fabricacao,
+  type Kit,
+} from '../engine/kit';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
 import type { CampanhaEmMateriais } from '../engine/estoque';
 import type { Percentis } from '../engine/types';
@@ -114,13 +121,15 @@ export function Resultado({
   const informativos = plano.avisos.filter((a) => a.nivel === 'info');
   // O kit é a única fonte de quantidades da página: o "o que ter em mãos" do
   // topo, a lista de compras, o diagrama e o simulador de estoque leem dele.
-  // A campanha em minério não depende da margem, então sobrevive à troca dela.
-  // Os cinco níveis saem de um descasque só, e por isso trocar a margem não
-  // refaz conta nenhuma.
+  // As campanhas não dependem da margem, então sobrevivem à troca dela. Os
+  // cinco níveis saem de um descasque só, e por isso trocar a margem não refaz
+  // conta nenhuma. O kit conta no que se compra; "Já refinei", em minério
+  // inteiro, que é o que a pessoa lembra de ter passado no refinador.
   const campanha = useMemo(() => campanhaEmMinerios(plano), [plano]);
+  const campanhaKit = useMemo(() => campanhaDoKit(plano), [plano]);
   const kits = useMemo(
-    () => montarKits(plano, campanha, MARGENS.map((m) => m.chance)),
-    [plano, campanha],
+    () => montarKits(plano, campanhaKit, MARGENS.map((m) => m.chance)),
+    [plano, campanhaKit],
   );
   const kit = kits[MARGENS.findIndex((m) => m.key === margem)]!;
   const fluxo = fluxoDeCusto(plano, kit);
@@ -591,7 +600,7 @@ function DoisModos({
   const sim = plano.simulacao!;
   const info = MARGENS.find((m) => m.key === margem)!;
   const linhas = arvoreDeCompras(kit.itens, plano.input.precos);
-  const balcao = balcaoDoKit(kit, plano.input.precos);
+  const fabricar = fabricacoesDoPlano(plano);
   const quebra = kit.reposicoes > 0;
 
   return (
@@ -632,11 +641,11 @@ function DoisModos({
         info={
           <Info titulo="O que ter em mãos" alinhar="direita">
             O mínimo para separar antes de começar e não voltar ao mercado. O zeny aqui é só o das
-            taxas — do refinador e de Grau, em cada tentativa —; os minérios vêm contados, inteiros,
-            como o refinador os pede, e já prontos: quem for fabricá-los no NPC paga ainda o balcão,
-            que aparece logo abaixo da lista. Com tudo isso, nada falta em {info.fracao} campanhas
+            taxas — do refinador, de Grau e do NPC que fabrica os minérios. O que vale mais a pena
+            fabricar vem pela receita, e não pronto: a sobra de um insumo serve a outra receita, e
+            uma folga só cobre o azar das duas. Com tudo isso, nada falta em {info.fracao} campanhas
             simuladas. Comprado a preço de mercado, sai mais caro que o custo total ao lado: a
-            mochila tem de cobrir o azar de todos os minérios na mesma campanha, e o que sobra volta
+            mochila tem de cobrir o azar de todos os materiais na mesma campanha, e o que sobra volta
             para casa. São as mesmas quantidades da lista de compras e da aba “O que eu tenho”.
           </Info>
         }
@@ -659,14 +668,9 @@ function DoisModos({
             </li>
           )}
         </ul>
-        {balcao.total > 0 && (
+        {fabricar.length > 0 && (
           <p className="md-corpo-m mt-2 text-suave">
-            Isso já pronto. Fabricando no NPC — <ReceitasDoBalcao balcao={balcao} /> —, separe
-            também{' '}
-            <strong className="text-texto tabular-nums" title={zenyExato(balcao.total)}>
-              {zeny(balcao.total)}
-            </strong>{' '}
-            de balcão.
+            Para fabricar no NPC: <ListaDeFabricados fabricar={fabricar} />.
           </p>
         )}
         <div className="-ml-3 mt-1">
@@ -709,23 +713,22 @@ function Modo({
 }
 
 /**
- * As receitas que mais pesam no balcão, numa frase: "735x Pedra de Éter, 30x
- * Âmbar de Éter e mais 4 receitas". Duas bastam para a pessoa reconhecer de
- * onde vem o número; a lista inteira mora na aba de compras.
+ * O que fabricar, numa frase: "Âmbar de Éter, Pedra de Éter e mais 3". Dois
+ * nomes bastam para a pessoa saber que a lista vem desmontada; as receitas
+ * inteiras moram na aba de compras.
  */
-export function ReceitasDoBalcao({ balcao }: { balcao: BalcaoDoKit }) {
-  const mostradas = balcao.linhas.slice(0, 2);
-  const resto = balcao.linhas.length - mostradas.length;
+function ListaDeFabricados({ fabricar }: { fabricar: Fabricacao[] }) {
+  const mostrados = fabricar.slice(0, 2);
+  const resto = fabricar.length - mostrados.length;
   return (
     <>
-      {mostradas.map((l, i) => (
-        <span key={l.itemId}>
+      {mostrados.map((f, i) => (
+        <span key={f.itemId}>
           {i > 0 && (resto > 0 ? ', ' : ' e ')}
-          <strong className="text-texto tabular-nums">{inteiro(l.qtd)}x</strong>{' '}
-          {nomeDoItem(l.itemId)}
+          <strong className="text-texto">{nomeDoItem(f.itemId)}</strong>
         </span>
       ))}
-      {resto > 0 && ` e mais ${resto} ${resto === 1 ? 'receita' : 'receitas'}`}
+      {resto > 0 && ` e mais ${resto}`}
     </>
   );
 }
@@ -998,7 +1001,7 @@ function PainelDeCompras({
           value={vista}
           onChange={setVista}
           opcoes={[
-            { key: 'compras', rotulo: 'o que comprar', dica: 'O que levar ao mercado, com a receita de NPC aberta onde fabricar sai mais barato.' },
+            { key: 'compras', rotulo: 'o que comprar', dica: 'O que levar ao mercado, e o que fabricar no NPC com isso.' },
             { key: 'minerios', rotulo: 'por minério', dica: 'O consumo em minério pronto, como o motor conta — conferência do plano.' },
           ]}
         />
@@ -1023,12 +1026,13 @@ function Materiais({ plano, kit }: { plano: ResultadoPlano; kit: Kit }) {
   // Sem simulação o kit É a média, e a segunda coluna só a repetiria.
   const noKit = kit.chance !== null;
   const linhas = Object.entries(plano.recursos.itens)
-    .map(([id, media]) => ({
-      itemId: Number(id),
-      media,
-      naMargem: noKit ? (kit.itens[Number(id)] ?? 0) : null,
-      via: sourcingOf(Number(id), plano.input.precos),
-    }))
+    .map(([id, media]) => {
+      const via = sourcingOf(Number(id), plano.input.precos);
+      // O que se fabrica entra desmontado no kit: não há uma quantidade dele
+      // pronta para mostrar aqui, e sim a dos insumos, na outra vista.
+      const naMargem = !noKit ? null : via === 'npc' ? ('receita' as const) : (kit.itens[Number(id)] ?? 0);
+      return { itemId: Number(id), media, naMargem, via };
+    })
     .filter((l) => l.media > 0)
     .sort((a, b) => b.media - a.media);
 
@@ -1047,8 +1051,9 @@ function Materiais({ plano, kit }: { plano: ResultadoPlano; kit: Kit }) {
             Conferência, não decisão: aqui os minérios aparecem prontos, como o motor os conta, e
             não desmontados no que se compra — quem vai ao jogo leva a outra vista. A coluna{' '}
             <strong className="text-texto">no kit</strong> é o “o que ter em mãos” do topo: o
-            quanto separar de cada um para nada faltar no nível escolhido. A média é o consumo de
-            uma campanha típica, e fica sempre abaixo.
+            quanto separar de cada um para nada faltar no nível escolhido. O que se fabrica não tem
+            número ali, porque entra no kit pelos insumos. A média é o consumo de uma campanha
+            típica.
           </Info>
         }
       >
@@ -1076,10 +1081,16 @@ function Materiais({ plano, kit }: { plano: ResultadoPlano; kit: Kit }) {
               </td>
               <td className="md-corpo-p py-2 text-suave">{ROTULO_VIA[l.via]}</td>
               <td className="py-2 text-right tabular-nums">{quantidade(l.media)}</td>
-              {l.naMargem !== null && (
-                <td className="py-2 text-right font-medium tabular-nums">
-                  {Math.ceil(l.naMargem).toLocaleString('pt-BR')}
+              {l.naMargem === 'receita' ? (
+                <td className="md-corpo-p py-2 text-right text-suave" title="Entra no kit pelos insumos">
+                  pela receita
                 </td>
+              ) : (
+                l.naMargem !== null && (
+                  <td className="py-2 text-right font-medium tabular-nums">
+                    {Math.ceil(l.naMargem).toLocaleString('pt-BR')}
+                  </td>
+                )
               )}
             </tr>
           ))}
@@ -1104,55 +1115,54 @@ function Materiais({ plano, kit }: { plano: ResultadoPlano; kit: Kit }) {
 }
 
 /**
- * O que comprar de verdade — e, em cada linha, se vale a pena fabricar.
+ * O que comprar de verdade, o que fabricar com isso, e a conta separada por NPC.
  *
- * A tabela de cima fala em minérios prontos, mas metade deles ninguém compra:
- * fabrica no NPC. Esta lista é a mesma campanha na quantidade da margem
- * escolhida, com cada minério desmontado até o que se acha à venda.
+ * A lista é o kit no que se compra: o que vale mais a pena fabricar vem
+ * desmontado nos insumos, porque o insumo é moeda comum entre receitas — a
+ * Pedra de Éter que sobrou do Topázio de Éter vai para o Âmbar de Éter. Contado
+ * pronto, cada minério fabricado levava a própria folga, e o kit saía mais caro
+ * sem precisar. O que montar com os insumos vem logo abaixo, receita a receita.
  *
- * O desmonte fica ANINHADO embaixo do minério, e não achatado numa lista só,
- * porque a decisão que ele representa não é do motor: o custo diz que fabricar
- * 379 Eteridecon poupa 27 milhões, mas quem fabrica precisa carregar 1.895
- * Minério de Oridecon do mercado ao NPC. Uma lista achatada dá a conta e esconde
- * a viagem; a árvore põe as duas na mesma linha e deixa a pessoa decidir.
+ * Os subtotais separam o zeny pelo NPC que o cobra — refinador, Grau e o que
+ * fabrica os minérios —, porque cada um se resolve de um jeito: só o último
+ * some comprando pronto.
  */
 function Compras({ plano, kit, margem }: { plano: ResultadoPlano; kit: Kit; margem: MargemKey }) {
-  const arvore = arvoreDeCompras(kit.itens, plano.input.precos);
-  const materiais = arvore.reduce((s, l) => s + l.total, 0);
+  const linhas = arvoreDeCompras(kit.itens, plano.input.precos);
+  const fabricar = fabricacoesDoPlano(plano);
+  const materiais = linhas.reduce((s, l) => s + l.total, 0);
   const info = MARGENS.find((m) => m.key === margem)!;
 
   const quebras = kit.reposicoes;
   const custoReposicao = quebras * plano.input.precoItem;
   const tentativas = Math.round(plano.recursos.tentativas);
-  const taxas = kit.taxas;
+  const { refino, grau, balcao } = kit.zenyPorTipo;
   // É o valor do kit, somado pelas mesmas parcelas: o número do topo e o desta
   // lista não podem divergir em um zeny.
-  const total = materiais + custoReposicao + taxas;
+  const total = materiais + custoReposicao + kit.taxas;
 
   return (
     <>
       <TituloDeSecao
         info={
-          <Info titulo="Comprar ou fabricar" alinhar="direita">
-            A quantidade em destaque é quanto separar de cada item na margem escolhida. Onde há
-            receita de NPC, a linha diz qual das duas vias sai mais barata{' '}
-            <strong className="text-texto">pelos preços que você informou</strong> e quanto a
-            escolhida poupa — e, quando é fabricar, abre embaixo o que ir buscar no mercado. A
-            economia é só o zeny: o peso do minério e as viagens ao NPC são seus, e há caso em que
-            carregar mil minérios para poupar alguns milhares não compensa. O total abaixo segue a
-            via mais barata, então trocar uma linha por comprar pronto o encarece exatamente na
-            economia daquela linha.
+          <Info titulo="O que comprar" alinhar="direita">
+            A quantidade em destaque é quanto separar de cada item na margem escolhida. O que vale
+            mais a pena fabricar no NPC não aparece pronto: aparece pelo que a receita pede, e a
+            receita vem logo abaixo. Assim a sobra de um insumo serve a outra receita, e o kit não
+            precisa de uma folga para cada minério fabricado. Os NPCs de fabricar, de Grau e o
+            refinador ficam lado a lado, então fabricar não custa viagem.
           </Info>
         }
       >
-        Comprar ou fabricar
+        O que comprar
       </TituloDeSecao>
 
       <p className="md-corpo-p text-suave">
         {kit.chance !== null ? (
           <>
             O “o que ter em mãos” do topo: com ele, nada falta em {info.fracao} vezes. O total sai
-            acima do custo total em zeny, porque o kit cobre o azar de todos os minérios de uma vez.
+            acima do custo total em zeny, porque o kit cobre o azar de todos os materiais de uma
+            vez.
           </>
         ) : (
           <>O consumo médio da campanha — sem simulação, não há margem para calcular.</>
@@ -1160,24 +1170,49 @@ function Compras({ plano, kit, margem }: { plano: ResultadoPlano; kit: Kit; marg
       </p>
 
       <ul className="divide-y divide-borda/60">
-        {arvore.map((l) => (
+        {linhas.map((l) => (
           <LinhaDeCompra key={l.itemId} linha={l} />
         ))}
       </ul>
 
+      {fabricar.length > 0 && (
+        <>
+          <Divisor />
+          <TituloDeSecao
+            info={
+              <Info titulo="Fabricar no NPC" alinhar="direita">
+                O que montar com os insumos da lista, e o que o NPC pede por unidade. A quantidade é
+                a média da campanha: o kit não fixa quantos de cada, porque a sobra de um vira o
+                insumo do outro. Fabricar é a via quando sai mais barato, quando o pronto é no
+                máximo {porcento(TOLERANCIA_FABRICAR)} mais barato, ou quando quase ninguém vende o
+                pronto no mercado.
+              </Info>
+            }
+          >
+            Fabricar no NPC
+          </TituloDeSecao>
+          <ul className="divide-y divide-borda/60">
+            {fabricar.map((f) => (
+              <LinhaDeFabricacao key={f.itemId} fabricacao={f} />
+            ))}
+          </ul>
+        </>
+      )}
+
       <Divisor />
 
-      {/* O que não é material: taxa e o item destruído. Não é lista de compras —
-          é o resto da conta —, então fica separado do que se procura numa loja.
-          O balcão do NPC não entra aqui: ele já está dentro da linha do minério
-          que o exigiu, e repeti-lo cobraria duas vezes pela mesma fabricação. */}
+      {/* O que não é material: as taxas, por NPC, e o item destruído. Não é
+          lista de compras — é o resto da conta —, então fica separado do que
+          se procura numa loja. */}
       <dl className="md-corpo-m space-y-1.5">
-        <LinhaDeConta rotulo="Materiais (com o balcão do NPC)" valor={materiais} />
-        {taxas > 0 && (
+        <LinhaDeConta rotulo="Minérios" valor={materiais} />
+        {balcao > 0 && <LinhaDeConta rotulo="Taxas para Criação de Minérios" valor={balcao} />}
+        {grau > 0 && <LinhaDeConta rotulo="Taxas para Grau" valor={grau} />}
+        {refino > 0 && (
           <LinhaDeConta
-            rotulo={plano.fases.some((f) => f.grau) ? 'Taxas do refinador e de Grau' : 'Taxa do refinador'}
+            rotulo="Taxas de Refino"
             detalhe={`~${tentativas.toLocaleString('pt-BR')} tentativas na média`}
-            valor={taxas}
+            valor={refino}
           />
         )}
         {quebras > 0 && (
@@ -1197,6 +1232,69 @@ function Compras({ plano, kit, margem }: { plano: ResultadoPlano; kit: Kit; marg
         </span>
       </div>
     </>
+  );
+}
+
+/**
+ * Uma receita a fabricar: o que sai, o que o NPC pede por unidade, e por que
+ * fabricar em vez de comprar pronto.
+ */
+function LinhaDeFabricacao({ fabricacao: f }: { fabricacao: Fabricacao }) {
+  // Quanto o pronto custa a mais (positivo) ou a menos (negativo) que fabricar.
+  const diferenca = f.precoMercado === null ? null : f.precoMercado / f.custoFabricado - 1;
+
+  return (
+    <li className="py-2.5">
+      <div className="flex items-start gap-2.5">
+        <SlotItem id={f.itemId} tamanho="mini" />
+        <span className="min-w-0">
+          <span className="flex flex-wrap items-baseline gap-x-2">
+            <strong className="md-corpo-m text-texto tabular-nums" title="Média da campanha">
+              ~{quantidade(f.media)}x
+            </strong>
+            <span className="md-corpo-m font-medium text-texto">{nomeDoItem(f.itemId)}</span>
+          </span>
+          <span className="md-corpo-p mt-0.5 block text-suave">
+            Cada um:{' '}
+            {f.materiais.map((m, i) => (
+              <span key={m.itemId}>
+                {i > 0 && ' + '}
+                <span className="tabular-nums">{m.qtd}x</span> {nomeDoItem(m.itemId)}
+              </span>
+            ))}
+            {f.zeny > 0 && (
+              <>
+                {' + '}
+                <span className="tabular-nums">{zeny(f.zeny)}</span>
+              </>
+            )}
+          </span>
+          <span className="md-corpo-p mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-suave">
+            {f.motivo === 'pouco-giro' ? (
+              <Pastilha tom="atencao">quase ninguém vende pronto</Pastilha>
+            ) : f.motivo === 'diferenca-pequena' && diferenca !== null ? (
+              <Pastilha>
+                <span className="tabular-nums">pronto sai só {porcento(-diferenca)} mais barato</span>
+              </Pastilha>
+            ) : diferenca !== null && diferenca > 0 ? (
+              <Pastilha tom="ok">
+                <span className="tabular-nums">
+                  economiza {porcento(diferenca / (1 + diferenca))} contra o pronto
+                </span>
+              </Pastilha>
+            ) : null}
+            {f.precoMercado === null ? (
+              <span>ninguém vende pronto</span>
+            ) : (
+              <span>
+                pronto: <span className="tabular-nums">{zeny(f.precoMercado)}</span> · fabricado:{' '}
+                <span className="tabular-nums">{zeny(f.custoFabricado)}</span>
+              </span>
+            )}
+          </span>
+        </span>
+      </div>
+    </li>
   );
 }
 

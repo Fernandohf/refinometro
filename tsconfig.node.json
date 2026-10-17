@@ -39,6 +39,8 @@
     "src/data/rotulos.ts",
     "src/data/refineChances.json",
     "src/data/gradeChances.json",
+    "src/data/giro.ts",
+    "src/data/precos.json",
     "src/engine/refine.ts",
     "src/engine/pricing.ts",
     "src/engine/linear.ts",

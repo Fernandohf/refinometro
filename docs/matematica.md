@@ -893,12 +893,12 @@ O topo da página responde "quanto custa" em duas moedas, no mesmo nível `α`. 
 zeny** é o percentil `C_α` do custo total de [§8](#8-monte-carlo-o-que-a-média-não-responde):
 minérios, balcão do NPC, taxas de cada tentativa e reposições, tudo convertido em zeny. **O que
 ter em mãos** é o kit `K` — o estoque mais barato que fecha a fração `α` das campanhas
-([§9.8](#98-o-kit-mais-barato-o-descasque)), contado em **minério inteiro** (Eteridecon, não
-Minério de Oridecon), que é a moeda da lista de compras —, mostrado como ele é: o zeny `Z₀` das
-taxas e as quantidades de cada minério. O valor `V(K)` do kit comprado a preço de mercado é o
-total da lista de compras. `V` cota cada minério pela via mais barata, soma as reposições ao preço
-do item no +0 e a taxa que sobra (`Z₀` contado em minério inteiro é só taxa do refinador e de Grau: o
-balcão do NPC já está no preço do minério fabricado).
+([§9.8](#98-o-kit-mais-barato-o-descasque)), contado **no que se compra**: o minério que se acha
+pronto e, do que a lista manda fabricar, os insumos da receita (Pedra de Éter e Âmbar, não Âmbar
+de Éter) —, mostrado como ele é: o zeny `Z₀` das taxas e as quantidades de cada material. O valor
+`V(K)` do kit comprado a preço de mercado é o total da lista de compras. `V` cota cada material
+pela via da lista (ver `decidir`, em `pricing.ts`), soma as reposições ao preço do item no +0 e o
+zeny `Z₀`, que paga a taxa do refinador, a de Grau e o balcão do NPC que fabrica os minérios.
 
 > **Proposição 9.3 (o kit nunca é mais barato).** Para todo estoque `K` com `chance(K) ≥ α`,
 > `V(K) ≥ C_α`.
@@ -923,15 +923,26 @@ aparecia com três números, os três rotulados "90%" (207, 368 e 487 Eteridecon
 exemplo acima).
 
 > **Proposição 9.4 (desmontar não perde chance).** Seja `D(E)` o kit desmontado até o que se
-> compra pela receita mais barata, com o balcão das receitas somado ao zeny. Então
+> compra pela receita da lista, com o balcão das receitas somado ao zeny. Então
 > `chance(D(E)) ≥ chance(E)` no painel de estoque.
 >
 > *Demonstração.* O consumo desmontado de cada insumo é uma combinação linear de coeficientes não
 > negativos dos consumos em minério inteiro, e o balcão também. Se cada minério da execução cabe
 > no kit, cada insumo e o balcão cabem em `D(E)`. ∎
 
-É o que deixa o painel de estoque abrir com o mesmo kit: a chance que ele mostra é igual ou um
-pouco acima da do nível escolhido, nunca abaixo.
+A recíproca é falsa, e é por isso que o kit é montado **já desmontado**, e não montado em minério
+inteiro e desmontado depois. O mesmo insumo serve a várias receitas — a Pedra de Éter entra nas
+quatro gemas de Grau —, e o quantil da soma é menor que a soma dos quantis: a campanha que estoura
+o Topázio de Éter raramente é a que estoura o Âmbar de Éter, e uma folga só de Pedra de Éter cobre
+as duas. Contado inteiro, cada material fabricado levava a própria folga. Medido com
+`scripts/kit-numeros.ts` sem e com a desmontagem, no nível Seguro: a `a2` +0 → +11 Grau A cai de
+2 501 mi para 2 229 mi (11%), e a arma nv5 de sem grau a Grau A, com evento, de 1 604 mi para
+1 422 mi (11%). Onde só um material se fabrica (Grau B → A sozinho), a diferença some.
+
+O zeny `Z₀` continua um número só — é um caixa só, e o azar no Grau pode ser pago com a folga do
+refino —, e a lista o abre por NPC (refino, Grau, fabricação) na proporção média da campanha
+(`dividirZeny`). Não há um "percentil 90 da taxa de Grau" que somado aos outros dois dê `Z₀`; a
+proporção média mostra de onde ele vem sem mudá-lo.
 
 ### 9.8 O kit mais barato: o descasque
 
@@ -971,21 +982,23 @@ chance não cai). Nas medições abaixo o descasque ganhou em todos os casos.
 
 | caso | nível | quantil comum | descasque | economia |
 |---|---|---|---|---|
-| `w5` +0 → +8 Grau C | 90% | 474 mi | 444 mi | 6% |
-| `w4` +0 → +12, item de 1 mi | 90% | 2 137 mi | 1 700 mi | 20% |
-| `a2` +0 → +11 Grau A | 90% | 3 489 mi | 3 246 mi | 7% |
-| `w4` +0 → +10, sem especiais | 90% | 1 356 mi | 1 311 mi | 3% |
+| `w5` +0 → +8 Grau C | 90% | 586 mi | 555 mi | 5% |
+| `w4` +0 → +12, item de 1 mi | 90% | 1 233 mi | 1 001 mi | 19% |
+| `a2` +0 → +11 Grau A | 90% | 2 517 mi | 2 229 mi | 11% |
+| `w4` +0 → +10, sem especiais | 90% | 1 146 mi | 1 069 mi | 7% |
 
-A economia vai de 2% a 35% conforme o caso e o nível. É maior onde os preços dos recursos são mais
+(Medido em 2026-10-17, com o kit já desmontado no que se compra.) A economia vai de 4% a 31%
+conforme o caso e o nível. É maior onde os preços dos recursos são mais
 desiguais e a quebra entra na conta: no `w4` +12 o descasque troca Bênção (1,9 mi) por cópias do
 item (1 mi), deixando de fora as campanhas que gastam muita Bênção.
 
 **Sobreajuste.** Com um parâmetro por recurso em vez de um só, o descasque se ajusta mais à amostra
 que o quantil comum (o otimismo de §9.3). O script mede isso escolhendo cada kit nas execuções
 pares e conferindo a chance nas ímpares, que ele não viu. Nos vinte pares caso × nível, a chance
-fora da amostra do descasque fica a no máximo 1,6 ponto do nível (73,4% para 75% no `a2`), e a do
-quantil comum a no máximo 1,5 — a mesma ordem do erro de amostragem de 2 500 execuções. Com as
-5 000 da página, a folga é menor.
+fora da amostra do descasque fica a no máximo 2,8 pontos do nível (72,2% para 75% no `a2`), e a do
+quantil comum a no máximo 3,1 (46,9% para 50%, no mesmo caso) — a mesma ordem do erro de
+amostragem de 2 500 execuções, um pouco acima onde há mais materiais a ajustar (dez, no `a2`
+desmontado). Com as 5 000 da página, a folga é menor.
 
 ---
 

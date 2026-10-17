@@ -105,28 +105,31 @@ Ela mostra a arte de cada item, servida pelo próprio Divine Pride a partir do i
 Cada linha começa pela **quantidade**, em corpo de título e na cor de destaque: é o que se lê de
 relance com a loja aberta, e o nome já se reconhece pela arte ao lado.
 
-Depois da quantidade vem a decisão da linha — **comprar pronto ou fabricar no NPC** —, e quanto a
-via escolhida poupa contra a outra: *economiza 35,5 mi z (51%)*. Onde fabricar ganha, a receita
-abre **aninhada embaixo**, recuada e com fio à esquerda, até o que se acha à venda; onde comprar
-ganha, a economia diz o que a receita custaria a mais. Havia uma segunda seção, "Fabricar no
-balcão do NPC", com os intermediários listados à parte: virou este aninhamento, porque a receita
-não é assunto separado — é o que aquela linha custa quando se escolhe fabricá-la.
+A lista é **o que se compra**: o que vale mais a pena fabricar no NPC não aparece pronto, aparece
+pelos insumos da receita. Foi uma correção. A lista abria cada minério fabricado com a receita
+aninhada embaixo, e o kit contava o minério pronto — 4 Topázios de Éter, 40 Âmbares de Éter —,
+cada um com a própria folga para o azar. Só que os dois puxam a mesma Pedra de Éter, e a Pedra
+que sobra do Grau C serve ao Grau A: contados pelos insumos, uma folga só cobre os dois azares, e
+o kit de uma campanha até Grau A sai ~11% mais barato no mesmo nível (matematica.md §9.7). Os NPCs
+que fabricam, o de Grau e o refinador ficam lado a lado, então fabricar na hora não custa viagem.
 
-A economia existe porque **o motor decide sozinho e nem sempre o jogador concorda**. O custo é
-cotado pela via mais barata (ver `unitCost`), então a lista seguiria o balcão por qualquer
-diferença — e fabricar 379 Eteridecon significa carregar 1.895 Minério de Oridecon do mercado ao
-NPC, num jogo em que peso é limite e viagem é tempo. A lista mostra as duas coisas na mesma
-linha: o que a viagem rende e o quanto ela é. Poupar 200z carregando mil minérios é decisão de
-quem carrega, não do motor.
+Em cada linha, depois da quantidade, vem o preço unitário e, quando existe receita, quanto
+comprar pronto poupa contra fabricar. Logo abaixo, a seção **Fabricar no NPC** diz o que montar
+com os insumos: cada receita por unidade (*15x Pedra de Éter + 1x Âmbar + 500.000z*), a média da
+campanha, o preço pronto contra o fabricado e o porquê — economiza, a diferença é pequena, ou
+quase ninguém vende pronto. A quantidade ali é a média, e não a do kit, porque o kit não fixa
+quantos de cada: a sobra de um vira o insumo do outro.
 
-O dado vem de `arvoreDeCompras()`, em `src/engine/pricing.ts`: a mesma conta de `listaDeCompras`
-em árvore em vez de achatada, com os dois preços — mercado e receita — guardados em cada nó. Os
-totais das raízes somam exatamente o total da lista achatada, que é o que o diagrama de custo lê;
-se divergissem, dois números da mesma tela deixariam de bater.
+A regra de via mora em `decidir`, em `src/engine/pricing.ts`, e é a mesma do custo do plano:
+fabricar vence quando sai mais barato, quando o pronto é no máximo 5% mais barato, ou quando o
+pronto quase não gira no mercado. Nos dois últimos casos o custo cotado é o de fabricar — um
+pouco acima do mínimo, de propósito, porque é o que a pessoa paga seguindo a lista.
 
-O que a árvore perde é a soma de um material que aparece sob dois pais — Pó de Éter entra na
-Pedra de Éter e no Eteridecon, e cada um mostra a sua parte. A vista **por minério**, ao lado, é
-onde o consumo aparece somado.
+Os subtotais separam o zeny pelo NPC que o cobra: **Minérios**, **Taxas para Criação de
+Minérios**, **Taxas para Grau** e **Taxas de Refino**, mais a reposição do item. O zeny do kit é um
+quantil da soma das três taxas, e a lista o reparte na proporção média da campanha
+(`dividirZeny`, em `src/engine/kit.ts`); as parcelas somam exatamente o número do topo. A vista
+**por minério**, ao lado, mostra o consumo em minério pronto, como o motor conta.
 
 ## Já refinei: quanta sorte eu tive
 

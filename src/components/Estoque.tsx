@@ -11,11 +11,11 @@ import {
   type Travamento,
   type VereditoEstoque,
 } from '../engine/estoque';
-import { balcaoDoKit, estoqueDoKit, faltaParaOKit, type Kit } from '../engine/kit';
+import { estoqueDoKit, faltaParaOKit, type Kit } from '../engine/kit';
 import type { Resultado as ResultadoPlano } from '../engine/plan';
 import type { CalcInput } from '../engine/types';
 import { porcento, zeny, zenyExato } from '../format';
-import { MARGENS, ReceitasDoBalcao, type MargemKey } from './Resultado';
+import { MARGENS, type MargemKey } from './Resultado';
 import {
   Botao,
   BotaoDoPainel,
@@ -138,14 +138,7 @@ export function SimuladorDeEstoque({
     alvo,
     campanha?.materiais.map((m) => m.itemId) ?? [],
   );
-  const recomendado = useMemo(
-    () => (campanha ? estoqueDoKit(kit, plano.input.precos) : null),
-    [campanha, kit, plano.input.precos],
-  );
-  const balcao = useMemo(
-    () => balcaoDoKit(kit, plano.input.precos),
-    [kit, plano.input.precos],
-  );
+  const recomendado = useMemo(() => (campanha ? estoqueDoKit(kit) : null), [campanha, kit]);
   const efetivo: EstoqueSalvo =
     recomendado && assinatura !== estoque.assinatura
       ? { ...recomendado, alvo, assinatura }
@@ -222,7 +215,7 @@ export function SimuladorDeEstoque({
                 , escolhido lá em cima.
               </span>
               <Info titulo="De onde saem os valores preenchidos" alinhar="direita">
-                É o kit do “o que ter em mãos”, desmontado até o que se compra. Não é o percentil
+                É o kit do “o que ter em mãos”, com as mesmas quantidades. Não é o percentil
                 de cada recurso lido em separado: a campanha que estoura o minério não é a mesma que
                 estoura o caixa, e levar o percentil 90 de cinco coisas dá bem menos que 90% de
                 chance de não faltar nenhuma. O kit é a mochila mais barata que, inteira, fecha a
@@ -284,22 +277,27 @@ export function SimuladorDeEstoque({
                 minimoDoCampo={1}
               />
             </Campo>
-            {/* O zeny daqui e o do "o que ter em mãos" não são o mesmo número, e
-                sem esta linha parecem dois valores para a mesma coisa: lá os
-                itens vêm prontos e o zeny paga só as taxas; aqui os campos são
-                a matéria-prima, e o caixa paga também a fabricação. */}
-            {recomendado && balcao.total > 0 && (
+            {/* Um número só no campo, porque o caixa é um só; mas quem vai
+                separar o zeny quer saber para que NPC vai cada parte. */}
+            {recomendado && (kit.zenyPorTipo.grau > 0 || kit.zenyPorTipo.balcao > 0) && (
               <p className="md-corpo-p text-suave sm:col-span-2">
                 No kit, o zeny se divide em{' '}
-                <strong className="text-texto tabular-nums" title={zenyExato(kit.taxas)}>
-                  {zeny(kit.taxas)}
-                </strong>{' '}
-                de taxas — o mesmo do “o que ter em mãos” — e{' '}
-                <strong className="text-texto tabular-nums" title={zenyExato(balcao.total)}>
-                  {zeny(balcao.total)}
-                </strong>{' '}
-                de balcão do NPC. Lá os itens já vêm prontos; aqui os campos são a matéria-prima, e
-                fabricar <ReceitasDoBalcao balcao={balcao} /> sai do caixa.
+                {[
+                  { rotulo: 'de refino', valor: kit.zenyPorTipo.refino },
+                  { rotulo: 'de Grau', valor: kit.zenyPorTipo.grau },
+                  { rotulo: 'para fabricar os minérios', valor: kit.zenyPorTipo.balcao },
+                ]
+                  .filter((p) => p.valor > 0)
+                  .map((p, i, todas) => (
+                    <span key={p.rotulo}>
+                      {i > 0 && (i === todas.length - 1 ? ' e ' : ', ')}
+                      <strong className="text-texto tabular-nums" title={zenyExato(p.valor)}>
+                        {zeny(p.valor)}
+                      </strong>{' '}
+                      {p.rotulo}
+                    </span>
+                  ))}
+                .
               </p>
             )}
           </div>
@@ -416,7 +414,7 @@ function Veredito({
 }: {
   veredito: VereditoEstoque;
   estoque: Estoque;
-  /** O kit desmontado, que preencheu os campos: a régua do que falta. */
+  /** O kit, que preencheu os campos: a régua do que falta. */
   recomendado: Estoque | null;
   campanha: CampanhaEmMateriais;
   margem: MargemKey;

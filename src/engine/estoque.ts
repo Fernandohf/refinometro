@@ -81,6 +81,8 @@ export interface CampanhaEmMateriais {
   zenyPuro: Float64Array;
   /** `zenyPuro` ordenado, para o quantil do recomendado. */
   zenyPuroOrdenado: Float64Array;
+  /** A média de cada parte do `zenyPuro`, entre as execuções. */
+  zenyPorTipo: ZenyPorTipo;
   /** Itens-base destruídos em cada execução. */
   quebras: Float64Array;
   /** `quebras` ordenado, para o quantil do recomendado. */
@@ -110,6 +112,19 @@ export interface CampanhaEmMateriais {
   progressoQuebras: Float64Array;
   /** Execuções que sustentam o progresso. */
   execucoesMarcos: number;
+}
+
+/**
+ * O zeny que não vira material, separado pelo NPC que o cobra.
+ *
+ * São três balcões diferentes: o refinador cobra por tentativa no equipamento,
+ * o NPC de Grau por tentativa de Grau, e o que fabrica os minérios e os
+ * materiais de Grau por unidade fabricada. Só o último some comprando pronto.
+ */
+export interface ZenyPorTipo {
+  refino: number;
+  grau: number;
+  balcao: number;
 }
 
 /** Um recurso que pode acabar no meio do caminho. */
@@ -222,6 +237,11 @@ export function emMateriais(
     }
     return coluna;
   };
+  // O balcão de fabricar uma unidade de cada minério do plano: zero no que se
+  // compra pronto, e zero em tudo quando o consumo fica inteiro.
+  const balcaoPorUnidade = amostras.itemIds.map((itemId) =>
+    desmontar ? listaDeCompras({ [itemId]: 1 }, precos).zenyNpc : 0,
+  );
   const receitas = amostras.itemIds.map((itemId) =>
     desmontar
       ? // Uma unidade de cada minério, desmontada pela mesma decisão de comprar
@@ -339,6 +359,21 @@ export function emMateriais(
     }
   }
 
+  const mediaDe = (v: Float64Array) => {
+    let soma = 0;
+    for (let i = 0; i < n; i++) soma += v[i]!;
+    return n > 0 ? soma / n : 0;
+  };
+  let balcao = 0;
+  for (let o = 0; o < balcaoPorUnidade.length; o++) {
+    if (balcaoPorUnidade[o]! > 0) balcao += balcaoPorUnidade[o]! * mediaDe(amostras.consumo.subarray(o * n, (o + 1) * n));
+  }
+  const zenyPorTipo: ZenyPorTipo = {
+    refino: mediaDe(amostras.taxaRefino),
+    grau: mediaDe(amostras.taxaGrau),
+    balcao,
+  };
+
   let minimoZeny = Infinity;
   let minimoQuebras = Infinity;
   for (let i = 0; i < n; i++) {
@@ -353,6 +388,7 @@ export function emMateriais(
     custo: amostras.custo,
     zenyPuro,
     zenyPuroOrdenado: zenyPuro.slice().sort(),
+    zenyPorTipo,
     quebras: amostras.quebras,
     quebrasOrdenado: amostras.quebras.slice().sort(),
     execucoes: n,

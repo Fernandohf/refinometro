@@ -16,7 +16,7 @@ import {
   type CampanhaEmMateriais,
   type Estoque,
 } from '../src/engine/estoque';
-import { campanhaEmMinerios } from '../src/engine/kit';
+import { campanhaDoKit } from '../src/engine/kit';
 import { calcular } from '../src/engine/plan';
 import { listaDeCompras } from '../src/engine/pricing';
 import type { CalcInput } from '../src/engine/types';
@@ -86,7 +86,7 @@ const pct = (x: number) => `${(100 * x).toFixed(1)}%`.padStart(6);
 
 for (const [nome, input] of casos) {
   const p = calcular(input, { execucoes: 5_000, tempoMs: 4_000 });
-  const c = campanhaEmMinerios(p)!;
+  const c = campanhaDoKit(p)!;
   const treino = metade(c, 0);
   const prova = metade(c, 1);
   const baratos = estoquesMaisBaratos(c, niveis);

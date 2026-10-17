@@ -5,7 +5,7 @@ import { BLESSING_ITEM_ID } from '../src/data/ores';
 import { calcular } from '../src/engine/plan';
 import { listaDeCompras } from '../src/engine/pricing';
 import { fluxoDeCusto, type CategoriaCusto } from '../src/engine/fluxoDeCusto';
-import { campanhaEmMinerios, montarKit } from '../src/engine/kit';
+import { campanhaDoKit, montarKit } from '../src/engine/kit';
 import type { Resultado } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -29,7 +29,7 @@ const input = (over: Partial<CalcInput> = {}): CalcInput => ({
 const plano = () => calcular(input(), { execucoes: 20_000, tempoMs: 3_000 });
 
 /** O kit do nível Seguro, que é o que a página desenha por padrão. */
-const kitDe = (p: Resultado) => montarKit(p, campanhaEmMinerios(p), 0.9);
+const kitDe = (p: Resultado) => montarKit(p, campanhaDoKit(p), 0.9);
 const fluxo90 = (p: Resultado) => fluxoDeCusto(p, kitDe(p));
 
 describe('para onde vai o zeny', () => {

@@ -12,7 +12,8 @@ import {
 } from '../src/data/ores';
 import { REFINO_MINIMO_GRAU, stepsBetween } from '../src/data/grade';
 import { gradeChanceOf, solveGradeCampaign } from '../src/engine/grade';
-import { arvoreDeCompras, listaDeCompras, unitCost } from '../src/engine/pricing';
+import { GIRO_MINIMO, arvoreDeCompras, listaDeCompras, sourcingOf, unitCost } from '../src/engine/pricing';
+import { GIRO } from '../src/data/giro';
 import {
   actionsAt,
   chanceOf,
@@ -320,6 +321,39 @@ describe('preços', () => {
 
   it('devolve Infinity quando não há preço nem receita', () => {
     expect(unitCost(984, {})).toBe(Infinity);
+  });
+
+  it('fabrica quando a diferença para o pronto é pequena', () => {
+    // Os NPCs ficam lado a lado e o insumo que sobra serve a outra receita:
+    // pagar até 5% a mais por isso vale. O custo cotado é o de fabricar, porque
+    // é o que a pessoa paga seguindo a lista.
+    const quase = { ...P, 984: 195_000 };
+    expect(sourcingOf(984, quase)).toBe('npc');
+    expect(unitCost(984, quase)).toBe(200_000);
+    // Acima da tolerância, o mercado volta a vencer.
+    expect(sourcingOf(984, { ...P, 984: 180_000 })).toBe('mercado');
+  });
+
+  it('fabrica o que quase não gira no mercado, mesmo mais caro', () => {
+    // Topázio de Éter: poucas dezenas de vendas no mês. O preço de mercado
+    // não garante que haja quem venda a quantidade da campanha.
+    // O giro vem da cotação do dia; o teste fixa o dele para não depender dela.
+    const TOPAZIO_ETER = 1000326;
+    const doDia = GIRO[TOPAZIO_ETER];
+    const precos = { 1000323: 500_000, 728: 10_000, [TOPAZIO_ETER]: 1_000_000 };
+    try {
+      GIRO[TOPAZIO_ETER] = GIRO_MINIMO - 1;
+      expect(arvoreDeCompras({ [TOPAZIO_ETER]: 1 }, precos)[0]).toMatchObject({
+        via: 'npc',
+        motivo: 'pouco-giro',
+        economia: 1_000_000 - (200_000 + 6 * 500_000 + 10_000),
+      });
+      GIRO[TOPAZIO_ETER] = GIRO_MINIMO;
+      expect(sourcingOf(TOPAZIO_ETER, precos)).toBe('mercado');
+    } finally {
+      if (doDia === undefined) delete GIRO[TOPAZIO_ETER];
+      else GIRO[TOPAZIO_ETER] = doDia;
+    }
   });
 });
 
@@ -997,9 +1031,12 @@ describe('simular com o que já se tem', () => {
     const ids = c.materiais.map((m) => m.itemId);
 
     // O plano de uma arma nv4 usa Bradium, que ninguém compra pronto: fabrica a
-    // partir de Oridecon. Quem tem Oridecon na mochila tem o que a conta pede.
+    // partir de Oridecon. E o Oridecon, que nos preços fixos custa o mesmo
+    // pronto ou feito de 5 Minério de Oridecon, também se fabrica — no empate,
+    // fabricar vence (ver `TOLERANCIA_FABRICAR`). A mochila pede o minério.
     expect(r.simulacao!.itens[6224]).toBeDefined();
-    expect(ids).toContain(984);
+    expect(ids).toContain(756);
+    expect(ids).not.toContain(984);
     expect(ids).not.toContain(6224);
 
     // A conversão fecha com a lista de compras da mesma campanha média.

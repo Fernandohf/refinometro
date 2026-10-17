@@ -95,7 +95,7 @@ const PROTECAO = new Set([BLESSING_ITEM_ID, ETHER_BLESSING_ITEM_ID]);
 export function fluxoDeCusto(plano: ResultadoPlano, kit: Kit): FluxoDeCusto {
   const lista = listaDeCompras(kit.itens, plano.input.precos);
   const quebras = kit.reposicoes;
-  const taxas = kit.taxas;
+  const { refino, grau, balcao } = kit.zenyPorTipo;
 
   const folhas: FolhaCusto[] = [];
 
@@ -120,29 +120,38 @@ export function fluxoDeCusto(plano: ResultadoPlano, kit: Kit): FluxoDeCusto {
     });
   }
 
-  for (const f of lista.fabricacao) {
-    if (f.zeny <= 0) continue;
-    folhas.push({
-      id: `balcao-${f.itemId}`,
-      // O que a linha custa é preparar AQUELE minério — dizer só "balcão do
-      // NPC" esconderia qual deles vale a pena procurar pronto no mercado.
-      rotulo: `Fabricar ${nomeDoItem(f.itemId)}`,
-      valor: f.zeny,
-      qtd: f.qtd,
-      categoria: 'fabricacao',
+  // O kit leva o fabricado desmontado e paga o balcão em zeny, num número só.
+  // Ele se abre por receita na proporção da campanha média — é o nome que diz
+  // qual delas vale a pena procurar pronto no mercado.
+  const receitas = listaDeCompras(plano.recursos.itens, plano.input.precos).fabricacao;
+  const balcaoMedio = receitas.reduce((s, f) => s + f.zeny, 0);
+  if (balcao > 0 && balcaoMedio > 0) {
+    let resto = balcao;
+    receitas.forEach((f, i) => {
+      const valor = i === receitas.length - 1 ? resto : (balcao * f.zeny) / balcaoMedio;
+      resto -= valor;
+      if (valor <= 0) return;
+      folhas.push({
+        id: `balcao-${f.itemId}`,
+        rotulo: `Fabricar ${nomeDoItem(f.itemId)}`,
+        valor,
+        qtd: f.qtd,
+        categoria: 'fabricacao',
+      });
     });
   }
 
-  if (taxas > 0) {
+  if (refino > 0) {
     folhas.push({
       id: 'taxa',
-      // O zeny do kit que não vira material: numa campanha de Grau ele inclui
-      // a taxa de cada tentativa de Grau, não só a do refinador.
-      rotulo: plano.fases.some((f) => f.grau) ? 'Taxas de Refino e de Grau' : 'Taxa de Refino',
-      valor: taxas,
+      rotulo: 'Taxas de Refino',
+      valor: refino,
       qtd: Math.round(plano.recursos.tentativas),
       categoria: 'refino',
     });
+  }
+  if (grau > 0) {
+    folhas.push({ id: 'taxa-grau', rotulo: 'Taxas para Grau', valor: grau, categoria: 'refino' });
   }
 
   const grupos: GrupoCusto[] = [];
@@ -172,7 +181,8 @@ export function fluxoDeCusto(plano: ResultadoPlano, kit: Kit): FluxoDeCusto {
 
     grupos.push({
       categoria,
-      rotulo: ROTULO_CATEGORIA[categoria],
+      rotulo:
+        categoria === 'refino' && grau > 0 ? 'Refino e Grau do equipamento' : ROTULO_CATEGORIA[categoria],
       valor,
       folhas: exibidas,
     });

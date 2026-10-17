@@ -13,7 +13,7 @@ import { Sobre } from '../src/components/Sobre';
 import { JaRefinei } from '../src/components/JaRefinei';
 import { PRECOS_FIXOS } from './precosFixos';
 import { emMateriais } from '../src/engine/estoque';
-import { campanhaEmMinerios, estoqueDoKit, montarKit } from '../src/engine/kit';
+import { campanhaDoKit, campanhaEmMinerios, estoqueDoKit, montarKit } from '../src/engine/kit';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -241,7 +241,7 @@ describe('página', () => {
       },
       { execucoes: 5_000, tempoMs: 3_000 },
     );
-    const kit = montarKit(p, campanhaEmMinerios(p), 0.1);
+    const kit = montarKit(p, campanhaDoKit(p), 0.1);
     const html = renderToString(
       <SimuladorDeEstoque
         plano={p}
@@ -296,8 +296,8 @@ describe('página', () => {
       },
       { execucoes: 5_000, tempoMs: 3_000 },
     );
-    const kit = montarKit(p, campanhaEmMinerios(p), 0.9);
-    const cheio = estoqueDoKit(kit, p.input.precos);
+    const kit = montarKit(p, campanhaDoKit(p), 0.9);
+    const cheio = estoqueDoKit(kit);
     const c = emMateriais(p.simulacao!.amostras, p.input.precos, p.input.precoItem);
     const html = renderToString(
       <SimuladorDeEstoque
@@ -333,18 +333,29 @@ describe('página', () => {
     expect(emMaos).toBeLessThan(html.indexOf('role="tablist"'));
     expect(html.slice(emMaos)).toContain('só de taxas');
 
-    const valorApos = (marca: string, classe: string) => {
-      const depois = html.slice(html.indexOf(marca));
-      return depois.match(new RegExp(`class="[^"]*${classe}[^"]*"[^>]*>([^<]+)<`))![1];
+    // Os números completos ficam no `title`; os visíveis vêm abreviados.
+    const exato = (trecho: string) => Number(trecho.replace(/\D/g, ''));
+    const emMaosExato = html.slice(emMaos).match(/class="[^"]*md-display-p[^"]*" title="([^"]+)"/)![1]!;
+    const lista = html.slice(html.indexOf('Lista de compras'));
+    const taxa = (rotulo: string) => {
+      const m = lista.match(new RegExp(`${rotulo}[\\s\\S]*?<dd[^>]*title="([^"]+)"`));
+      return m ? exato(m[1]!) : 0;
     };
-    const taxasNaLista = html.slice(html.indexOf('Comprar ou fabricar')).match(/Taxas? do refinador[\s\S]*?<dd[^>]*>([^<]+)</);
-    expect(taxasNaLista).not.toBeNull();
-    expect(valorApos('O que ter em mãos', 'md-display-p')).toBe(taxasNaLista![1]);
+    // O padrão vai ao Grau A, que fabrica gemas de Éter no NPC e paga as três
+    // taxas: cada uma tem linha própria, e juntas são o zeny do topo.
+    const criacao = taxa('Taxas para Criação de Minérios');
+    const grau = taxa('Taxas para Grau');
+    const refino = taxa('Taxas de Refino');
+    expect(criacao).toBeGreaterThan(0);
+    expect(grau).toBeGreaterThan(0);
+    expect(refino).toBeGreaterThan(0);
+    expect(criacao + grau + refino).toBe(exato(emMaosExato));
+    expect(lista).toContain('Minérios');
 
-    // O padrão vai ao Grau A, que fabrica gemas de Éter no NPC: os dois cartões
-    // dizem quanto de balcão separa "taxas" do zeny da aba de estoque.
-    expect(html.slice(emMaos)).toContain('Fabricando no NPC');
-    expect(html).toContain('de balcão do NPC');
+    // E o que se fabrica vem com a receita aberta, não pronto na lista.
+    expect(html.slice(emMaos)).toContain('Para fabricar no NPC');
+    expect(lista).toContain('Fabricar no NPC');
+    expect(lista).toContain('Cada um:');
   });
 
   it('renderiza sem estourar e já mostra um orçamento', () => {
@@ -394,7 +405,7 @@ describe('página', () => {
     const orcamento = html.indexOf('Custo total em zeny');
     const estrategia = html.indexOf('Melhor estratégia');
     const zeny = html.indexOf('Para onde vai o zeny');
-    const compras = html.indexOf('Comprar ou fabricar');
+    const compras = html.indexOf('Lista de compras');
     const estoque = html.indexOf('Zeny para taxas e balcão');
 
     expect(aviso).toBeGreaterThan(-1);
@@ -468,7 +479,7 @@ describe('página', () => {
     // (ver `useRevelavelPelaBusca`). O que o servidor precisa garantir é que o
     // conteúdo das abas fechadas ESTEJA no HTML.
     expect(html).toContain('role="tabpanel"');
-    expect(html).toContain('Comprar ou fabricar');
+    expect(html).toContain('Fabricar no NPC');
     expect(html).toContain('Chance de chegar ao alvo');
   });
 
