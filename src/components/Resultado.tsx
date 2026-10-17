@@ -71,6 +71,7 @@ export function Resultado({
   onMargem,
   afinando = false,
   precisao,
+  compartilhar,
   moduloEstoque,
 }: {
   plano: ResultadoPlano;
@@ -85,6 +86,8 @@ export function Resultado({
   afinando?: boolean;
   /** De quantas campanhas simuladas vieram os percentis — rodapé do painel. */
   precisao?: ReactNode;
+  /** O botão de compartilhar, no canto do painel do orçamento — é a resposta que se compartilha. */
+  compartilhar?: ReactNode;
   /**
    * Simulador de estoque: a terceira aba. "Dá com o que eu tenho?" é a pergunta
    * que vem depois de "o que comprar", e ela parte do mesmo kit — por isso
@@ -188,7 +191,7 @@ export function Resultado({
         </ul>
       )}
 
-      <Painel titulo="Quanto vai custar">
+      <Painel titulo="Quanto vai custar" aside={compartilhar}>
         <Trajetoria plano={plano} itemNome={itemNome} itemId={itemId} itemSlots={itemSlots} />
 
         {/* Duas respostas, porque há dois jeitos de jogar: quem volta ao

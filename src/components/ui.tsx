@@ -353,7 +353,7 @@ function IconeCopia({ copiado }: { copiado: boolean }) {
  * `execCommand` ainda funciona. Devolve se deu certo, porque o botão só pode
  * dizer "copiado" quando foi.
  */
-async function copiarTexto(texto: string): Promise<boolean> {
+export async function copiarTexto(texto: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(texto);
     return true;

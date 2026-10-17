@@ -33,6 +33,18 @@ beforeAll(() => {
 });
 
 describe('página', () => {
+  it('oferece compartilhar a conta, e só avisa de link quando a página veio de um', () => {
+    const normal = renderToString(<App />);
+    expect(normal).toContain('compartilhar');
+    expect(normal).not.toContain('Simulação compartilhada');
+
+    // Os preços na tela são os de partida de hoje: não há o que trocar.
+    const porLink = renderToString(<App compartilhada={{ cotacao: '2026-10-15' }} />);
+    expect(porLink).toContain('Simulação compartilhada');
+    expect(porLink).toContain('15/10/2026');
+    expect(porLink).not.toContain('usar os preços de hoje');
+  });
+
   it('deixa as duas formas de apoio à vista, fora de qualquer trecho recolhido', () => {
     const html = renderToString(<App />);
 
