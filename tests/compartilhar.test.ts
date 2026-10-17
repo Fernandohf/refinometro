@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { codificar, decodificar, lerDoEndereco } from '../src/compartilhar';
-import { CHAVE_ESTOQUE, CHAVE_STORAGE, INICIAL, type Estado } from '../src/estado';
+import { CHAVE_ESTOQUE, CHAVE_RELATO, CHAVE_STORAGE, INICIAL, type Estado } from '../src/estado';
 import { ESTOQUE_VAZIO, type EstoqueSalvo } from '../src/components/Estoque';
 import { DEFAULT_PRICES } from '../src/data/defaultPrices';
 
@@ -132,6 +132,22 @@ describe('abrir a página por um link', () => {
     expect(JSON.parse(memoria.get(CHAVE_ESTOQUE)!)).toEqual(ESTOQUE);
     // Ficando no endereço, um F5 desfaria o que a pessoa mexeu depois.
     expect(endereco.hash).toBe('');
+  });
+
+  it('o link de resultado leva o relato e abre no modo de sorte', async () => {
+    const relato = { itens: { 985: 120 }, quebras: 2, assinatura: 'w1|4|10' };
+    endereco.hash = '#s=' + (await codificar(ESTADO, ESTOQUE, relato));
+    const compartilhada = await lerDoEndereco();
+
+    expect(compartilhada?.modo).toBe('sorte');
+    expect(JSON.parse(memoria.get(CHAVE_RELATO)!)).toEqual(relato);
+  });
+
+  it('o link de preparação não mexe no relato salvo', async () => {
+    memoria.set(CHAVE_RELATO, 'meu');
+    endereco.hash = '#s=' + (await codificar(ESTADO, ESTOQUE));
+    expect((await lerDoEndereco())?.modo).toBe('plano');
+    expect(memoria.get(CHAVE_RELATO)).toBe('meu');
   });
 
   it('deixa em paz as âncoras da página e a conta salva', async () => {

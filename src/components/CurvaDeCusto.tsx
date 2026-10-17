@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 
 import { chanceAte } from '../engine/simulate';
 import { porcento, zeny, zenyExato } from '../format';
@@ -67,6 +67,8 @@ export function CurvaDeCusto({
   escolhida,
   margens,
   kit,
+  marca,
+  legenda,
 }: {
   /** Custo de cada campanha simulada, cru — ver `AmostrasCampanha`. */
   amostras: Float64Array;
@@ -82,6 +84,14 @@ export function CurvaDeCusto({
    * é o preço de não voltar ao mercado, desenhado sobre a mesma régua.
    */
   kit?: number;
+  /**
+   * Quando o ponto é uma campanha de verdade, e não uma margem: o rótulo diz de
+   * quem ele é ("você") em vez da fatia que cobre. A fatia continua no
+   * rótulo enquanto o cursor lê outro valor.
+   */
+  marca?: string;
+  /** Troca a frase sob o desenho, para quando o ponto não é um orçamento. */
+  legenda?: ReactNode;
 }) {
   const id = useId();
   /** A escala termina no maior percentil oferecido: além dele fica a cauda. */
@@ -337,7 +347,7 @@ export function CurvaDeCusto({
             {/* `dx` e não um espaço no texto: o SVG colapsa espaços, e os dois
                 números coloriam um só bloco ilegível ("450,1 mi z 99%"). */}
             <tspan dx={5} className="fill-[var(--color-suave)] font-normal">
-              {porcento(chance)}
+              {marca && !lendo ? marca : porcento(chance)}
             </tspan>
           </text>
         </g>
@@ -353,7 +363,7 @@ export function CurvaDeCusto({
           explicado. Impressa, ela ocupava mais altura que o gráfico — e o
           gráfico é que responde a pergunta. */}
       <figcaption className="md-corpo-p mt-1 flex items-center gap-1 text-suave">
-        A área acesa cobre {porcento(chance)} das simulações.
+        {legenda ?? <>A área acesa cobre {porcento(chance)} das simulações.</>}
         <Info titulo="Como ler esta curva">
           Cada faixa é a fatia das campanhas simuladas que custou aquilo. A área acesa vai até o
           orçamento escolhido: são {porcento(escolhida.chance)} das campanhas, e é exatamente isso

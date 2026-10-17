@@ -13,7 +13,8 @@ import { maxRefine, riscoPorAlvo, safeLimit } from './engine/refine';
 import { suportaGrau } from './engine/grade';
 import type { CalcInput, PriceTable } from './engine/types';
 
-import { Resultado } from './components/Resultado';
+import { ID_ABAS, Resultado } from './components/Resultado';
+import { JaRefinei, type RelatoSalvo } from './components/JaRefinei';
 import { SimuladorDeEstoque, type EstoqueSalvo } from './components/Estoque';
 import { BuscaItem } from './components/BuscaItem';
 import { BotaoDoGuia, ComoUsar, useGuia } from './components/ComoUsar';
@@ -34,7 +35,15 @@ import { SlotItem } from './components/ItemNoJogo';
 import { rotuloDoAlvo, TrilhaRefino } from './components/TrilhaRefino';
 import { AvisoDeCompartilhada, BotaoCompartilhar } from './components/Compartilhar';
 import { dataBR, porcento } from './format';
-import { carregar, carregarEstoque, CHAVE_ESTOQUE, CHAVE_STORAGE, type Estado } from './estado';
+import {
+  carregar,
+  carregarEstoque,
+  carregarRelato,
+  CHAVE_ESTOQUE,
+  CHAVE_RELATO,
+  CHAVE_STORAGE,
+  type Estado,
+} from './estado';
 import { codificar, linkDe, type Compartilhada } from './compartilhar';
 
 export default function App({
@@ -46,6 +55,7 @@ export default function App({
   const [e, setE] = useState<Estado>(carregar);
   const set = <K extends keyof Estado>(k: K, v: Estado[K]) => setE((a) => ({ ...a, [k]: v }));
   const [estoque, setEstoque] = useState<EstoqueSalvo>(carregarEstoque);
+  const [relato, setRelato] = useState<RelatoSalvo>(carregarRelato);
   // Estado das perguntas frequentes: mora aqui porque o atalho do cabeçalho e a
   // seção lá embaixo são as duas pontas da página, e o atalho ABRE além de rolar.
   const [perguntas, setPerguntas] = useState(false);
@@ -59,6 +69,10 @@ export default function App({
   useEffect(() => {
     localStorage.setItem(CHAVE_ESTOQUE, JSON.stringify(estoque));
   }, [estoque]);
+
+  useEffect(() => {
+    localStorage.setItem(CHAVE_RELATO, JSON.stringify(relato));
+  }, [relato]);
 
   const max = maxRefine(e.kind);
   const limite = safeLimit(e.kind);
@@ -222,6 +236,12 @@ export default function App({
       {aviso && (
         <AvisoDeCompartilhada
           cotacao={aviso.cotacao}
+          modo={aviso.modo}
+          onVer={() =>
+            document
+              .getElementById(aviso.modo === 'sorte' ? ID_ABAS : ID_RESULTADO)
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
           precosDiferentes={!mesmosPrecos(e.precos, DEFAULT_PRICES)}
           onUsarPrecosDeHoje={() => {
             set('precos', DEFAULT_PRICES);
@@ -388,7 +408,7 @@ export default function App({
           />
         </div>
 
-        <div className="min-w-0">
+        <div id={ID_RESULTADO} className="min-w-0 scroll-mt-4">
           {erro ? (
             // Um pedido impossível (alvo abaixo do atual, grau em item que não
             // tem) merece o mesmo lugar que os avisos: no topo, sozinho, sem
@@ -417,6 +437,17 @@ export default function App({
                     texto={textoDoLink(e)}
                   />
                 }
+                abaInicial={compartilhada?.modo === 'sorte' ? 'sorte' : 'plano'}
+                moduloSorte={(campanha) => (
+                  <JaRefinei
+                    plano={exibido}
+                    campanha={campanha}
+                    relato={relato}
+                    onChange={setRelato}
+                    nomeDoAlvo={alvoLegivel(e)}
+                    gerarLink={async (r) => linkDe(await codificar(e, estoque, r))}
+                  />
+                )}
                 precisao={<Precisao afinando={preciso.afinando} plano={exibido} />}
                 moduloEstoque={(kit) => (
                   <SimuladorDeEstoque
@@ -441,11 +472,19 @@ export default function App({
   );
 }
 
-/** A frase que acompanha o link na folha de compartilhamento do celular. */
-function textoDoLink(e: Estado): string {
+/** A coluna do resultado — para onde o aviso de link compartilhado rola. */
+const ID_RESULTADO = 'resultado';
+
+/** O item e o alvo, como se diz no chat: "Armadura Nebulosa POD +12 Grau A". */
+function alvoLegivel(e: Estado): string {
   const item = e.itemNome ?? CATEGORIAS.find((c) => c.key === e.kind)?.rotulo ?? 'Item';
   const grau = e.grauAlvo !== 'none' ? ` ${ROTULO_GRAU[e.grauAlvo]}` : '';
-  return `${item}, do +${e.refinoAtual} ao +${e.refinoAlvo}${grau}: quanto custa no Refinômetro.`;
+  return `${item} +${e.refinoAlvo}${grau}`;
+}
+
+/** A frase que acompanha o link na folha de compartilhamento do celular. */
+function textoDoLink(e: Estado): string {
+  return `${alvoLegivel(e)}, saindo do +${e.refinoAtual}: quanto custa no Refinômetro.`;
 }
 
 /** As duas tabelas cotam igual tudo o que qualquer uma das duas cota. */

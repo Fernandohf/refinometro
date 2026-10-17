@@ -850,7 +850,7 @@ function Aba({
       onClick={aoClicar}
       onKeyDown={aoTeclar}
       className={
-        'estado relative flex flex-1 cursor-pointer items-end justify-center overflow-hidden ' +
+        'estado relative flex min-w-0 flex-1 cursor-pointer items-end justify-center overflow-hidden ' +
         'transition-colors duration-200 ease-padrao ' +
         (ativa ? 'text-realce' : 'text-suave hover:text-texto')
       }
@@ -860,8 +860,11 @@ function Aba({
           aba: é o que separa a aba primária do Material da secundária, cujo
           traço atravessa a célula inteira. O alvo de toque continua sendo o
           botão todo — a coluna só mede. */}
+      {/* Estreito, o rótulo quebra em duas linhas em vez de a fila rolar de
+          lado: com quatro abas num celular, a rolagem escondia justamente a
+          última, e uma aba que não se vê não existe. */}
       <span className="flex flex-col items-stretch">
-        <span className="md-corpo-m px-4 pt-3 pb-2.5 text-center font-medium whitespace-nowrap">
+        <span className="md-corpo-m px-2 pt-3 pb-2.5 text-center leading-tight font-medium text-balance sm:px-4 sm:whitespace-nowrap">
           {rotulo}
         </span>
         {/* A barra existe sempre, transparente, para a aba não mudar de altura

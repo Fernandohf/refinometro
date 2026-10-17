@@ -128,6 +128,31 @@ O que a árvore perde é a soma de um material que aparece sob dois pais — Pó
 Pedra de Éter e no Eteridecon, e cada um mostra a sua parte. A vista **por minério**, ao lado, é
 onde o consumo aparece somado.
 
+## Já refinei: quanta sorte eu tive
+
+A quarta aba responde à pergunta de quem já terminou: a pessoa informa quanto gastou de cada
+minério e quantas vezes o item quebrou, e a tela diz onde essa campanha cai entre as simuladas,
+algo como "mais sorte que 82% das campanhas", com um ponto "você" sobre a curva de custo. Não é
+outra simulação. São as mesmas campanhas do orçamento e do "Dá com o que eu tenho?", lidas de um
+terceiro jeito. A conta fica em [`src/engine/sorte.ts`](../src/engine/sorte.ts).
+
+- **A unidade é a que o jogador lembra:** minério inteiro, como o kit (Eterium, e não o Pó de Éter
+  que o fabricou).
+- **A taxa não é perguntada,** e não precisa ser. Cada minério gasto no refinador é uma tentativa
+  e paga a taxa dele. No Grau, a taxa é proporcional ao material da tentativa (150 mil por
+  Aquamarina de Éter, no modo normal e no seguro). A taxa da campanha é uma soma exata do que foi
+  informado. [`tests/sorte.test.ts`](../tests/sorte.test.ts) reconstrói campanhas simuladas a
+  partir do minério e confere que o total bate com o custo de cada uma.
+- **A régua é o plano da calculadora.** A tela diz isso no fim: quem refinou de outro jeito mede
+  sorte e estratégia misturadas.
+- **Relato incompleto não vira sorte.** Enquanto falta um material que toda campanha simulada
+  usou, a tela pede esse material em vez de dar um veredito. Um valor abaixo do que a campanha
+  mais sortuda gastou fica em vermelho. No Grau seguro, por exemplo, cada tentativa gasta 5
+  materiais, então 4 não é sorte, é conta errada.
+
+O botão "compartilhar meu resultado" gera o mesmo tipo de link da seção abaixo, levando também o
+relato, e quem abre cai direto nesta aba.
+
 ## Compartilhar uma simulação
 
 O botão **compartilhar**, no canto do painel "Quanto vai custar", gera um link com a pergunta

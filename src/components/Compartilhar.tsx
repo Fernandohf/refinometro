@@ -35,7 +35,18 @@ function usaFolhaDoSistema(): boolean {
  * comprimir a pergunta inteira para um botão que quase ninguém aperta seria
  * trabalho jogado fora.
  */
-export function BotaoCompartilhar({ gerar, texto }: { gerar: () => Promise<string>; texto: string }) {
+export function BotaoCompartilhar({
+  gerar,
+  texto,
+  rotulo = 'compartilhar',
+  destaque = false,
+}: {
+  gerar: () => Promise<string>;
+  texto: string;
+  rotulo?: string;
+  /** Tonal, na medida normal: para quando compartilhar é a ação principal do bloco. */
+  destaque?: boolean;
+}) {
   const [estado, setEstado] = useState<'parado' | 'copiado' | 'falhou'>('parado');
 
   useEffect(() => {
@@ -68,12 +79,12 @@ export function BotaoCompartilhar({ gerar, texto }: { gerar: () => Promise<strin
   return (
     <span aria-live="polite">
       <Botao
-        tamanho="pequeno"
-        variante="texto"
+        tamanho={destaque ? 'normal' : 'pequeno'}
+        variante={destaque ? 'tonal' : 'texto'}
         onClick={() => void compartilhar()}
         iconeAoFim={<IconeCompartilhar copiado={estado === 'copiado'} />}
       >
-        {{ parado: 'compartilhar', copiado: 'link copiado', falhou: 'copie o link' }[estado]}
+        {{ parado: rotulo, copiado: 'link copiado', falhou: 'copie o link' }[estado]}
       </Botao>
     </span>
   );
@@ -102,12 +113,21 @@ function IconeCompartilhar({ copiado }: { copiado: boolean }) {
  */
 export function AvisoDeCompartilhada({
   cotacao,
+  modo,
+  onVer,
   precosDiferentes,
   onUsarPrecosDeHoje,
   onFechar,
 }: {
   /** Data da cotação de partida de quem compartilhou (ISO). */
   cotacao: string;
+  /** `sorte`: o link traz o resultado de um refino já feito, e o aviso aponta para ele. */
+  modo: 'plano' | 'sorte';
+  /**
+   * Rola até a resposta. No celular ela fica abaixo do formulário inteiro, e
+   * quem abriu um link quer ver o que mandaram, não preencher nada.
+   */
+  onVer: () => void;
   /** Os preços na tela não são os de partida de hoje — senão o botão não teria o que trocar. */
   precosDiferentes: boolean;
   onUsarPrecosDeHoje: () => void;
@@ -116,10 +136,21 @@ export function AvisoDeCompartilhada({
   return (
     <div className="md-corpo-m mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-realce/40 bg-painel p-3.5 text-texto shadow-e1">
       <p className="min-w-[14rem] flex-1">
-        <strong>Simulação compartilhada.</strong> Os preços são os de quem a enviou, a partir da
-        cotação de {dataBR(cotacao)} — por isso a conta dá o mesmo que essa pessoa viu.
+        {modo === 'sorte' ? (
+          <>
+            <strong>Resultado compartilhado.</strong> Alguém já fez este refino e contou quanto
+            gastou; a aba “Já refinei” diz quanta sorte teve. Os preços são os de quem enviou, a
+            partir da cotação de {dataBR(cotacao)}.
+          </>
+        ) : (
+          <>
+            <strong>Simulação compartilhada.</strong> Os preços são os de quem a enviou, a partir
+            da cotação de {dataBR(cotacao)} — por isso a conta dá o mesmo que essa pessoa viu.
+          </>
+        )}
       </p>
-      <div className="ml-auto flex shrink-0 gap-1">
+      <div className="ml-auto flex shrink-0 flex-wrap gap-1">
+        <BotaoDoPainel onClick={onVer}>{modo === 'sorte' ? 'ver a sorte' : 'ver o resultado'}</BotaoDoPainel>
         {precosDiferentes && (
           <BotaoDoPainel onClick={onUsarPrecosDeHoje}>usar os preços de hoje</BotaoDoPainel>
         )}

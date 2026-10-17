@@ -6,6 +6,10 @@
   estático, e o fragmento nem chega a ser pedido ao GitHub Pages. Quem abre o
   link roda a mesma conta, com a mesma semente, e vê os mesmos números.
 
+  Há dois links com o mesmo formato. O de preparação leva a pergunta; o de
+  resultado ("Já refinei") leva também o que a pessoa gastou (`r`), e quem o
+  abre cai direto no veredito de sorte dela.
+
   Os preços vão TODOS, e não só os que a pessoa mexeu. A cotação de partida
   muda todo dia (`precos.yml`), e um link que levasse só as diferenças daria
   outro orçamento na semana seguinte — que é exatamente quando alguém volta a
@@ -20,8 +24,9 @@
 import { COTACAO } from './data/defaultPrices';
 import { GRADE_ORDER } from './data/grade';
 import { CATEGORIAS } from './data/rotulos';
-import { CHAVE_ESTOQUE, CHAVE_STORAGE, INICIAL, type Estado } from './estado';
+import { CHAVE_ESTOQUE, CHAVE_RELATO, CHAVE_STORAGE, INICIAL, type Estado } from './estado';
 import type { EstoqueSalvo } from './components/Estoque';
+import type { RelatoSalvo } from './components/JaRefinei';
 import type { PriceTable } from './engine/types';
 
 const VERSAO = 1;
@@ -43,6 +48,8 @@ interface Pacote {
   e: Estado;
   /** A mochila do "Dá com o que eu tenho?". */
   k: EstoqueSalvo;
+  /** O que se gastou, quando o link é de um resultado ("Já refinei"). */
+  r?: RelatoSalvo;
   /** A cotação de partida de quem compartilhou, para a tela dizer de quando são os preços. */
   c: string;
 }
@@ -51,10 +58,12 @@ interface Pacote {
 export interface Compartilhada {
   /** Data da cotação de partida de quem compartilhou (ISO). */
   cotacao: string;
+  /** `sorte` quando o link traz o resultado de um refino já feito. */
+  modo: 'plano' | 'sorte';
 }
 
-export async function codificar(estado: Estado, estoque: EstoqueSalvo): Promise<string> {
-  const pacote: Pacote = { v: VERSAO, e: estado, k: estoque, c: COTACAO.geradoEm };
+export async function codificar(estado: Estado, estoque: EstoqueSalvo, relato?: RelatoSalvo): Promise<string> {
+  const pacote: Pacote = { v: VERSAO, e: estado, k: estoque, c: COTACAO.geradoEm, ...(relato ? { r: relato } : {}) };
   const bytes = await transformar(new TextEncoder().encode(JSON.stringify(pacote)), new CompressionStream('deflate-raw'));
   // Sem teto, `transformar` nunca desiste.
   return paraBase64Url(bytes!);
@@ -72,6 +81,7 @@ export async function decodificar(codigo: string): Promise<Pacote | null> {
       v: VERSAO,
       e: sanearEstado(bruto.e),
       k: sanearEstoque(bruto.k),
+      ...(bruto.r === undefined ? {} : { r: sanearRelato(bruto.r) }),
       c: typeof bruto.c === 'string' && /^\d{4}-\d{2}-\d{2}/.test(bruto.c) ? bruto.c : COTACAO.geradoEm,
     };
   } catch {
@@ -105,11 +115,12 @@ export async function lerDoEndereco(): Promise<Compartilhada | null> {
   try {
     localStorage.setItem(CHAVE_STORAGE, JSON.stringify(pacote.e));
     localStorage.setItem(CHAVE_ESTOQUE, JSON.stringify(pacote.k));
+    if (pacote.r) localStorage.setItem(CHAVE_RELATO, JSON.stringify(pacote.r));
   } catch {
     // Sem armazenamento (aba privada com cota zero) não há como passar a conta ao app.
     return null;
   }
-  return { cotacao: pacote.c };
+  return { cotacao: pacote.c, modo: pacote.r ? 'sorte' : 'plano' };
 }
 
 /* ─────────────────────────────────────────────── conferência campo a campo */
@@ -163,6 +174,15 @@ function sanearEstoque(x: unknown): EstoqueSalvo {
     copias: inteiro(k.copias) && k.copias >= 1 ? k.copias : 1,
     alvo: numero(k.alvo) && k.alvo < 1 ? k.alvo : 0.9,
     assinatura: typeof k.assinatura === 'string' ? k.assinatura : '',
+  };
+}
+
+function sanearRelato(x: unknown): RelatoSalvo {
+  const r = objeto(x) ? x : {};
+  return {
+    itens: sanearTabela(r.itens),
+    quebras: inteiro(r.quebras) ? r.quebras : 0,
+    assinatura: typeof r.assinatura === 'string' ? r.assinatura : '',
   };
 }
 
