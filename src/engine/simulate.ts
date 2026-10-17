@@ -44,6 +44,10 @@ export interface AmostrasCampanha {
   custo: Float64Array;
   /** Itens-base destruídos em cada execução. */
   quebras: Float64Array;
+  /** Zeny de cada execução pago ao refinador, tentativa a tentativa. */
+  taxaRefino: Float64Array;
+  /** Zeny de cada execução pago nas tentativas de Grau. */
+  taxaGrau: Float64Array;
   /** Achatado: `consumo[i * execucoes + n]` unidades do material `i`. */
   consumo: Float64Array;
   /** Quantas execuções estão guardadas aqui — nem sempre todas as simuladas. */
@@ -227,6 +231,8 @@ type FaseCompilada =
       tipo: 'grau';
       chance: number;
       custo: number;
+      /** Parcela de `custo` que é a taxa do NPC de Grau, sem material. */
+      taxa: number;
       seguro: boolean;
       slotMaterial: number;
       qtdMaterial: number;
@@ -363,6 +369,7 @@ export function simulateCampaign(
           tipo: 'grau',
           chance: fase.plano.chance,
           custo: fase.plano.custoPorTentativa,
+          taxa: (fase.plano.seguro ? fase.plano.step.seguro : fase.plano.step.normal).zeny,
           seguro: fase.plano.seguro,
           slotMaterial: slot(
             (fase.plano.seguro ? fase.plano.step.seguro : fase.plano.step.normal).material.itemId,
@@ -385,6 +392,7 @@ export function simulateCampaign(
   const custos = new Float64Array(execucoes);
   const quebras = new Float64Array(execucoes);
   const taxas = new Float64Array(execucoes);
+  const taxasGrau = new Float64Array(execucoes);
   // Uma matriz achatada: consumo[item * execucoes + n].
   const consumo = new Float64Array(nItens * execucoes);
   const contagem = new Float64Array(nItens);
@@ -437,6 +445,7 @@ export function simulateCampaign(
     contagem.fill(0);
     let zeny = 0;
     let taxa = 0;
+    let taxaGrau = 0;
     let quebrou = 0;
     let tentativas = 0;
     // Quantos marcos esta execução já atravessou. Eles vêm sempre na mesma
@@ -522,6 +531,7 @@ export function simulateCampaign(
 
       for (let guarda = 0; guarda < 10_000; guarda++) {
         zeny += fase.custo;
+        taxaGrau += fase.taxa;
         contagem[fase.slotMaterial]! += fase.qtdMaterial;
         if (fase.qtdBencao > 0) contagem[slotBencaoEter]! += fase.qtdBencao;
 
@@ -548,6 +558,7 @@ export function simulateCampaign(
     custos[n] = zeny;
     quebras[n] = quebrou;
     taxas[n] = taxa;
+    taxasGrau[n] = taxaGrau;
     if (quebrou === 0) semQuebra++;
     if (tentativas >= maxTentativas) truncadas++;
     somaTentativas += tentativas;
@@ -609,6 +620,8 @@ export function simulateCampaign(
     itemIds: usados.map((i) => itemIds[i]!),
     custo: custosFeitos.slice(0, guardadas),
     quebras: quebrasFeitas.slice(0, guardadas),
+    taxaRefino: taxasFeitas.slice(0, guardadas),
+    taxaGrau: taxasGrau.slice(0, guardadas),
     consumo: consumoGuardado,
     execucoes: guardadas,
     marcos,

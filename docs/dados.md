@@ -128,7 +128,11 @@ Esta tabela foi transcrita à mão, ao contrário das de chance: não há parser
 mudar, e quem trava os valores é o `npm test`.
 
 Itens fabricáveis no NPC podem ficar em 0: a calculadora cota pela receita e escolhe
-sozinha a via mais barata entre comprar pronto e fabricar.
+sozinha entre comprar pronto e fabricar. Fabricar vence quando sai mais barato, quando o pronto é
+no máximo 5% mais barato (`TOLERANCIA_FABRICAR`), ou quando o pronto quase não gira no mercado —
+menos de 100 transações na cotação (`GIRO_MINIMO`, lido de `precos.json` por `src/data/giro.ts`).
+Os NPCs de fabricar, de Grau e o refinador ficam lado a lado, e o insumo que sobra de uma receita
+serve a outra: com a diferença pequena, essa flexibilidade vale mais que ela.
 
 ## Custos de Grau — meio medidos
 

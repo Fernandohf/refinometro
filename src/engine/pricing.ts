@@ -1,5 +1,6 @@
 import { ORES, type MaterialCost, type Ore } from '../data/ores';
 import { GRADE_RECIPES } from '../data/grade';
+import { GIRO } from '../data/giro';
 import type { PriceTable } from './types';
 
 /**
@@ -15,9 +16,97 @@ for (const [itemId, r] of Object.entries(GRADE_RECIPES)) {
 }
 
 /**
- * Custo unitário em zeny de um item, considerando as duas formas de obtê-lo:
- * comprar de outro jogador (preço informado) ou fabricar no NPC a partir dos
- * materiais. Devolve o menor dos dois.
+ * Quanto fabricar pode sair mais caro que comprar pronto e ainda assim ser a
+ * via escolhida.
+ *
+ * Os NPCs que fabricam os minérios, os materiais de Grau e o refinador ficam
+ * lado a lado, então fabricar não custa viagem. E fabricado é flexível: o Pó
+ * de Éter que sobrou do Topázio de Éter serve ao Âmbar de Éter, enquanto um
+ * Topázio de Éter comprado a mais só serve ao Grau C. Com a diferença assim
+ * pequena, essa flexibilidade vale mais que ela.
+ */
+export const TOLERANCIA_FABRICAR = 0.05;
+
+/**
+ * Abaixo destas transações na janela da cotação, o preço de mercado não sustenta
+ * a decisão: pode não haver quem venda a quantidade da campanha, e o número é o
+ * de poucas vendas soltas. Com receita à mão, fabricar é a via.
+ */
+export const GIRO_MINIMO = 100;
+
+/** Por que a via de um item é a que é. */
+export type MotivoDaVia =
+  /** A via escolhida é a mais barata, por mais que a tolerância. */
+  | 'mais-barato'
+  /** Fabricar custa até `TOLERANCIA_FABRICAR` a mais, e foi preferido. */
+  | 'diferenca-pequena'
+  /** Pouca gente vende pronto (`GIRO_MINIMO`), e fabricar foi preferido. */
+  | 'pouco-giro'
+  /** Só existe uma das vias, ou nenhuma. */
+  | 'unica';
+
+export interface Decisao {
+  via: Sourcing;
+  /** Custo unitário pela via escolhida — é o que o motor usa na conta. */
+  custo: number;
+  /** Preço de comprar pronto, ou `Infinity` quando ninguém vende. */
+  mercado: number;
+  /** Custo de fabricar (insumos mais balcão), ou `Infinity` sem receita. */
+  fabricado: number;
+  motivo: MotivoDaVia;
+}
+
+/**
+ * A decisão de comprar ou fabricar um item, e o custo dela.
+ *
+ * É a única regra de via do projeto: o custo do plano, a lista de compras e o
+ * kit leem todos daqui. Se a lista seguisse uma regra e o custo outra, o total
+ * mostrado não fecharia com o orçamento.
+ *
+ * Fabricar vence quando sai mais barato, quando sai até `TOLERANCIA_FABRICAR`
+ * mais caro, ou quando o item quase não gira no mercado. Nos dois últimos casos
+ * o custo cotado é o de fabricar — um pouco acima do mínimo, de propósito: é o
+ * que a pessoa vai de fato pagar seguindo a lista.
+ */
+function decidir(itemId: number, precos: PriceTable, memo: Map<number, number>): Decisao {
+  const preco = precos[itemId];
+  const mercado = preco && preco > 0 ? preco : Infinity;
+
+  const receita = RECIPES.get(itemId);
+  let fabricado = Infinity;
+  if (receita) {
+    fabricado = receita.zeny;
+    for (const mat of receita.materiais) {
+      const c = unitCost(mat.itemId, precos, memo);
+      if (!Number.isFinite(c)) {
+        fabricado = Infinity;
+        break;
+      }
+      fabricado += c * mat.qtd;
+    }
+  }
+
+  if (!Number.isFinite(mercado) && !Number.isFinite(fabricado)) {
+    return { via: 'indisponivel', custo: Infinity, mercado, fabricado, motivo: 'unica' };
+  }
+  if (!Number.isFinite(mercado)) return { via: 'npc', custo: fabricado, mercado, fabricado, motivo: 'unica' };
+  if (!Number.isFinite(fabricado)) return { via: 'mercado', custo: mercado, mercado, fabricado, motivo: 'unica' };
+
+  if (fabricado < mercado) return { via: 'npc', custo: fabricado, mercado, fabricado, motivo: 'mais-barato' };
+  const giro = GIRO[itemId];
+  if (giro !== undefined && giro < GIRO_MINIMO) {
+    return { via: 'npc', custo: fabricado, mercado, fabricado, motivo: 'pouco-giro' };
+  }
+  if (fabricado <= mercado * (1 + TOLERANCIA_FABRICAR)) {
+    return { via: 'npc', custo: fabricado, mercado, fabricado, motivo: 'diferenca-pequena' };
+  }
+  return { via: 'mercado', custo: mercado, mercado, fabricado, motivo: 'mais-barato' };
+}
+
+/**
+ * Custo unitário em zeny de um item, pela via que a lista de compras manda
+ * seguir: comprar de outro jogador (preço informado) ou fabricar no NPC a
+ * partir dos materiais. Ver `decidir` para quando cada uma vence.
  *
  * Retorna `Infinity` quando não há preço informado nem receita — aí o item é
  * inalcançável e o motor descarta as estratégias que dependem dele.
@@ -28,26 +117,14 @@ export function unitCost(itemId: number, precos: PriceTable, memo = new Map<numb
 
   // Marca como em-progresso para não entrar em laço numa receita cíclica.
   memo.set(itemId, Infinity);
+  const custo = decidir(itemId, precos, memo).custo;
+  memo.set(itemId, custo);
+  return custo;
+}
 
-  const mercado = precos[itemId];
-  let melhor = mercado && mercado > 0 ? mercado : Infinity;
-
-  const receita = RECIPES.get(itemId);
-  if (receita) {
-    let craft = receita.zeny;
-    for (const mat of receita.materiais) {
-      const c = unitCost(mat.itemId, precos, memo);
-      if (!Number.isFinite(c)) {
-        craft = Infinity;
-        break;
-      }
-      craft += c * mat.qtd;
-    }
-    if (craft < melhor) melhor = craft;
-  }
-
-  memo.set(itemId, melhor);
-  return melhor;
+/** A decisão de via de um item, com os dois custos e o motivo. */
+export function viaDe(itemId: number, precos: PriceTable): Readonly<Decisao> {
+  return decidir(itemId, precos, new Map());
 }
 
 /** Como o jogador deve obter um item: comprando pronto ou fabricando no NPC. */
@@ -58,25 +135,7 @@ export function sourcingOf(
   precos: PriceTable,
   memo = new Map<number, number>(),
 ): Sourcing {
-  const mercado = precos[itemId];
-  const precoMercado = mercado && mercado > 0 ? mercado : Infinity;
-
-  const receita = RECIPES.get(itemId);
-  let craft = Infinity;
-  if (receita) {
-    craft = receita.zeny;
-    for (const mat of receita.materiais) {
-      const c = unitCost(mat.itemId, precos, memo);
-      if (!Number.isFinite(c)) {
-        craft = Infinity;
-        break;
-      }
-      craft += c * mat.qtd;
-    }
-  }
-
-  if (!Number.isFinite(precoMercado) && !Number.isFinite(craft)) return 'indisponivel';
-  return craft < precoMercado ? 'npc' : 'mercado';
+  return decidir(itemId, precos, memo).via;
 }
 
 /** Uma linha da lista de compras: o que comprar, quanto, e por quanto. */
@@ -115,6 +174,8 @@ export interface ListaDeCompras {
    * e uma linha de 0z só ocuparia espaço.
    */
   fabricacao: FabricacaoLinha[];
+  /** Tudo o que se fabrica, com as receitas de balcão zero. */
+  fabricados: FabricacaoLinha[];
   /** Compras + balcão do NPC. Não inclui taxa de refino nem itens quebrados. */
   total: number;
 }
@@ -124,9 +185,9 @@ export interface ListaDeCompras {
  *
  * O motor raciocina em minérios prontos ("380 Eterium"), mas ninguém compra
  * Eterium: fabrica no NPC a partir de Elunium e Pó de Éter. Como o custo já é
- * cotado pela via mais barata (ver `unitCost`), a lista de compras precisa
- * seguir exatamente a mesma decisão — senão o total mostrado não fecharia com
- * o orçamento.
+ * cotado pela via que a lista manda seguir (ver `decidir`), a lista de compras
+ * precisa seguir exatamente a mesma decisão — senão o total mostrado não
+ * fecharia com o orçamento.
  */
 export function listaDeCompras(
   itens: Record<number, number>,
@@ -140,7 +201,7 @@ export function listaDeCompras(
   const expandir = (itemId: number, qtd: number, profundidade: number) => {
     if (qtd <= 0) return;
     const receita = RECIPES.get(itemId);
-    // Sem receita, ou com o mercado mais barato: acabou de descer, é compra.
+    // Sem receita, ou com o mercado como via: acabou de descer, é compra.
     // A profundidade é só uma trava contra receita cíclica em dados novos.
     if (!receita || profundidade > 8 || sourcingOf(itemId, precos, memo) !== 'npc') {
       compras.set(itemId, (compras.get(itemId) ?? 0) + qtd);
@@ -170,8 +231,12 @@ export function listaDeCompras(
     .map(([itemId, a]) => ({ itemId, qtd: a.qtd, zeny: a.zeny }))
     .sort((a, b) => b.zeny - a.zeny);
 
+  const todos: FabricacaoLinha[] = [...fabricados]
+    .map(([itemId, a]) => ({ itemId, qtd: a.qtd, zeny: a.zeny }))
+    .sort((a, b) => b.zeny - a.zeny || b.qtd - a.qtd);
+
   const total = linhas.reduce((s, l) => s + l.total, 0) + zenyNpc;
-  return { compras: linhas, zenyNpc, fabricacao, total };
+  return { compras: linhas, zenyNpc, fabricacao, fabricados: todos, total };
 }
 
 /**
@@ -189,8 +254,10 @@ export interface ItemDaLista {
   itemId: number;
   /** Quantas unidades desta linha — já multiplicadas pela receita, se for insumo. */
   qtd: number;
-  /** A via mais barata pelos preços informados. É a que o custo do plano usou. */
+  /** A via que a lista manda seguir. É a que o custo do plano usou. */
   via: Sourcing;
+  /** Por que esta via, e não a outra (ver `decidir`). */
+  motivo: MotivoDaVia;
   /** Custo unitário pela via escolhida. Igual a `unitCost` deste item. */
   custoUnitario: number;
   /** O que esta linha custa pela via escolhida: `qtd x custoUnitario`. */
@@ -203,7 +270,8 @@ export interface ItemDaLista {
    * O que a via escolhida poupa contra a outra, no total desta linha.
    *
    * É o número da decisão: `0` quando não há alternativa nenhuma, e quanto maior,
-   * mais trabalho braçal se paga. Sempre positivo — a via escolhida é a barata.
+   * mais a via escolhida rende. Negativo quando fabricar foi preferido mesmo um
+   * pouco mais caro — pela diferença pequena ou pelo pouco giro do mercado.
    */
   economia: number;
   /** O balcão e os insumos, quando fabricar é a via escolhida. */
@@ -231,30 +299,13 @@ export function arvoreDeCompras(
   const memo = new Map<number, number>();
 
   const no = (itemId: number, qtd: number, profundidade: number): ItemDaLista => {
-    const mercado = precos[itemId];
-    const precoMercado = mercado && mercado > 0 ? mercado : null;
+    const d = decidir(itemId, precos, memo);
+    const precoMercado = Number.isFinite(d.mercado) ? d.mercado : null;
+    const custoFabricado = Number.isFinite(d.fabricado) ? d.fabricado : null;
 
+    // A mesma trava de profundidade de `listaDeCompras` contra receita cíclica.
+    const fabricar = d.via === 'npc' && profundidade <= 8;
     const receita = RECIPES.get(itemId);
-    let custoFabricado: number | null = null;
-    if (receita) {
-      let craft = receita.zeny;
-      for (const mat of receita.materiais) {
-        const c = unitCost(mat.itemId, precos, memo);
-        if (!Number.isFinite(c)) {
-          craft = Infinity;
-          break;
-        }
-        craft += c * mat.qtd;
-      }
-      custoFabricado = Number.isFinite(craft) ? craft : null;
-    }
-
-    // A mesma decisão de `sourcingOf`, com os dois números já em mãos — e a
-    // mesma trava de profundidade de `listaDeCompras` contra receita cíclica.
-    const fabricar =
-      custoFabricado !== null &&
-      profundidade <= 8 &&
-      (precoMercado === null || custoFabricado < precoMercado);
 
     const custoUnitario = fabricar ? custoFabricado! : (precoMercado ?? Infinity);
     const alternativa = fabricar ? precoMercado : custoFabricado;
@@ -263,6 +314,7 @@ export function arvoreDeCompras(
       itemId,
       qtd,
       via: fabricar ? 'npc' : precoMercado !== null ? 'mercado' : 'indisponivel',
+      motivo: d.motivo,
       custoUnitario,
       total: custoUnitario * qtd,
       precoMercado,

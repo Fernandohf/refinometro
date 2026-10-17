@@ -113,9 +113,10 @@ pode.
 Os campos pedem o estoque **no que se compra de verdade**, não em minério pronto — a mesma
 expansão da lista de compras, pela mesma razão. E já vêm **preenchidos** com o kit do nível de
 segurança escolhido no topo: a mochila mais barata que fecha aquela fração das campanhas (o
-descasque por preço de matematica.md §9.8), contada em minério inteiro (`montarKits`, em
-`src/engine/kit.ts`) e desmontada em seguida (`estoqueDoKit`). É o mesmo kit do "o que ter em mãos" e da lista de compras, e
-desmontá-lo nunca baixa a chance (→ §9.7). O kit também é a régua do que falta: abaixo dele em
+descasque por preço de matematica.md §9.8), contada já no que se compra (`montarKits` sobre
+`campanhaDoKit`, em `src/engine/kit.ts`). É o mesmo kit do "o que ter em mãos" e da lista de
+compras, na mesma moeda, e por isso o painel abre exatamente na chance do nível (→ §9.7). O kit
+também é a régua do que falta: abaixo dele em
 qualquer campo, a tela diz o que comprar e quanto custa (`faltaParaOKit`) — e, comprado isso, cada
 recurso volta a ficar no kit ou acima, então a chance volta ao nível escolhido pela monotonia da
 §9.3. Antes cada recurso tinha a própria falta, no percentil dele, e somá-las não devolvia chance
