@@ -10,6 +10,7 @@ import { TabelaDeEstados } from '../src/components/Cadeia';
 import { Resultado } from '../src/components/Resultado';
 import { assinaturaDoPlano, ESTOQUE_VAZIO, SimuladorDeEstoque } from '../src/components/Estoque';
 import { Sobre } from '../src/components/Sobre';
+import { JaRefinei } from '../src/components/JaRefinei';
 import { PRECOS_FIXOS } from './precosFixos';
 import { emMateriais } from '../src/engine/estoque';
 import { campanhaEmMinerios, estoqueDoKit, montarKit } from '../src/engine/kit';
@@ -39,7 +40,7 @@ describe('página', () => {
     expect(normal).not.toContain('Simulação compartilhada');
 
     // Os preços na tela são os de partida de hoje: não há o que trocar.
-    const porLink = renderToString(<App compartilhada={{ cotacao: '2026-10-15' }} />);
+    const porLink = renderToString(<App compartilhada={{ cotacao: '2026-10-15', modo: 'plano' }} />);
     expect(porLink).toContain('Simulação compartilhada');
     expect(porLink).toContain('15/10/2026');
     expect(porLink).not.toContain('usar os preços de hoje');
@@ -163,6 +164,59 @@ describe('página', () => {
     // No recomendado a chance passa de 50%, e aí "onde eu travo?" é curiosidade
     // sobre a minoria azarada — o bloco não aparece.
     expect(html).not.toContain('Onde a campanha para');
+  });
+
+  it('"Já refinei" pede o que falta, e depois diz a sorte e lembra a premissa', () => {
+    const p = calcular(
+      {
+        kind: 'w4',
+        precoItem: 30_000_000,
+        refinoAtual: 0,
+        refinoAlvo: 10,
+        grauAtual: 'none',
+        grauAlvo: 'none',
+        evento: false,
+        precos: PRECOS_FIXOS,
+        usarBencaoFerreiro: true,
+        usarMineriosEspeciais: false,
+        perdaAceitavel: true,
+        itemId: null,
+        usarAtalhos: false,
+      },
+      { tempoMs: 500 },
+    );
+    const c = campanhaEmMinerios(p)!;
+    const assinatura = assinaturaDoPlano(p.input, 0, c.materiais.map((m) => m.itemId));
+    const tela = (itens: Record<number, number>) =>
+      renderToString(
+        <JaRefinei
+          plano={p}
+          campanha={c}
+          relato={{ itens, quebras: 0, assinatura }}
+          onChange={() => {}}
+          nomeDoAlvo="Arma nv4 +10"
+          gerarLink={async () => ''}
+        />,
+      );
+
+    // Vazio: só os campos, sem veredito nenhum.
+    expect(tela({})).not.toContain('campanhas simuladas</p>');
+    expect(tela({})).not.toContain('compartilhar meu resultado');
+
+    // A campanha típica de verdade, material a material.
+    const n = c.execucoes;
+    const tipicos = Object.fromEntries(
+      c.materiais.map((m, col) => [m.itemId, c.consumoOrdenado[col * n + (n >> 1)]!]),
+    );
+    const html = tela(tipicos);
+    expect(html).toMatch(/Mais (sorte|azar) que/);
+    expect(html).toContain('compartilhar meu resultado');
+    expect(html).toContain('assume que você seguiu o plano da calculadora');
+
+    // Preenchido pela metade, a tela pede o resto em vez de chamar de sortudo.
+    const [primeiro] = c.materiais.filter((_, col) => c.consumoOrdenado[col * n]! > 0);
+    const metade = { ...tipicos, [primeiro!.itemId]: 0 };
+    expect(tela(metade)).toContain('Falta preencher');
   });
 
   it('mostra onde a campanha para quando a chance é baixa', () => {
@@ -360,8 +414,8 @@ describe('página', () => {
     expect(html).toContain('por minério');
   });
 
-  it('divide o resultado em três abas, e deixa fora delas o que governa as três', () => {
-    // O orçamento e a margem mandam nas três perguntas — a lista de compras e o
+  it('divide o resultado em quatro abas, e deixa fora delas o que governa as três primeiras', () => {
+    // O orçamento e a margem mandam nas três perguntas de antes do refino — a lista de compras e o
     // simulador de estoque leem a mesma margem. Se o controle morasse na
     // primeira aba, ele estaria numa tela e o efeito, em outra.
     const html = renderToString(<App />);
@@ -373,9 +427,10 @@ describe('página', () => {
     expect(orcamento).toBeLessThan(lista);
     expect(margem).toBeLessThan(lista);
 
-    // Três abas, na ordem das prioridades, e só a primeira aberta.
+    // Quatro abas, na ordem das prioridades, e só a primeira aberta. A de
+    // depois do refino fecha a fila: é a pergunta de quem já não está planejando.
     const rotulos = [...html.matchAll(/role="tab" [^>]*>(?:<[^>]*>)*([^<]+)/g)].map((m) => m[1]);
-    expect(rotulos).toEqual(['O plano', 'O que comprar', 'O que eu tenho']);
+    expect(rotulos).toEqual(['O plano', 'O que comprar', 'O que eu tenho', 'Já refinei']);
     expect(html.match(/role="tab" [^>]*aria-selected="true"/g)).toHaveLength(1);
     expect(html.indexOf('aria-selected="true"')).toBeLessThan(html.indexOf('aria-selected="false"'));
   });

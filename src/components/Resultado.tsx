@@ -5,6 +5,7 @@ import { arvoreDeCompras, sourcingOf, type ItemDaLista } from '../engine/pricing
 import { fluxoDeCusto } from '../engine/fluxoDeCusto';
 import { balcaoDoKit, campanhaEmMinerios, montarKits, type BalcaoDoKit, type Kit } from '../engine/kit';
 import type { Aviso, PlanoDeFase, Resultado as ResultadoPlano } from '../engine/plan';
+import type { CampanhaEmMateriais } from '../engine/estoque';
 import type { Percentis } from '../engine/types';
 import type { Grade } from '../data/grade';
 import { nomeNoJogo, rotuloCurto } from '../data/rotulos';
@@ -32,7 +33,7 @@ export type MargemKey = keyof Percentis;
  * As abas são os três níveis de prioridade da página, não uma divisão nova: o
  * que se FAZ, o que se COMPRA, e se dá com o que já se tem.
  */
-type AbaKey = 'plano' | 'compras' | 'estoque';
+export type AbaKey = 'plano' | 'compras' | 'estoque' | 'sorte';
 
 /**
  * As margens oferecidas. `chance` é a mesma coisa que o percentil, em número:
@@ -73,6 +74,8 @@ export function Resultado({
   precisao,
   compartilhar,
   moduloEstoque,
+  moduloSorte,
+  abaInicial = 'plano',
 }: {
   plano: ResultadoPlano;
   /** Nome do item escolhido na busca, quando houve um. */
@@ -94,6 +97,14 @@ export function Resultado({
    * recebe o kit em vez de montá-lo de novo. Ausente, a aba não existe.
    */
   moduloEstoque?: (kit: Kit) => ReactNode;
+  /**
+   * "Já refinei": a quarta aba, que pergunta o que a campanha gastou em vez do
+   * que ela vai gastar. Recebe as campanhas em minério inteiro, as mesmas do
+   * kit — é a unidade que o jogador lembra.
+   */
+  moduloSorte?: (campanha: CampanhaEmMateriais | null) => ReactNode;
+  /** A aba aberta de saída — a de "Já refinei", para quem chega por um resultado compartilhado. */
+  abaInicial?: AbaKey;
 }) {
   const sim = plano.simulacao;
   // Um aviso que muda a decisão (o item quebra, o alvo não fecha, um preço está
@@ -119,7 +130,7 @@ export function Resultado({
   // a margem. A margem, em especial, muda número na lista de compras e no
   // simulador de estoque — deixá-la dentro da primeira aba seria pôr o controle
   // numa tela e o efeito em outra.
-  const [aba, setAba] = useState<AbaKey>('plano');
+  const [aba, setAba] = useState<AbaKey>(abaInicial);
 
   const abas: { key: AbaKey; rotulo: string; conteudo: ReactNode }[] = [
     {
@@ -175,6 +186,11 @@ export function Resultado({
   // logo abaixo, e a aba repetindo-a punha a mesma frase duas vezes seguidas.
   if (moduloEstoque) {
     abas.push({ key: 'estoque', rotulo: 'O que eu tenho', conteudo: moduloEstoque(kit) });
+  }
+
+  // Sem nada a refinar não há campanha para ter tido sorte.
+  if (moduloSorte && temCompras) {
+    abas.push({ key: 'sorte', rotulo: 'Já refinei', conteudo: moduloSorte(campanha) });
   }
 
   // Um alvo já alcançado não tem o que comprar, e o simulador de estoque é
@@ -486,7 +502,7 @@ function Trajetoria({
 }
 
 /** Onde as abas começam: o "ver a lista" do kit rola até elas. */
-const ID_ABAS = 'abas-do-plano';
+export const ID_ABAS = 'abas-do-plano';
 
 /**
  * Quão seguro o orçamento deve ser: o único seletor da margem da página.

@@ -4,6 +4,7 @@ import type { ItemKind } from './data/ores';
 import { suportaGrau } from './engine/grade';
 import type { PriceTable } from './engine/types';
 import { ESTOQUE_VAZIO, type EstoqueSalvo } from './components/Estoque';
+import { RELATO_VAZIO, type RelatoSalvo } from './components/JaRefinei';
 import type { MargemKey } from './components/Resultado';
 
 /**
@@ -73,6 +74,9 @@ export const CHAVE_STORAGE = 'refinometro:v1';
  */
 export const CHAVE_ESTOQUE = 'refinometro:estoque:v1';
 
+/** O que a pessoa contou da campanha que já fez — a aba "Já refinei". */
+export const CHAVE_RELATO = 'refinometro:relato:v1';
+
 export function carregar(): Estado {
   try {
     const bruto = localStorage.getItem(CHAVE_STORAGE);
@@ -88,6 +92,16 @@ export function carregar(): Estado {
       : { ...estado, grauAtual: 'none' as Grade, grauAlvo: 'none' as Grade };
   } catch {
     return INICIAL;
+  }
+}
+
+export function carregarRelato(): RelatoSalvo {
+  try {
+    const bruto = localStorage.getItem(CHAVE_RELATO);
+    if (!bruto) return RELATO_VAZIO;
+    return { ...RELATO_VAZIO, ...(JSON.parse(bruto) as Partial<RelatoSalvo>) };
+  } catch {
+    return RELATO_VAZIO;
   }
 }
 
