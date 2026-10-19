@@ -196,6 +196,7 @@ export function listaDeCompras(
   const memo = new Map<number, number>();
   const compras = new Map<number, number>();
   const fabricados = new Map<number, { qtd: number; zeny: number }>();
+  const precoDaLoja = new Map<number, number>();
   let zenyNpc = 0;
 
   const expandir = (itemId: number, qtd: number, profundidade: number) => {
@@ -205,6 +206,14 @@ export function listaDeCompras(
     // A profundidade é só uma trava contra receita cíclica em dados novos.
     if (!receita || profundidade > 8 || sourcingOf(itemId, precos, memo) !== 'npc') {
       compras.set(itemId, (compras.get(itemId) ?? 0) + qtd);
+      return;
+    }
+    // Receita sem insumo é loja: o NPC vende o Fracon por 200z. É compra como
+    // outra qualquer, ao preço do balcão — e não taxa de fabricar, que é o que
+    // se paga para transformar uma coisa em outra.
+    if (receita.materiais.length === 0) {
+      compras.set(itemId, (compras.get(itemId) ?? 0) + qtd);
+      precoDaLoja.set(itemId, receita.zeny);
       return;
     }
     zenyNpc += receita.zeny * qtd;
@@ -219,7 +228,7 @@ export function listaDeCompras(
 
   const linhas: CompraLinha[] = [...compras]
     .map(([itemId, qtd]) => {
-      const custoUnitario = precos[itemId] ?? 0;
+      const custoUnitario = precoDaLoja.get(itemId) ?? precos[itemId] ?? 0;
       return { itemId, qtd, custoUnitario, total: custoUnitario * qtd };
     })
     .sort((a, b) => b.total - a.total || b.qtd - a.qtd);

@@ -139,13 +139,20 @@ algo como "mais sorte que 82% das campanhas", com um ponto "você" sobre a curva
 outra simulação. São as mesmas campanhas do orçamento e do "Dá com o que eu tenho?", lidas de um
 terceiro jeito. A conta fica em [`src/engine/sorte.ts`](../src/engine/sorte.ts).
 
-- **A unidade é a que o jogador lembra:** minério inteiro, como o kit (Eterium, e não o Pó de Éter
-  que o fabricou).
-- **A taxa não é perguntada,** e não precisa ser. Cada minério gasto no refinador é uma tentativa
-  e paga a taxa dele. No Grau, a taxa é proporcional ao material da tentativa (150 mil por
-  Aquamarina de Éter, no modo normal e no seguro). A taxa da campanha é uma soma exata do que foi
-  informado. [`tests/sorte.test.ts`](../tests/sorte.test.ts) reconstrói campanhas simuladas a
-  partir do minério e confere que o total bate com o custo de cada uma.
+- **A unidade é a do kit: o que se compra.** O que vale a pena fabricar no NPC entra pelos
+  insumos — a Pedra de Éter e o Âmbar, e não o Âmbar de Éter —, porque é o que a pessoa comprou,
+  e a sobra de um insumo pode ter ido para outra receita. A aba perguntava pelo minério pronto até
+  2026-10-17; relatos salvos e links compartilhados nesse formato são reconhecidos pela assinatura
+  antiga e desmontados pela mesma receita (`relatoNoQueSeCompra`), em vez de descartados. O que o
+  NPC vende direto, sem insumo (Fracon, Emveretarcon), é compra comum, com linha própria.
+- **As taxas não são perguntadas.** Do refinador, de Grau e do NPC que fabrica, elas saem do
+  material informado: a taxa por unidade de cada insumo é o ajuste de mínimos quadrados entre o
+  que as campanhas simuladas gastaram e o que pagaram de taxa (`taxasDaCampanha`). Onde cada
+  fabricado tem um insumo só dele — as gemas do Grau, o Elunium do Eterium —, o ajuste é exato.
+  Onde dois minérios viram o mesmo insumo (Bradium e Oridecon, ambos de Minério de Oridecon), o
+  relato não os separa, e o ajuste erra pouco: menos de 0,1% do total nos casos medidos.
+  [`tests/sorte.test.ts`](../tests/sorte.test.ts) reconstrói campanhas simuladas a partir do
+  material e confere o total contra o custo de cada uma.
 - **A régua é o plano da calculadora.** A tela diz isso no fim: quem refinou de outro jeito mede
   sorte e estratégia misturadas.
 - **Relato incompleto não vira sorte.** Enquanto falta um material que toda campanha simulada
