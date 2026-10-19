@@ -3,7 +3,8 @@ import { useMemo, type ReactNode } from 'react';
 import { nomeDoItem } from '../data/nomes';
 import type { CampanhaEmMateriais } from '../engine/estoque';
 import type { Resultado as ResultadoPlano } from '../engine/plan';
-import { avaliarSorte, type Relato, type Sorte } from '../engine/sorte';
+import { campanhaEmMinerios } from '../engine/kit';
+import { avaliarSorte, relatoNoQueSeCompra, type Relato, type Sorte } from '../engine/sorte';
 import { porcento, zeny, zenyExato } from '../format';
 import { BotaoCompartilhar } from './Compartilhar';
 import { CurvaDeCusto } from './CurvaDeCusto';
@@ -25,8 +26,8 @@ import {
 export interface RelatoSalvo extends Relato {
   /**
    * O plano contra o qual o relato foi escrito (ver `assinaturaDoPlano`). Mudou
-   * o item, o alvo ou a lista de minérios, o relato deixa de valer: "gastei 300
-   * Eterium" não diz nada sobre outro alvo.
+   * o item, o alvo ou a lista de materiais, o relato deixa de valer: "gastei 300
+   * Pó de Éter" não diz nada sobre outro alvo.
    */
   assinatura: string;
 }
@@ -51,7 +52,7 @@ export function JaRefinei({
   gerarLink,
 }: {
   plano: ResultadoPlano;
-  /** As campanhas em minério inteiro — a unidade que o jogador lembra. */
+  /** As campanhas no que se compra, as mesmas do kit — o que a pessoa comprou. */
   campanha: CampanhaEmMateriais | null;
   relato: RelatoSalvo;
   onChange: (r: RelatoSalvo) => void;
@@ -60,15 +61,27 @@ export function JaRefinei({
   gerarLink: (r: RelatoSalvo) => Promise<string>;
 }) {
   const assinatura = assinaturaDoPlano(plano.input, 0, campanha?.materiais.map((m) => m.itemId) ?? []);
+  // O relato do tempo em que a aba perguntava pelo minério pronto (links já
+  // compartilhados, o que ficou salvo no navegador) é reconhecido pela
+  // assinatura daquela época e desmontado, em vez de jogado fora.
+  const assinaturaEmMinerios = useMemo(() => {
+    const inteira = campanhaEmMinerios(plano);
+    return inteira ? assinaturaDoPlano(plano.input, 0, inteira.materiais.map((m) => m.itemId)) : null;
+  }, [plano]);
   // Derivado, como no estoque: relato de outra pergunta some sem precisar de
   // um efeito que o apague, e o primeiro quadro já sai certo.
-  const efetivo: RelatoSalvo = relato.assinatura === assinatura ? relato : { ...RELATO_VAZIO, assinatura };
+  const efetivo: RelatoSalvo = useMemo(
+    () =>
+      relato.assinatura === assinatura
+        ? relato
+        : relato.assinatura === assinaturaEmMinerios
+          ? { ...relato, itens: relatoNoQueSeCompra(relato.itens, plano.input.precos), assinatura }
+          : { ...RELATO_VAZIO, assinatura },
+    [relato, assinatura, assinaturaEmMinerios, plano.input.precos],
+  );
   const mexer = (mudanca: Partial<Relato>) => onChange({ ...efetivo, ...mudanca });
 
-  const sorte = useMemo(
-    () => (campanha ? avaliarSorte(campanha, plano.input.kind, efetivo) : null),
-    [campanha, plano.input.kind, efetivo],
-  );
+  const sorte = useMemo(() => (campanha ? avaliarSorte(campanha, efetivo) : null), [campanha, efetivo]);
 
   const sim = plano.simulacao;
   const n = campanha?.execucoes ?? 0;
@@ -87,7 +100,7 @@ export function JaRefinei({
           Conte quanto gastou e a calculadora diz onde a sua campanha cai entre as{' '}
           {n.toLocaleString('pt-BR')} que ela simulou para este mesmo alvo. Não é outra simulação: são
           as mesmas campanhas do orçamento, lidas de outro jeito. A sua campanha vira zeny pelos
-          mesmos preços do plano — minério, cópias destruídas e taxas — e a sorte é a fatia das
+          mesmos preços do plano — materiais, cópias destruídas e taxas — e a sorte é a fatia das
           simuladas que saiu mais cara que ela.
         </Info>
       }
@@ -107,19 +120,19 @@ export function JaRefinei({
       ) : (
         <div className="space-y-5">
           <p className="md-corpo-m text-suave">
-            Chegou ao alvo? Diga quanto gastou de cada minério
-            {podeQuebrar ? ' e quantas vezes o item quebrou' : ''}. A taxa do refinador não precisa:
-            ela sai do minério.
+            Chegou ao alvo? Diga quanto comprou de cada material
+            {podeQuebrar ? ' e quantas vezes o item quebrou' : ''}. As taxas não precisam: elas saem
+            do material.
           </p>
 
           <div>
             <TituloDeSecao
               info={
                 <Info titulo="O que você gastou">
-                  Os minérios que passaram pelo refinador, como você os usou — Eterium, e não o Pó de
-                  Éter que o fabricou. Só aparecem os que o plano usa. O{' '}
-                  <strong className="text-texto">típico</strong> é o consumo da campanha do meio,
-                  entre as simuladas.
+                  O que você comprou, como na lista de compras: o que vale a pena fabricar no NPC
+                  entra pelos insumos — a Pedra de Éter e o Âmbar, e não o Âmbar de Éter. Só aparecem
+                  os materiais que o plano usa. O <strong className="text-texto">típico</strong> é o
+                  consumo da campanha do meio, entre as simuladas.
                 </Info>
               }
             >
@@ -211,8 +224,9 @@ export function JaRefinei({
           <p className="md-corpo-p border-t border-borda pt-3 text-suave">
             A comparação assume que você seguiu o plano da calculadora: os mesmos minérios, a Bênção
             onde ela manda, a mesma ordem. Quem refinou de outro jeito mede aqui sorte e estratégia
-            misturadas. A taxa é a que o minério informado cobra — cada um é uma tentativa, e cada
-            tentativa paga a taxa dele.
+            misturadas. As taxas — do refinador, de Grau e do NPC que fabrica — saem do material
+            informado, pela relação que as campanhas simuladas mostram entre o que gastam e o que
+            pagam.
           </p>
         </div>
       )}
@@ -247,7 +261,7 @@ function Veredito({
         <strong className="text-texto tabular-nums" title={zenyExato(sorte.total)}>
           {zeny(sorte.total)}
         </strong>
-        : {zeny(sorte.materiais)} de minério
+        : {zeny(sorte.materiais)} de material
         {sorte.reposicoes > 0 ? `, ${zeny(sorte.reposicoes)} em cópias destruídas` : ''} e{' '}
         {zeny(sorte.taxas)} de taxa. A campanha típica deste alvo custa{' '}
         <strong className="text-texto tabular-nums" title={zenyExato(sorte.tipico)}>

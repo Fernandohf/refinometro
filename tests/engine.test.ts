@@ -383,6 +383,16 @@ describe('lista de compras', () => {
     expect(lista.zenyNpc).toBe(0);
   });
 
+  it('compra na loja do NPC o que não tem insumo, ao preço do balcão', () => {
+    // O NPC vende Fracon por 200z: é compra, não taxa de fabricar — e precisa
+    // de linha própria, ou a pessoa não teria onde contar quantos usou.
+    const FRACON = 1010;
+    const lista = listaDeCompras({ [FRACON]: 10 }, {});
+    expect(lista.compras).toEqual([{ itemId: FRACON, qtd: 10, custoUnitario: 200, total: 2_000 }]);
+    expect(lista.zenyNpc).toBe(0);
+    expect(lista.total).toBe(10 * unitCost(FRACON, {}));
+  });
+
   it('soma o mesmo material vindo de receitas diferentes', () => {
     // Eterium e Eterium Enriquecido puxam Pó de Éter cada um: 1 e 2 por unidade.
     const lista = listaDeCompras({ [ETERIUM]: 3, 1000333: 2 }, { ...P, 7619: 2_500_000 });

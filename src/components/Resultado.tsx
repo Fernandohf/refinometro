@@ -5,7 +5,6 @@ import { TOLERANCIA_FABRICAR, arvoreDeCompras, sourcingOf, type ItemDaLista } fr
 import { fluxoDeCusto } from '../engine/fluxoDeCusto';
 import {
   campanhaDoKit,
-  campanhaEmMinerios,
   fabricacoesDoPlano,
   montarKits,
   type Fabricacao,
@@ -106,8 +105,8 @@ export function Resultado({
   moduloEstoque?: (kit: Kit) => ReactNode;
   /**
    * "Já refinei": a quarta aba, que pergunta o que a campanha gastou em vez do
-   * que ela vai gastar. Recebe as campanhas em minério inteiro, as mesmas do
-   * kit — é a unidade que o jogador lembra.
+   * que ela vai gastar. Recebe as campanhas no que se compra, as mesmas do
+   * kit — é o que a pessoa comprou de fato.
    */
   moduloSorte?: (campanha: CampanhaEmMateriais | null) => ReactNode;
   /** A aba aberta de saída — a de "Já refinei", para quem chega por um resultado compartilhado. */
@@ -121,11 +120,9 @@ export function Resultado({
   const informativos = plano.avisos.filter((a) => a.nivel === 'info');
   // O kit é a única fonte de quantidades da página: o "o que ter em mãos" do
   // topo, a lista de compras, o diagrama e o simulador de estoque leem dele.
-  // As campanhas não dependem da margem, então sobrevivem à troca dela. Os
-  // cinco níveis saem de um descasque só, e por isso trocar a margem não refaz
-  // conta nenhuma. O kit conta no que se compra; "Já refinei", em minério
-  // inteiro, que é o que a pessoa lembra de ter passado no refinador.
-  const campanha = useMemo(() => campanhaEmMinerios(plano), [plano]);
+  // A campanha no que se compra não depende da margem, então sobrevive à troca
+  // dela. Os cinco níveis saem de um descasque só, e por isso trocar a margem
+  // não refaz conta nenhuma. "Já refinei" lê a mesma campanha.
   const campanhaKit = useMemo(() => campanhaDoKit(plano), [plano]);
   const kits = useMemo(
     () => montarKits(plano, campanhaKit, MARGENS.map((m) => m.chance)),
@@ -199,7 +196,7 @@ export function Resultado({
 
   // Sem nada a refinar não há campanha para ter tido sorte.
   if (moduloSorte && temCompras) {
-    abas.push({ key: 'sorte', rotulo: 'Já refinei', conteudo: moduloSorte(campanha) });
+    abas.push({ key: 'sorte', rotulo: 'Já refinei', conteudo: moduloSorte(campanhaKit) });
   }
 
   // Um alvo já alcançado não tem o que comprar, e o simulador de estoque é
@@ -1343,7 +1340,7 @@ function LinhaDeCompra({ linha, nivel = 0 }: { linha: ItemDaLista; nivel?: numbe
         </span>
       </div>
 
-      {linha.fabricacao && (
+      {linha.fabricacao && linha.fabricacao.insumos.length > 0 && (
         // O recuo com fio à esquerda é o que diz "isto é o preço da linha de
         // cima", e não mais um item da lista. Sem ele, um insumo de 3.750 Pó de
         // Éter parece uma compra a mais.
@@ -1387,8 +1384,10 @@ function Veredito({ linha, raiz }: { linha: ItemDaLista; raiz: boolean }) {
     return <span className="md-corpo-p block text-perigo">Sem preço informado e sem receita.</span>;
   }
 
-  const fabricando = linha.via === 'npc';
-  const alternativa = fabricando ? linha.precoMercado : linha.custoFabricado;
+  // Receita sem insumo é a loja do NPC (o Fracon a 200z): compra, não fábrica.
+  const loja = linha.via === 'npc' && linha.fabricacao?.insumos.length === 0;
+  const fabricando = linha.via === 'npc' && !loja;
+  const alternativa = linha.via === 'npc' ? linha.precoMercado : linha.custoFabricado;
   const totalAlternativo = alternativa === null ? null : alternativa * linha.qtd;
   const fracao = totalAlternativo && totalAlternativo > 0 ? linha.economia / totalAlternativo : 0;
 
@@ -1396,6 +1395,11 @@ function Veredito({ linha, raiz }: { linha: ItemDaLista; raiz: boolean }) {
     <span className="md-corpo-p mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-suave">
       {fabricando ? (
         <span>Fabricar no NPC</span>
+      ) : loja ? (
+        <span>
+          {raiz && 'Comprar no NPC · '}
+          <span className="tabular-nums">{zeny(linha.custoUnitario)}</span> cada
+        </span>
       ) : (
         // "Comprar pronto" é a decisão da linha, e num insumo já está dita pela
         // linha de cima: ali o preço unitário sozinho basta, e é o que a pessoa

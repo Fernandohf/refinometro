@@ -13,7 +13,7 @@ import { Sobre } from '../src/components/Sobre';
 import { JaRefinei } from '../src/components/JaRefinei';
 import { PRECOS_FIXOS } from './precosFixos';
 import { emMateriais } from '../src/engine/estoque';
-import { campanhaDoKit, campanhaEmMinerios, estoqueDoKit, montarKit } from '../src/engine/kit';
+import { campanhaDoKit, estoqueDoKit, montarKit } from '../src/engine/kit';
 import { calcular } from '../src/engine/plan';
 import type { CalcInput } from '../src/engine/types';
 
@@ -185,7 +185,7 @@ describe('página', () => {
       },
       { tempoMs: 500 },
     );
-    const c = campanhaEmMinerios(p)!;
+    const c = campanhaDoKit(p)!;
     const assinatura = assinaturaDoPlano(p.input, 0, c.materiais.map((m) => m.itemId));
     const tela = (itens: Record<number, number>) =>
       renderToString(
